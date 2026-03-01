@@ -66,7 +66,7 @@ export class ChannelView {
 
         pane_manager.remove_after("topic_pane");
 
-        const message_view = new MessageView(topic_row, pane_manager);
+        this.message_view = new MessageView(topic_row, pane_manager);
 
         if (this.add_topic_pane) {
             pane_manager.add_pane({
@@ -75,11 +75,6 @@ export class ChannelView {
             });
         }
 
-        this.message_view = message_view;
-        this.focus_message_list();
-    }
-
-    focus_message_list() {
         const message_list = this.get_message_list()!;
         message_list.focus();
     }
