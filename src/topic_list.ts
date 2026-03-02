@@ -134,7 +134,6 @@ export class TopicList {
     }
 
     populate_topic_rows() {
-        const self = this;
         const stream_id = this.stream_id!;
         const batch_size = this.batch_size;
 
@@ -187,34 +186,12 @@ export class TopicList {
     select_topic_id(topic_id: number) {
         const index = this.get_index_for(topic_id);
         this.cursor.select_index(index);
-    }
-
-    select_index(index: number) {
-        this.cursor.select_index(index);
         this.set_topic_id_from_cursor();
         this.refresh();
     }
 
     clear_selection(): void {
         this.cursor.clear();
-        this.set_topic_id_from_cursor();
-        this.refresh();
-    }
-
-    surf(): void {
-        this.cursor.first();
-        this.set_topic_id_from_cursor();
-        this.refresh();
-    }
-
-    down(): void {
-        this.cursor.down();
-        this.set_topic_id_from_cursor();
-        this.refresh();
-    }
-
-    up(): void {
-        this.cursor.up();
         this.set_topic_id_from_cursor();
         this.refresh();
     }

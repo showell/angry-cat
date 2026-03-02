@@ -54,11 +54,7 @@ export function row_widget(
     selected: boolean,
     search_widget: SearchWidget,
 ): { divs: HTMLDivElement[] } {
-    const name_div = render_name_div(
-        topic_row,
-        selected,
-        search_widget,
-    );
+    const name_div = render_name_div(topic_row, selected, search_widget);
 
     return {
         divs: [

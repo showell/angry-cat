@@ -10,9 +10,7 @@ function render_div_button(label: string): DivButton {
     const button = document.createElement("button");
     button.innerText = label;
     button.style.color = "white";
-    button.style.minWidth = "80px";
     button.style.backgroundColor = "#000080";
-    button.style.marginRight = "3px";
 
     button.addEventListener("focus", () => {
         button.style.backgroundColor = "#00BB00";
@@ -31,11 +29,17 @@ export class Button {
     button: HTMLElement;
     width: string;
 
-    constructor(label: string, callback: () => void) {
+    constructor(label: string, width: number, callback: () => void) {
         const { div, button } = render_div_button(label);
+
         this.div = div;
         this.button = button;
-        this.button.style.borderRadius = "3px";
+
+        button.style.fontSize = "16px";
+        button.style.borderRadius = "5px";
+        button.style.minWidth = `${width}px`;
+        button.style.marginRight = "3px";
+        button.style.padding = "3px";
 
         this.width = div.style.width;
 

@@ -138,7 +138,6 @@ export class SearchWidget {
         }
 
         this.update_button_panel();
-        this.button_panel.start();
         StatusBar.inform("Begin finding messages by clicking on a channel.");
         this.update_label();
     }
@@ -248,7 +247,6 @@ export class SearchWidget {
         this.pane_manager.remove_after("channel_pane");
         this.channel_view = undefined;
         this.update_button_panel();
-        this.button_panel.focus_next_channel_button();
         this.update_label();
         StatusBar.inform("You can choose a channel now.");
     }
@@ -275,35 +273,6 @@ export class SearchWidget {
     set_channel_id(channel_id: number): void {
         this.channel_list.select_channel_id(channel_id);
         this.update_channel();
-        this.button_panel.focus_surf_topics_button();
-    }
-
-    set_channel_index(index: number): void {
-        this.channel_list.select_index(index);
-        this.update_channel();
-        this.button_panel.focus_surf_topics_button();
-    }
-
-    channel_up(): void {
-        this.channel_list.up();
-        this.update_channel();
-    }
-
-    channel_down(): void {
-        this.channel_list.down();
-        this.update_channel();
-    }
-
-    surf_channels(): void {
-        const topic_list = this.get_topic_list();
-
-        if (topic_list) {
-            topic_list.clear_selection();
-        }
-        this.channel_list.surf();
-        this.channel_list.populate();
-        this.update_channel();
-        this.button_panel.focus_next_channel_button();
     }
 
     add_topic(): void {
@@ -330,29 +299,8 @@ export class SearchWidget {
         this.update_label();
     }
 
-    surf_topics(): void {
-        this.channel_view!.surf_topics();
-        this.update_topic();
-        this.button_panel.focus_next_topic_button();
-    }
-
     set_topic_id(topic_id: number): void {
         this.channel_view!.select_topic_id(topic_id);
-        this.update_topic();
-    }
-
-    set_topic_index(index: number): void {
-        this.channel_view!.set_topic_index(index);
-        this.update_topic();
-    }
-
-    topic_up(): void {
-        this.channel_view!.topic_up();
-        this.update_topic();
-    }
-
-    topic_down(): void {
-        this.channel_view!.topic_down();
         this.update_topic();
     }
 
@@ -360,7 +308,6 @@ export class SearchWidget {
         this.channel_view!.clear_message_view();
         this.update_button_panel();
         this.update_label();
-        this.button_panel.focus_surf_topics_button();
     }
 
     get_message_view(): MessageView | undefined {

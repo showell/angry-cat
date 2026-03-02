@@ -182,38 +182,7 @@ export class ChannelView {
 
     select_topic_id(topic_id: number): void {
         const topic_list = this.topic_list;
-        const index = topic_list.get_index_for(topic_id);
-        this.set_topic_index(index);
-    }
-
-    set_topic_index(index: number): void {
-        const topic_list = this.topic_list;
-
-        topic_list.select_index(index);
-        this.add_topic_pane = undefined;
-        this.open_message_view();
-    }
-
-    surf_topics(): void {
-        const topic_list = this.topic_list;
-
-        topic_list.surf();
-        this.add_topic_pane = undefined;
-        this.open_message_view();
-    }
-
-    topic_up(): void {
-        const topic_list = this.topic_list;
-
-        topic_list.up();
-        this.add_topic_pane = undefined;
-        this.open_message_view();
-    }
-
-    topic_down(): void {
-        const topic_list = this.topic_list;
-
-        topic_list.down();
+        topic_list.select_topic_id(topic_id);
         this.add_topic_pane = undefined;
         this.open_message_view();
     }

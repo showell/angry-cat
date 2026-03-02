@@ -134,7 +134,7 @@ export class ComposeBox {
 
         const div = compose_widget.button_row_div();
 
-        const send_button = new Button("Send", () => {
+        const send_button = new Button("Send", 100, () => {
             // TODO: save draft
             const content = self.get_content_to_send();
             this.textarea.clear();
