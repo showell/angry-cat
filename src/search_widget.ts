@@ -272,6 +272,12 @@ export class SearchWidget {
         this.update_label();
     }
 
+    set_channel_id(channel_id: number): void {
+        this.channel_list.select_channel_id(channel_id);
+        this.update_channel();
+        this.button_panel.focus_surf_topics_button();
+    }
+
     set_channel_index(index: number): void {
         this.channel_list.select_index(index);
         this.update_channel();

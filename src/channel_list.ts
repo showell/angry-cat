@@ -99,7 +99,6 @@ export class ChannelList {
             const selected = cursor.is_selecting(i);
             const row_widget = channel_row_widget.row_widget(
                 channel_row,
-                i,
                 selected,
                 search_widget,
             );

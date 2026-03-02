@@ -25,7 +25,6 @@ function render_channel_name(channel_name: string): HTMLDivElement {
 
 function render_name_div(
     channel_row: ChannelRow,
-    index: number,
     selected: boolean,
     search_widget: SearchWidget,
 ) {
@@ -35,7 +34,7 @@ function render_name_div(
         if (selected) {
             search_widget.clear_channel();
         } else {
-            search_widget.set_channel_index(index);
+            search_widget.set_channel_id(channel_row.stream_id());
         }
     });
 
@@ -48,13 +47,11 @@ function render_name_div(
 
 export function row_widget(
     channel_row: ChannelRow,
-    index: number,
     selected: boolean,
     search_widget: SearchWidget,
 ): { divs: HTMLDivElement[] } {
     const name_div = render_name_div(
         channel_row,
-        index,
         selected,
         search_widget,
     );
