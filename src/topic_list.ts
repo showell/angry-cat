@@ -7,13 +7,11 @@ import * as table_widget from "./dom/table_widget";
 import * as topic_row_widget from "./dom/topic_row_widget";
 
 import * as batch_count from "./batch_count";
-import { Cursor } from "./cursor";
 
 export class TopicList {
     div: HTMLDivElement;
     all_topic_rows: TopicRow[];
     topic_rows: TopicRow[];
-    cursor: Cursor;
     adjuster_div: HTMLDivElement;
     batch_size: number;
     stream_id: number;
@@ -32,9 +30,7 @@ export class TopicList {
         this.all_topic_rows = [];
         this.topic_rows = [];
 
-        const cursor = new Cursor();
         this.populate_topic_rows();
-        cursor.set_count(this.topic_rows.length);
 
         this.adjuster_div = batch_count.adjuster({
             min: 1,
@@ -48,8 +44,6 @@ export class TopicList {
             },
         });
 
-        this.cursor = cursor;
-
         const div = document.createElement("div");
         div.append(this.make_table());
 
@@ -61,7 +55,7 @@ export class TopicList {
     }
 
     has_selection(): boolean {
-        return this.cursor.has_selection();
+        return this.topic_id !== undefined;
     }
 
     get_topic_id(): number | undefined {
@@ -81,44 +75,15 @@ export class TopicList {
         return current_topic_row.name();
     }
 
-    get_index_for(topic_id: number): number {
-        const topic_rows = this.topic_rows;
-
-        return topic_rows.findIndex((topic_row) => {
-            return topic_row.topic_id() === topic_id;
-        });
-    }
-
-    update_cursor(): void {
-        const cursor = this.cursor;
-        const topic_rows = this.topic_rows;
-
-        cursor.set_count(topic_rows.length);
-        if (this.topic_id === undefined) {
-            this.cursor.selected_index = undefined;
-        } else {
-            this.cursor.selected_index = this.get_index_for(this.topic_id);
-        }
-    }
-
     get_topic_row(): TopicRow | undefined {
-        const index = this.cursor.selected_index;
+        const topic_id = this.topic_id;
+        const topic_rows = this.topic_rows;
 
-        if (index === undefined) return undefined;
+        if (topic_id === undefined) {
+            return undefined;
+        }
 
-        return this.topic_rows[index];
-    }
-
-    get_topic_id_from_cursor(): number | undefined {
-        const topic_row = this.get_topic_row();
-
-        if (topic_row === undefined) return undefined;
-
-        return topic_row.topic_id();
-    }
-
-    set_topic_id_from_cursor(): void {
-        this.topic_id = this.get_topic_id_from_cursor();
+        return topic_rows.find((row) => row.topic_id() === topic_id);
     }
 
     sort_recent(topic_rows: TopicRow[]) {
@@ -148,15 +113,14 @@ export class TopicList {
     }
 
     make_table(): HTMLTableElement {
+        const topic_id = this.topic_id;
         const topic_rows = this.topic_rows;
         const search_widget = this.search_widget;
-        const cursor = this.cursor;
 
         const row_widgets = [];
 
-        for (let i = 0; i < topic_rows.length; ++i) {
-            const topic_row = topic_rows[i];
-            const selected = cursor.is_selecting(i);
+        for (const topic_row of topic_rows) {
+            const selected = topic_row.topic_id() === topic_id;
             const row_widget = topic_row_widget.row_widget(
                 topic_row,
                 selected,
@@ -177,22 +141,17 @@ export class TopicList {
     redraw() {
         const div = this.div;
 
-        this.update_cursor();
-
         div.innerHTML = "";
         div.append(this.make_table());
     }
 
     select_topic_id(topic_id: number) {
-        const index = this.get_index_for(topic_id);
-        this.cursor.select_index(index);
-        this.set_topic_id_from_cursor();
+        this.topic_id = topic_id;
         this.refresh();
     }
 
     clear_selection(): void {
-        this.cursor.clear();
-        this.set_topic_id_from_cursor();
+        this.topic_id = undefined;
         this.refresh();
     }
 }
