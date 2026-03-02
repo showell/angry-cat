@@ -39,17 +39,26 @@ function narrow_label(
     return prefix + label;
 }
 
+export function plugin_maker_for_address(start_address: Address) {
+    function maker(plugin_helper: PluginHelper) {
+        return new SearchWidget(plugin_helper, start_address);
+    }
+
+    return maker;
+}
+
 export class SearchWidget {
     div: HTMLDivElement;
     button_panel: ButtonPanel;
     pane_manager: PaneManager;
     channel_list: ChannelList;
     channel_view?: ChannelView;
-    plugin_helper?: PluginHelper;
+    plugin_helper: PluginHelper;
     start_address: Address;
 
-    constructor(address: Address) {
+    constructor(plugin_helper: PluginHelper, address: Address) {
         const self = this;
+        this.plugin_helper = plugin_helper;
 
         this.start_address = address;
 
@@ -77,42 +86,8 @@ export class SearchWidget {
         this.channel_list = channel_list;
         this.pane_manager = pane_manager;
         this.div = div;
-    }
 
-    fork(): void {
-        const channel_id = this.get_channel_id();
-        const topic_id = this.get_topic_id();
-        const message_id = undefined; // for now
-        const address = { channel_id, topic_id, message_id };
-        const new_search_widget = new SearchWidget(address);
-        APP.add_plugin(new_search_widget);
-    }
-
-    refresh_message_ids(message_ids: number[]): void {
-        this.channel_list.refresh_completely();
-
-        const topic_list = this.get_topic_list();
-        const message_list = this.get_message_list();
-
-        if (topic_list) {
-            topic_list.refresh();
-         }
-
-        if (message_list) {
-            message_list.refresh_message_ids(message_ids);
-        }
-    }
-
-    handle_incoming_message(message: Message): void {
-        this.channel_list.refresh_completely();
-        if (this.channel_view) {
-            this.channel_view.refresh(message);
-        }
-    }
-
-    start(plugin_helper: PluginHelper) {
         const start_address = this.start_address;
-        this.plugin_helper = plugin_helper;
 
         if (start_address.topic_id) {
             if (start_address.channel_id === undefined) {
@@ -140,6 +115,36 @@ export class SearchWidget {
         this.update_button_panel();
         StatusBar.inform("Begin finding messages by clicking on a channel.");
         this.update_label();
+    }
+
+    fork(): void {
+        const channel_id = this.get_channel_id();
+        const topic_id = this.get_topic_id();
+        const message_id = undefined; // for now
+        const address = { channel_id, topic_id, message_id };
+        APP.add_plugin(plugin_maker_for_address(address));
+    }
+
+    refresh_message_ids(message_ids: number[]): void {
+        this.channel_list.refresh_completely();
+
+        const topic_list = this.get_topic_list();
+        const message_list = this.get_message_list();
+
+        if (topic_list) {
+            topic_list.refresh();
+         }
+
+        if (message_list) {
+            message_list.refresh_message_ids(message_ids);
+        }
+    }
+
+    handle_incoming_message(message: Message): void {
+        this.channel_list.refresh_completely();
+        if (this.channel_view) {
+            this.channel_view.refresh(message);
+        }
     }
 
     get_topic_list(): TopicList | undefined {

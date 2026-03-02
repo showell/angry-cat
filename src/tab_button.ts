@@ -18,7 +18,7 @@ export class TabButton {
         this.tab_button = tab_button;
 
         tab_button.addEventListener("click", () => {
-            page.open(plugin_helper);
+            page.make_plugin_active(plugin_helper);
         });
 
         div.append(tab_button);

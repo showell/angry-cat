@@ -1,5 +1,5 @@
 import type { ZulipEvent } from "./backend/event";
-import type { Plugin } from "./plugin_helper";
+import type { PluginMaker } from "./plugin_helper";
 
 import type { Address } from "./address";
 
@@ -9,15 +9,15 @@ import * as model from "./backend/model";
 
 import * as page_widget from "./dom/page_widget";
 
-import { CodeSearch } from "./plugins/code_search";
-import { GitHubSearch } from "./plugins/github_search";
-import { PluginChooser } from "./plugins/plugin_chooser";
+import * as code_search from "./plugins/code_search";
+import * as github_search from "./plugins/github_search";
+import * as plugin_chooser from "./plugins/plugin_chooser";
 import { PluginHelper } from "./plugin_helper";
 
 import * as address from "./address";
 import * as layout from "./layout";
 import { MessageRow } from "./row_types";
-import { SearchWidget } from "./search_widget";
+import * as search_widget from "./search_widget";
 import { StatusBar, create_global_status_bar } from "./status_bar";
 import { get_current_realm_nickname } from "./config";
 
@@ -49,9 +49,9 @@ export class Page {
 
     start(): void {
         this.populate();
-        this.add_plugin(new PluginChooser());
-        this.add_plugin(new CodeSearch());
-        this.add_plugin(new GitHubSearch());
+        this.add_plugin(plugin_chooser.plugin);
+        this.add_plugin(code_search.plugin);
+        this.add_plugin(github_search.plugin);
         this.add_search_widget(address.nada());
         this.update_title();
     }
@@ -62,16 +62,14 @@ export class Page {
         document.title = `${prefix}${get_current_realm_nickname()}`;
     }
 
-    add_plugin(plugin: Plugin): void {
+    add_plugin(plugin_maker: PluginMaker): void {
         const page = this;
         const plugin_helpers = this.plugin_helpers;
 
-        const plugin_helper = new PluginHelper(plugin, page);
-
+        const plugin_helper = new PluginHelper(plugin_maker, page);
         plugin_helpers.push(plugin_helper);
 
-        this.open(plugin_helper);
-        plugin.start(plugin_helper);
+        this.make_plugin_active(plugin_helper);
         this.container_div.append(plugin_helper.div);
         this.populate_button_bar();
     }
@@ -79,7 +77,6 @@ export class Page {
     close_all(): void {
         for (const plugin_helper of this.plugin_helpers) {
             if (plugin_helper.open) {
-                console.log("closing", plugin_helper.plugin);
                 plugin_helper.open = false;
                 plugin_helper.div.style.display = "none";
                 plugin_helper.redraw_tab_button();
@@ -87,16 +84,16 @@ export class Page {
         }
     }
 
-    open(plugin_helper: PluginHelper): void {
+    make_plugin_active(plugin_helper: PluginHelper): void {
         this.close_all();
         plugin_helper.open = true;
         plugin_helper.div.style.display = "block";
         plugin_helper.redraw_tab_button();
     }
 
-    go_to_end(): void {
+    activate_last_plugin(): void {
         const plugin_helpers = this.plugin_helpers;
-        this.open(plugin_helpers[plugin_helpers.length - 1]);
+        this.make_plugin_active(plugin_helpers[plugin_helpers.length - 1]);
     }
 
     populate(): void {
@@ -139,8 +136,7 @@ export class Page {
     }
 
     add_search_widget(address: Address): void {
-        const search_widget = new SearchWidget(address);
-        this.add_plugin(search_widget);
+        this.add_plugin(search_widget.plugin_maker_for_address(address));
     }
 
     handle_event(event: ZulipEvent): void {
@@ -176,7 +172,7 @@ export class Page {
         }
 
         for (const plugin_helper of this.plugin_helpers) {
-            plugin_helper.plugin.handle_event(event);
+            plugin_helper.get_plugin().handle_event(event);
         }
 
         this.update_title();

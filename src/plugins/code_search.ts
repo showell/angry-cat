@@ -7,46 +7,37 @@ import * as model from "../backend/model";
 
 import { MessageList } from "../message_list";
 
-export class CodeSearch {
-    div: HTMLDivElement;
-    plugin_helper?: PluginHelper;
+export function plugin(plugin_helper: PluginHelper) {
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.justifyContent = "center";
+    div.style.maxHeight = "90vh";
+    div.style.overflow = "auto";
 
-    constructor() {
-        const div = document.createElement("div");
-        div.style.display = "flex";
-        div.style.justifyContent = "center";
-        div.style.maxHeight = "90vh";
-        div.style.overflow = "auto";
-        this.div = div;
-    }
+    plugin_helper.update_label("Code Search");
 
-    start(plugin_helper: PluginHelper): void {
-        this.plugin_helper = plugin_helper;
-        plugin_helper.update_label("Code Search");
-        this.load_messages();
-    }
+    const filter = {
+        predicate(message: Message) {
+            return message.code_snippets.length > 0;
+        },
+    };
 
-    load_messages(): void {
-        const div = this.div;
+    const messages = model.filtered_messages(filter);
+    messages.reverse();
 
-        const filter = {
-            predicate(message: Message) {
-                return message.code_snippets.length > 0;
-            },
-        };
+    const message_list = new MessageList({
+        messages,
+        filter,
+        max_width: 750,
+        topic_id: undefined,
+    });
 
-        const messages = model.filtered_messages(filter);
-        messages.reverse();
+    div.append(message_list.div);
 
-        const message_list = new MessageList({
-            messages,
-            filter,
-            max_width: 750,
-            topic_id: undefined,
-        });
+    function handle_event(_event: ZulipEvent) {}
 
-        div.append(message_list.div);
-    }
-
-    handle_event(_event: ZulipEvent): void {}
+    return {
+        div,
+        handle_event,
+    };
 }

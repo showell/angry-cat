@@ -2,7 +2,7 @@
 
 import type { Address } from "./address";
 import type { Page } from "./page";
-import type { Plugin } from "./plugin_helper";
+import type { PluginMaker } from "./plugin_helper";
 
 class Application {
     page: Page;
@@ -15,8 +15,8 @@ class Application {
         this.page!.add_search_widget(address);
     }
 
-    add_plugin(plugin: Plugin) {
-        this.page!.add_plugin(plugin);
+    add_plugin(plugin_maker: PluginMaker) {
+        this.page!.add_plugin(plugin_maker);
     }
 }
 

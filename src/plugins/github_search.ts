@@ -7,46 +7,33 @@ import * as model from "../backend/model";
 
 import { MessageList } from "../message_list";
 
-export class GitHubSearch {
-    div: HTMLDivElement;
-    plugin_helper?: PluginHelper;
+export function plugin(plugin_helper: PluginHelper) {
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.justifyContent = "center";
+    div.style.maxHeight = "90vh";
+    div.style.overflow = "auto";
+    plugin_helper.update_label("GitHub Search");
 
-    constructor() {
-        const div = document.createElement("div");
-        div.style.display = "flex";
-        div.style.justifyContent = "center";
-        div.style.maxHeight = "90vh";
-        div.style.overflow = "auto";
-        this.div = div;
-    }
+    const filter = {
+        predicate(message: Message) {
+            return message.github_refs.length > 0;
+        },
+    };
 
-    start(plugin_helper: PluginHelper): void {
-        this.plugin_helper = plugin_helper;
-        plugin_helper.update_label("GitHub Search");
-        this.load_messages();
-    }
+    const messages = model.filtered_messages(filter);
+    messages.reverse();
 
-    load_messages(): void {
-        const div = this.div;
+    const message_list = new MessageList({
+        messages,
+        filter,
+        max_width: 750,
+        topic_id: undefined,
+    });
 
-        const filter = {
-            predicate(message: Message) {
-                return message.github_refs.length > 0;
-            },
-        };
+    div.append(message_list.div);
 
-        const messages = model.filtered_messages(filter);
-        messages.reverse();
+    function handle_event(_event: ZulipEvent): void {}
 
-        const message_list = new MessageList({
-            messages,
-            filter,
-            max_width: 750,
-            topic_id: undefined,
-        });
-
-        div.append(message_list.div);
-    }
-
-    handle_event(_event: ZulipEvent): void {}
+    return { div, handle_event };
 }

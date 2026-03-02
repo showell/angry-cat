@@ -6,37 +6,45 @@ import { TabButton } from "./tab_button";
 
 export type Plugin = {
     div: HTMLDivElement;
-    start: (plugin_helper: PluginHelper) => void;
     handle_event: (event: ZulipEvent) => void;
 };
+
+export type PluginMaker = (plugin_helper: PluginHelper) => Plugin;
 
 export class PluginHelper {
     div: HTMLDivElement;
     deleted: boolean;
     page: Page;
     open: boolean;
-    plugin: Plugin;
     label: string;
     tab_button: TabButton;
+    plugin: Plugin;
 
-    constructor(plugin: Plugin, page: Page) {
+    constructor(plugin_maker: PluginMaker, page: Page) {
         const div = document.createElement("div");
-        this.plugin = plugin;
         this.page = page;
         this.deleted = false;
         this.open = false;
         this.label = "plugin";
+
         this.tab_button = new TabButton(this, page);
 
+        const plugin = plugin_maker(this);
         div.append(plugin.div);
+
         this.div = div;
+        this.plugin = plugin;
+    }
+
+    get_plugin(): Plugin {
+        return this.plugin;
     }
 
     delete_me(): void {
         this.tab_button.div.remove();
         this.div.remove();
         this.deleted = true;
-        this.page.go_to_end();
+        this.page.activate_last_plugin();
     }
 
     redraw_tab_button() {

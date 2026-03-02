@@ -1,42 +1,37 @@
 import type { ZulipEvent } from "../backend/event";
-import type { Plugin, PluginHelper } from "../plugin_helper";
+import type { PluginHelper, PluginMaker } from "../plugin_helper";
 
 import { APP } from "../app";
 
-import { CodeSearch } from "./code_search";
-import { EventRadio } from "./event_radio";
-import { GitHubSearch } from "./github_search";
+import * as code_search from "./code_search";
+import * as event_radio from "./event_radio";
+import * as github_search from "./github_search";
 
-export class PluginChooser {
-    div: HTMLDivElement;
+export function plugin(plugin_helper: PluginHelper) {
+    const div = document.createElement("div");
 
-    constructor() {
-        const div = document.createElement("div");
-        this.div = div;
+    div.style.display = "flex";
+    div.style.flexDirection = "column";
+    div.style.gap = "10px";
+
+    function add_plugin(name: string, plugin_maker: PluginMaker) {
+        const button = document.createElement("button");
+        button.innerText = `Launch ${name}`;
+        button.addEventListener("click", () => {
+            APP.add_plugin(plugin_maker);
+        });
+        div.append(button);
     }
 
-    start(plugin_helper: PluginHelper): void {
-        const div = this.div;
-        div.style.display = "flex";
-        div.style.flexDirection = "column";
-        div.style.gap = "10px";
-        function add_plugin(name: string, make_plugin: () => Plugin) {
-            const button = document.createElement("button");
-            button.innerText = `Launch ${name}`;
-            button.addEventListener("click", () => {
-                APP.add_plugin(make_plugin());
-            });
-            div.append(button);
-        }
+    add_plugin("Event Radio", event_radio.plugin);
+    add_plugin("Code Search", code_search.plugin);
+    add_plugin("GitHub Search", github_search.plugin);
 
-        add_plugin("Event Radio", () => new EventRadio());
-        add_plugin("Code Search", () => new CodeSearch());
-        add_plugin("GitHub Search", () => new GitHubSearch());
+    plugin_helper.update_label("Plugins");
 
-        plugin_helper.update_label("Plugins");
-    }
-
-    handle_event(_event: ZulipEvent): void {
+    function handle_event(_event: ZulipEvent): void {
         // nothing to do
     }
+
+    return { div, handle_event };
 }

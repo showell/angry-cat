@@ -6,11 +6,18 @@ import { MessageRow } from "../row_types";
 
 import { MessageRowWidget } from "../message_row_widget";
 
-export class EventRadio {
-    div: HTMLDivElement;
-    plugin_helper?: PluginHelper;
+export function plugin(plugin_helper: PluginHelper): EventRadio {
+    return new EventRadio(plugin_helper);
+}
 
-    constructor() {
+class EventRadio {
+    div: HTMLDivElement;
+    plugin_helper: PluginHelper;
+
+    constructor(plugin_helper: PluginHelper) {
+        this.plugin_helper = plugin_helper;
+        plugin_helper.update_label("Events");
+
         const div = document.createElement("div");
 
         const heading = document.createElement("div");
@@ -20,11 +27,6 @@ export class EventRadio {
         div.append(heading);
 
         this.div = div;
-    }
-
-    start(plugin_helper: PluginHelper): void {
-        this.plugin_helper = plugin_helper;
-        plugin_helper.update_label("Events");
     }
 
     handle_event(event: ZulipEvent): void {
