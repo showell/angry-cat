@@ -92,6 +92,7 @@ export class Page {
     }
 
     activate_last_plugin(): void {
+        this.compact_deleted_plugins();
         const plugin_helpers = this.plugin_helpers;
         this.make_plugin_active(plugin_helpers[plugin_helpers.length - 1]);
     }
@@ -109,12 +110,16 @@ export class Page {
         layout.draw_page(div, navbar_div, container_div);
     }
 
-    populate_button_bar() {
-        const self = this;
-
+    compact_deleted_plugins() {
         this.plugin_helpers = this.plugin_helpers.filter(
             (plugin_helper) => !plugin_helper.deleted,
         );
+    }
+
+    populate_button_bar() {
+        const self = this;
+
+        this.compact_deleted_plugins();
 
         const plugin_helpers = this.plugin_helpers;
 
