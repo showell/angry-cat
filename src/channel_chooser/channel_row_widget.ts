@@ -1,6 +1,6 @@
 import type { ChannelRow } from "../row_types";
 
-import { render_unread_count } from "./render";
+import { render_unread_count } from "../dom/render";
 
 function render_num_topics(count: number): HTMLDivElement {
     const div = document.createElement("div");

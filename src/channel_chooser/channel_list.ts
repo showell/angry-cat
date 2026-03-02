@@ -1,9 +1,9 @@
-import * as model from "./backend/model";
+import * as model from "../backend/model";
 
-import type { ChannelRow } from "./row_types";
+import type { ChannelRow } from "../row_types";
 
-import * as channel_row_widget from "./dom/channel_row_widget";
-import * as table_widget from "./dom/table_widget";
+import * as channel_row_widget from "./channel_row_widget";
+import * as table_widget from "../dom/table_widget";
 
 type Opts = {
     channel_id: number | undefined;

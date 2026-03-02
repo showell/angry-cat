@@ -4,7 +4,7 @@ import type { Message } from "./backend/db_types";
 import { EventFlavor } from "./backend/event";
 
 import type { Address } from "./address";
-import type { ChannelChooser } from "./channel_chooser";
+import type { ChannelChooser } from "./channel_chooser/types";
 import type { MessageList } from "./message_list";
 import type { MessageView } from "./message_view";
 import type { PluginHelper } from "./plugin_helper";
@@ -14,7 +14,7 @@ import type { TopicList } from "./topic_list";
 import * as layout from "./layout";
 
 import { APP } from "./app";
-import { make_channel_chooser } from "./channel_chooser";
+import { make_channel_chooser } from "./channel_chooser/channel_chooser";
 import { ButtonPanel } from "./nav_button_panel";
 import { ChannelView } from "./channel_view";
 import { PaneManager } from "./pane_manager";

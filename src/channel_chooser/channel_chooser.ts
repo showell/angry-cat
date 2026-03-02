@@ -1,19 +1,8 @@
+import type { ChannelChooserOpts, ChannelChooser } from "./types.ts";
+
 import { ChannelList } from "./channel_list";
-import * as layout from "./layout";
-import { ChannelRow } from "./row_types";
-
-export type ChannelChooserOpts = {
-    start_channel_id: number | undefined;
-    handle_channel_chosen: (channel_id: number) => void;
-    handle_channel_cleared: () => void;
-};
-
-export type ChannelChooser = {
-    div: HTMLDivElement;
-    refresh_completely: () => void;
-    get_channel_row: () => ChannelRow;
-    total_unread_count: () => number;
-}
+import * as layout from "../layout";
+import { ChannelRow } from "../row_types";
 
 export function make_channel_chooser(opts: ChannelChooserOpts) {
     const channel_list = new ChannelList({
