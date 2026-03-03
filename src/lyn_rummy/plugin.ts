@@ -11,6 +11,7 @@ export function new_game_maker() {
             return deck_card.toJSON();
         });
 
+        console.log("serialize cards");
         network.serialize_cards(json_cards);
 
         return plugin(plugin_helper, json_cards);

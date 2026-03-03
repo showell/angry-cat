@@ -137,9 +137,15 @@ export function mark_message_ids_unread(unread_message_ids: number[]): void {
     // TODO: actually look at response
 }
 
-export function send_message(info: SendInfo): void {
+let local_id = 0;
+
+export function send_message(info: SendInfo): number {
+    local_id += 1;
+
     const body = new URLSearchParams({
         type: "stream",
+        local_id: local_id.toString(),
+        queue_id: queue_id!,
         to: `${info.stream_id}`,
         topic: info.topic_name,
         content: info.content,
@@ -161,4 +167,6 @@ export function send_message(info: SendInfo): void {
         body: body.toString(),
     });
     // TODO: actually look at response
+
+    return local_id;
 }
