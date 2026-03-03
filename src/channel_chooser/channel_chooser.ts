@@ -1,8 +1,8 @@
+import type { ChannelRow } from "../row_types";
 import type { ChannelChooserOpts, ChannelChooser } from "./types.ts";
 
 import { ChannelList } from "./channel_list";
 import * as layout from "../layout";
-import { ChannelRow } from "../row_types";
 
 export function make_channel_chooser(opts: ChannelChooserOpts) {
     const channel_list = new ChannelList({

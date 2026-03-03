@@ -1,4 +1,4 @@
-import { ChannelRow } from "../row_types";
+import type { ChannelRow } from "../row_types";
 
 export type ChannelChooserOpts = {
     start_channel_id: number | undefined;
