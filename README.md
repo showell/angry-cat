@@ -4,6 +4,10 @@ Install oxlint:
 
 `npm add -D oxlint`
 
+Install biome:
+
+`npm i -D --save-exact @biomejs/biome`
+
 ## Development workflow
 
 I usually keep 4 terminals open:

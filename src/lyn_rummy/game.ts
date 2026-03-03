@@ -2200,7 +2200,11 @@ class BoardAreaSingleton {
 }
 
 class PhysicalGame {
-    constructor(info: { game: Game; player_area: HTMLElement; board_area: HTMLElement }) {
+    constructor(info: {
+        game: Game;
+        player_area: HTMLElement;
+        board_area: HTMLElement;
+    }) {
         const { game, player_area, board_area } = info;
 
         TheGame = game;

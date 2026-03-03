@@ -12,7 +12,7 @@
     "test": "vite-node src/test.ts",
     "build": "vite build",
     "lint": "oxlint",
-    "format": "prettier src/**/*.ts --write"
+    "format": "biome format --write src/*.ts src/*/*.ts"
   },
   "dependencies": {
     "npm": "^11.10.1"

@@ -40,7 +40,12 @@ export class ChannelView {
 
         const heading_text = "#" + channel_row.name();
         const adjuster_div = topic_list.get_adjuster_div();
-        layout.draw_table_pane(topic_pane_div, heading_text, adjuster_div, topic_list.div);
+        layout.draw_table_pane(
+            topic_pane_div,
+            heading_text,
+            adjuster_div,
+            topic_list.div,
+        );
 
         pane_manager.add_pane({
             key: "topic_pane",

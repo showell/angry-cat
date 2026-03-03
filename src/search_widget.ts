@@ -136,7 +136,7 @@ export class SearchWidget {
 
         if (topic_list) {
             topic_list.refresh();
-         }
+        }
 
         if (message_list) {
             message_list.refresh_message_ids(message_ids);
