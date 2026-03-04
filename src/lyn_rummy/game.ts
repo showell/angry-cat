@@ -43,6 +43,7 @@ const enum CardStackType {
 enum HandCardState {
     NORMAL,
     FRESHLY_DRAWN,
+    BACK_FROM_BOARD,
 }
 
 enum BoardCardState {
@@ -887,6 +888,11 @@ class PlayerTurn {
         this.cards_played_during_turn += 1;
     }
 
+    revoke_empty_hand_bonuses() {
+        this.empty_hand_bonus = 0;
+        this.victory_bonus = 0;
+    }
+
     update_score_for_empty_hand() {
         this.empty_hand_bonus = 1000;
 
@@ -988,6 +994,19 @@ class Player {
 
     stop_showing() {
         this.show = false;
+    }
+
+    take_card_back(hand_card: HandCard) {
+        assert(this.player_turn !== undefined);
+        if (this.hand.is_empty()) {
+            this.player_turn.revoke_empty_hand_bonuses();
+        }
+
+        this.hand.add_cards([hand_card.card], HandCardState.BACK_FROM_BOARD);
+
+        // they get a bonus for playing a card
+        assert(this.player_turn !== undefined);
+        this.player_turn.update_score_after_move();
     }
 
     release_card(hand_card: HandCard) {
@@ -1121,16 +1140,6 @@ class PlayerGroupSingleton {
 let TheGame: Game;
 
 class Game {
-    // The first snapshot will be initialized after
-    // the first player starts their turn.
-    // We will then update the snapshot at any
-    // point the board is in a clean state.
-    snapshot?: {
-        num_cards_played: number;
-        hand_cards: HandCard[];
-        board: Board;
-        game_events: GameEvent[];
-    };
     has_victor_already: boolean;
 
     constructor(deck_cards: Card[]) {
@@ -1144,9 +1153,6 @@ class Game {
         ActivePlayer.start_turn();
 
         this.has_victor_already = false;
-
-        // This initializes the snapshot for the first turn.
-        this.update_snapshot();
     }
 
     declares_me_victor(): boolean {
@@ -1156,42 +1162,13 @@ class Game {
             return false; // there can only be one winner
         }
 
+        if (!CurrentBoard.is_clean()) {
+            return false;
+        }
+
         // We have a winner!
         this.has_victor_already = true;
         return true;
-    }
-
-    update_snapshot(): void {
-        this.snapshot = {
-            num_cards_played: ActivePlayer.get_num_cards_played(),
-            hand_cards: ActivePlayer.hand.hand_cards.map((hand_card) =>
-                hand_card.clone(),
-            ),
-            board: CurrentBoard.clone(),
-            game_events: [...GameEventTracker.game_events],
-        };
-    }
-
-    // We update the snapshot if the board is in a clean state after making
-    // some move.
-    maybe_update_snapshot() {
-        if (CurrentBoard.is_clean()) {
-            this.update_snapshot();
-        }
-    }
-
-    rollback_moves_to_last_clean_state(): void {
-        const snapshot = this.snapshot;
-        assert(snapshot !== undefined);
-        ActivePlayer.roll_back_num_cards_played(snapshot.num_cards_played);
-        ActivePlayer.hand.hand_cards = snapshot.hand_cards;
-        CurrentBoard = snapshot.board;
-        GameEventTracker.game_events = snapshot.game_events;
-
-        // Even though we are now on the SAME snapshot (by definition),
-        // we still need to re-clone it, so that subsequent moves
-        // don't corrupt it.
-        this.update_snapshot();
     }
 
     advance_turn_to_next_player(): void {
@@ -1226,8 +1203,18 @@ class Game {
         for (const hand_card of player_action.hand_cards_to_release) {
             ActivePlayer.release_card(hand_card);
         }
+    }
 
-        this.maybe_update_snapshot();
+    reverse_player_action(player_action: PlayerAction): void {
+        const orig_board_event = player_action.board_event;
+        CurrentBoard.process_event({
+            stacks_to_remove: orig_board_event.stacks_to_add,
+            stacks_to_add: orig_board_event.stacks_to_remove,
+        });
+
+        for (const hand_card of player_action.hand_cards_to_release) {
+            ActivePlayer.take_card_back(hand_card);
+        }
     }
 }
 
@@ -1282,10 +1269,25 @@ class GameEventTrackerSingleton {
         this.orig_board = CurrentBoard.clone();
     }
 
+    empty() {
+        return this.game_events.length === 0;
+    }
+
     push_event(game_event: GameEvent) {
         if (!this.replay_in_progress) {
             this.game_events.push(game_event);
         }
+    }
+
+    pop_player_action(): PlayerAction | undefined {
+        const game_event = this.game_events.pop();
+
+        if (game_event === undefined) {
+            console.error("no events to pop");
+            return undefined;
+        }
+
+        return game_event.player_action;
     }
 
     replay(): void {
@@ -1702,6 +1704,8 @@ class PhysicalHandCard {
 
         if (this.hand_card.state === HandCardState.FRESHLY_DRAWN) {
             span.style.backgroundColor = new_card_color();
+        } else if (this.hand_card.state === HandCardState.BACK_FROM_BOARD) {
+            span.style.backgroundColor = "yellow";
         } else {
             span.style.backgroundColor = "white";
         }
@@ -2116,6 +2120,11 @@ class PhysicalPlayer {
         }
     }
 
+    take_card_back(hand_card: HandCard) {
+        this.player.take_card_back(hand_card);
+        this.physical_hand.populate();
+    }
+
     release_card(hand_card: HandCard) {
         this.player.release_card(hand_card);
         this.physical_hand.populate();
@@ -2183,7 +2192,9 @@ class BoardAreaSingleton {
 
         if (!GameEventTracker.replay_in_progress) {
             if (CurrentBoard.is_clean()) {
-                div.append(new ReplayButton().dom());
+                if (!GameEventTracker.empty()) {
+                    div.append(new ReplayButton().dom());
+                }
             } else {
                 div.append(new UndoButton().dom());
             }
@@ -2383,8 +2394,6 @@ class EventManagerSingleton {
     advance_turn() {
         TheGame.advance_turn_to_next_player();
 
-        TheGame.update_snapshot();
-
         DragDropHelper.reset_internal_data_structures();
         PlayerArea.populate();
         BoardArea.populate();
@@ -2393,11 +2402,22 @@ class EventManagerSingleton {
     }
 
     undo_mistakes(): void {
-        TheGame.rollback_moves_to_last_clean_state();
-        StatusBar.inform("We restored the game to its last clean state.");
-        DragDropHelper.reset_internal_data_structures();
+        const player_action = GameEventTracker.pop_player_action();
+        if (!player_action) {
+            console.error("could not find player action to undo!");
+            return;
+        }
+
+        TheGame.reverse_player_action(player_action);
         PlayerArea.populate();
         BoardArea.populate();
+
+        // TODO: pop last event off stack and run it in reverse
+        if (CurrentBoard.is_clean()) {
+            StatusBar.celebrate("You are back with a clean board!");
+        } else {
+            StatusBar.scold("You still are in a bad state!");
+        }
     }
 
     split_stack(player_action: PlayerAction): void {
