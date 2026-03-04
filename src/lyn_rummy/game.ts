@@ -382,7 +382,7 @@ export class Card {
     }
 
     static from_json(json_card: JsonCard): Card {
-        return new Card(json_card.value, json_card.suit,json_card.origin_deck);
+        return new Card(json_card.value, json_card.suit, json_card.origin_deck);
     }
 
     clone(): Card {

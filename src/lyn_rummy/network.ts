@@ -5,7 +5,7 @@ import * as zulip_client from "../backend/zulip_client";
 
 export function serialize_cards(json_cards: JsonCard[]): string | undefined {
     const stream_id = model.channel_id_for("Lyn Rummy");
-    if (stream_id ===  undefined) {
+    if (stream_id === undefined) {
         console.log("could not find stream");
         return undefined;
     }
@@ -14,7 +14,11 @@ export function serialize_cards(json_cards: JsonCard[]): string | undefined {
     const json = JSON.stringify(json_cards);
     const content = `~~~ lynrummy-cards\n${json}`;
 
-    const local_id = zulip_client.send_message({ stream_id, topic_name, content });
+    const local_id = zulip_client.send_message({
+        stream_id,
+        topic_name,
+        content,
+    });
 
     return local_id;
 }

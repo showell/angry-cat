@@ -37,8 +37,10 @@ function plugin(plugin_helper: PluginHelper, local_id: string | undefined) {
         if (event.flavor === EventFlavor.MESSAGE) {
             const local_message_id = event.message.local_message_id;
 
-            if (local_message_id && (local_message_id === local_id)) {
-                const json_cards = network.deserialize_cards(event.message.content);
+            if (local_message_id && local_message_id === local_id) {
+                const json_cards = network.deserialize_cards(
+                    event.message.content,
+                );
 
                 if (json_cards) {
                     const deck_cards = json_cards.map(lyn_rummy.Card.from_json);

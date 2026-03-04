@@ -30,7 +30,7 @@ export function channel_id_for(channel_name: string): number | undefined {
     // TODO: maintain reverse map? (probably rarely needed)
     for (const channel_id of channel_map.keys()) {
         if (channel_map.get(channel_id)!.name === channel_name) {
-           return channel_id;
+            return channel_id;
         }
     }
     return undefined;
