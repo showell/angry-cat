@@ -6,7 +6,7 @@ export type Message = {
     github_refs: string[];
     id: number;
     is_super_new: boolean;
-    local_message_id: number | undefined;
+    local_message_id: string | undefined;
     sender_id: number;
     stream_id: number;
     timestamp: number;
