@@ -3,6 +3,8 @@ import type { PluginHelper } from "../plugin_helper";
 
 import { EventFlavor } from "../backend/event";
 
+import type { JsonGameEvent } from "./game";
+
 import * as lyn_rummy from "./game";
 import * as network from "./network";
 
@@ -39,14 +41,17 @@ function plugin(plugin_helper: PluginHelper, local_id: string | undefined) {
         if (event.flavor === EventFlavor.MESSAGE) {
             const local_message_id = event.message.local_message_id;
 
-            if (local_message_id && local_message_id === local_id) {
+            if (!game_id && local_message_id && local_message_id === local_id) {
                 game_id = event.message.id;
-
                 const game_session = new network.GameSession(game_id);
 
                 const json_cards = network.deserialize_cards(
                     event.message.content,
                 );
+
+                function broadcast(json_game_event: JsonGameEvent) {
+                    game_session.broadcast(json_game_event);
+                }
 
                 if (json_cards) {
                     const deck_cards = json_cards.map(lyn_rummy.Card.from_json);
@@ -54,7 +59,7 @@ function plugin(plugin_helper: PluginHelper, local_id: string | undefined) {
                     lyn_rummy.start_game(
                         deck_cards,
                         div,
-                        game_session.broadcast,
+                        broadcast,
                     );
                 }
             }
