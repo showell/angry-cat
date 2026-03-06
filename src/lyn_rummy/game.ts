@@ -1748,7 +1748,7 @@ function opponent_card_color(): string {
 }
 
 function new_card_color(): string {
-    return "violet";
+    return "cyan";
 }
 
 class PhysicalHandCard {
@@ -1915,8 +1915,8 @@ class PhysicalCardStack {
     }
 
     style_for_hover(wing_div: HTMLElement): void {
-        this.div.style.backgroundColor = "cyan";
-        wing_div.style.backgroundColor = "cyan";
+        this.div.style.backgroundColor = "mauve";
+        wing_div.style.backgroundColor = "mauve";
     }
 
     maybe_prep_left_hand_card_merge(hand_card: HandCard): void {
