@@ -11,8 +11,14 @@ import { Page } from "./page";
 
 import * as game from "./lyn_rummy/game";
 
+function is_lyn_rummy_user(): boolean {
+    const parts = window.location.pathname.split("/").filter((part) => part !== "");
+
+    return parts.length > 0 && parts[parts.length - 1] === "LynRummy";
+}
+
 export async function run() {
-    if (window.location.pathname === "/LynRummy") {
+    if (is_lyn_rummy_user()) {
         game.gui();
         return;
     }
