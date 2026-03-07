@@ -78,6 +78,7 @@ function fix_videos(video: HTMLVideoElement) {
 
     async function use_temporary_url() {
         const temp_src = await get_temporary_upload(src);
+        console.log("set video src", video.src);
         video.src = temp_src;
         video.style.width = "90%";
         const a_tag = video.closest("a");
@@ -124,23 +125,24 @@ function fix_images(img: HTMLImageElement) {
 
 function fix_in_site_link(anchor_elem: HTMLAnchorElement) {
     anchor_elem.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+
         const path = anchor_elem.getAttribute("href")!;
         const addr = address.get_address_from_path(path);
+
+        console.log("addr in fix_in_site_link", addr);
+
         if (addr) {
             APP.add_search_widget(addr);
         } else {
             console.log("could not understand path", path);
         }
-        e.stopPropagation();
-        e.preventDefault();
     });
 }
 
 function fix_anchor_links(ele: HTMLAnchorElement) {
     const a_href = ele.getAttribute("href");
-
-    console.log("a_href", a_href);
-    console.log("location", window.location);
 
     if (!a_href || a_href === "http://") {
         // This happens with an empty link. This is a quick hack to ignore
@@ -153,22 +155,16 @@ function fix_anchor_links(ele: HTMLAnchorElement) {
         return;
     }
 
-    const url = new URL(a_href, window.location.href);
+    console.log("a_href", a_href);
+    console.log("location", window.location);
 
-    if (
-        url.hash === "" ||
-        url.href !== new URL(url.hash, window.location.href).href
-    ) {
-        ele.setAttribute("target", "_blank");
-        ele.setAttribute("rel", "noopener noreferrer");
-
-        const origin = window.location.origin;
-
-        if (url.href.startsWith(origin)) {
-            const frag = url.href.slice(origin.length);
-            ele.setAttribute("href", config.get_current_realm_url() + frag);
-        }
+    if (a_href.startsWith("/")) {
+        ele.href = config.get_current_realm_url() + a_href.slice(1);
+        console.log("patched to realm url", ele.href);
     }
+
+    ele.setAttribute("target", "_blank");
+    ele.setAttribute("rel", "noopener noreferrer");
 
     // Link clicks shouldn't propagate to trigger the popup
     // with message details.
