@@ -16,6 +16,10 @@ let last_event_id: string | undefined;
 export async function register_queue() {
     const url = new URL("/api/v1/register", config.get_current_realm_url());
     url.searchParams.set("apply_markdown", "true");
+    url.searchParams.set("include_subscribers", "false");
+    url.searchParams.set("slim_presence", "true");
+    url.searchParams.set("all_public_streams", "false");
+    url.searchParams.set("client", "Angry Cat (showell)");
 
     const response = await fetch(url, {
         method: "POST",
