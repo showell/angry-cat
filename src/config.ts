@@ -51,17 +51,17 @@ export function get_current_realm_config(): RealmConfig | undefined {
 }
 
 export function get_current_realm_url(): string {
-    return get_current_realm_config()?.url!;
+    return current_realm_config!.url;
 }
 
 export function get_email_for_current_realm() {
-    return get_current_realm_config()?.email;
+    return current_realm_config?.email;
 }
 
 export function get_current_realm_nickname() {
-    return get_current_realm_config()?.nickname;
+    return current_realm_config?.nickname;
 }
 
 export function get_api_key_for_current_realm() {
-    return get_current_realm_config()?.api_key;
+    return current_realm_config?.api_key;
 }
