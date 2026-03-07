@@ -158,8 +158,12 @@ function fix_anchor_links(ele: HTMLAnchorElement) {
     console.log("a_href", a_href);
     console.log("location", window.location);
 
+    function slash_join(s1: string, s2: string): string {
+        return s1.replace(/\/+$/, '') + "/" + s2.replace(/^\/+/, '');
+    }
+
     if (a_href.startsWith("/")) {
-        ele.href = config.get_current_realm_url().replace(/\/+$/, '') + "/" + a_href.replace(/^\/+/, '')
+        ele.href = slash_join(config.get_current_realm_url(), a_href);
         console.log("patched to realm url", ele.href);
     }
 

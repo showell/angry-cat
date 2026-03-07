@@ -50,8 +50,8 @@ export function get_current_realm_config(): RealmConfig | undefined {
     return current_realm_config;
 }
 
-export function get_current_realm_url() {
-    return get_current_realm_config()?.url;
+export function get_current_realm_url(): string {
+    return get_current_realm_config()?.url!;
 }
 
 export function get_email_for_current_realm() {
