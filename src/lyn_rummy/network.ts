@@ -7,25 +7,23 @@ import { topic_filter } from "../backend/filter";
 import * as model from "../backend/model";
 import * as zulip_client from "../backend/zulip_client";
 
-function get_topic_id_for_game(game_id: number): number | undefined {
+export function deserialize_game_events(game_id: number): JsonGameEvent[] {
     const channel_id = model.channel_id_for("Lyn Rummy");
     if (channel_id === undefined) {
         console.log("could not find stream");
-        return undefined;
+        return [];
     }
 
-    const topic_name = `__game_events_${game_id}__`;
-    return DB.topic_map.get_topic_id(channel_id, topic_name);
-}
+    const category = "game_events";
+    const content_label = "lynrummy-event";
+    const key = game_id.toString();
 
-export function deserialize_game_events(game_id: number): JsonGameEvent[] {
-    const topic_id = get_topic_id_for_game(game_id);
+    const topic_name = `__${category}_${key}__`;
+    const topic_id = DB.topic_map.get_topic_id(channel_id, topic_name);
 
     if (topic_id === undefined) {
         return [];
     }
-
-    console.log("deserialize topic_id", topic_id);
 
     const filter = topic_filter(topic_id);
     const messages = model.filtered_messages(filter);
@@ -33,21 +31,13 @@ export function deserialize_game_events(game_id: number): JsonGameEvent[] {
     messages.sort((m1, m2) => m1.id - m2.id);
 
     const json_events = [];
-    const parser = new DOMParser();
 
     for (const message of messages) {
-        const doc = parser.parseFromString(message.content, "text/html");
+        const row = data_from_message(message, content_label);
 
-        const div = doc.querySelector("div.codehilite");
-        if (
-            div &&
-            div.getAttribute("data-code-language") === "lynrummy-event"
-        ) {
-            const pre = div.querySelector("pre");
-            if (pre) {
-                const json_event = JSON.parse(pre.innerText);
-                json_events.push(json_event);
-            }
+        if (row) {
+            const json_event = JSON.parse(row.value_string);
+            json_events.push(json_event);
         }
     }
 
@@ -111,6 +101,13 @@ export function get_most_recent_row_for_category(info: {
 
     const message = messages[messages.length - 1];
 
+    return data_from_message(message, content_label);
+}
+
+function data_from_message(
+    message: Message,
+    content_label: string,
+): RowType | undefined {
     const parser = new DOMParser();
     const doc = parser.parseFromString(message.content, "text/html");
 
