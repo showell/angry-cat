@@ -40,7 +40,7 @@ export function plugin(plugin_helper: PluginHelper) {
     landing_div.append(button.div);
     div.append(landing_div);
 
-    const game_finder = new GameFinder(div, landing_div);
+    new GameFinder(div, landing_div);
 
     function handle_event(event: ZulipEvent) {
         if (game_launcher) {
@@ -88,7 +88,7 @@ class GameLauncher {
         const game_start = get_game_start(event, game_local_id);
         if (game_start) {
             this.game_id = game_start.game_id;
-            div.innerText = "";
+            div.innerHTML = "";
             start_new_game(this.game_id, game_start.json_cards, div);
         }
     }
@@ -147,15 +147,26 @@ class GameFinder {
     }
 
     add_game_from_message(message: Message) {
+        const div = this.div;
         const landing_div = this.landing_div;
         const game_id = message.id;
         const json_cards = network.deserialize_cards(message.content);
 
+        if (json_cards === undefined) {
+            console.log("UNEXPECTED lack of cards");
+            return;
+        }
+
         const message_row = new MessageRow(message);
 
-        const button = new Button(`Play ${message_row.sender_name()}`, 150, () => {
-            console.log("play", game_id, json_cards);
-        });
+        const button = new Button(
+            `Play ${message_row.sender_name()}`,
+            150,
+            () => {
+                div.innerHTML = "";
+                start_new_game(game_id, json_cards, div);
+            },
+        );
 
         landing_div.append(button.div);
     }
