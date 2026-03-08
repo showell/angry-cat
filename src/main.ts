@@ -44,6 +44,9 @@ export async function run() {
     const page = new Page();
 
     function handle_event(event: ZulipEvent) {
+        // Reconcile outbound messages with their inbound events.
+        zulip_client.handle_event(event);
+
         // We want the model to update before any plugins touch
         // the event.
         database.handle_event(event);

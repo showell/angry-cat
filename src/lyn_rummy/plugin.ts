@@ -11,11 +11,6 @@ import type { JsonCard, JsonGameEvent } from "./game";
 import * as lyn_rummy from "./game";
 import * as network from "./network";
 
-type GameStart = {
-    game_id: number;
-    json_cards: JsonCard[];
-};
-
 export function plugin(plugin_helper: PluginHelper) {
     const div = document.createElement("div");
     const max_height = document.documentElement.clientHeight - 60;
@@ -42,11 +37,7 @@ export function plugin(plugin_helper: PluginHelper) {
 
     new GameFinder(div, landing_div);
 
-    function handle_event(event: ZulipEvent) {
-        if (game_launcher) {
-            game_launcher.handle_event(event);
-        }
-    }
+    function handle_event(_event: ZulipEvent) {}
 
     return {
         div,
@@ -55,11 +46,11 @@ export function plugin(plugin_helper: PluginHelper) {
 }
 
 class GameLauncher {
-    local_id: string | undefined;
     game_id: number | undefined;
     div: HTMLDivElement;
 
     constructor(div: HTMLDivElement) {
+        const self = this;
         this.div = div;
 
         const deck_cards = lyn_rummy.build_full_double_deck();
@@ -67,60 +58,15 @@ class GameLauncher {
             return deck_card.toJSON();
         });
 
-        const local_id = network.serialize_cards(json_cards);
+        network.serialize_cards(json_cards, (message) => {
+            if (self.game_id) return;
 
-        if (local_id === undefined) {
-            console.log("must not have found a transport channel");
-            div.innerText = "Your admin needs to create a Lyn Rummy channel";
-        }
-
-        this.local_id = local_id;
-    }
-
-    handle_event(event: ZulipEvent) {
-        const div = this.div;
-        const game_local_id = this.local_id;
-
-        if (!game_local_id) return;
-
-        if (this.game_id) return;
-
-        const game_start = get_game_start(event, game_local_id);
-        if (game_start) {
-            this.game_id = game_start.game_id;
             div.innerHTML = "";
+            self.game_id = message.id;
             const is_spectator = false;
-            start_new_game(
-                this.game_id,
-                game_start.json_cards,
-                div,
-                is_spectator,
-            );
-        }
+            start_new_game(self.game_id, json_cards, div, is_spectator);
+        });
     }
-}
-
-function get_game_start(
-    event: ZulipEvent,
-    local_id: string,
-): GameStart | undefined {
-    if (event.flavor === EventFlavor.MESSAGE) {
-        const local_message_id = event.message.local_message_id;
-
-        if (local_message_id && local_message_id === local_id) {
-            const game_id = event.message.id;
-
-            const json_cards = network.deserialize_cards(event.message.content);
-
-            if (json_cards) {
-                return {
-                    game_id,
-                    json_cards,
-                };
-            }
-        }
-    }
-    return undefined;
 }
 
 function start_new_game(

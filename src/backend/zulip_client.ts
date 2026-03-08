@@ -1,6 +1,18 @@
-import type { EventHandler } from "./event";
+import type { Message } from "./db_types";
+import type { EventHandler, ZulipEvent } from "./event";
+
+import { EventFlavor } from "./event";
 
 import * as config from "../config";
+
+let queue_id: string | undefined;
+let last_event_id: string | undefined;
+let local_id_seq = 0;
+
+export type MessageCallback = (message: Message) => void;
+type LocalIdType = string;
+
+const SENT_MESSAGE_CALLBACKS = new Map<LocalIdType, MessageCallback>();
 
 function get_headers() {
     const auth = btoa(
@@ -9,9 +21,6 @@ function get_headers() {
     const auth_header = `Basic ${auth}`;
     return { Authorization: auth_header };
 }
-
-let queue_id: string | undefined;
-let last_event_id: string | undefined;
 
 export async function register_queue() {
     const url = new URL("/api/v1/register", config.get_current_realm_url());
@@ -141,9 +150,7 @@ export function mark_message_ids_unread(unread_message_ids: number[]): void {
     // TODO: actually look at response
 }
 
-let local_id_seq = 0;
-
-export function send_message(info: SendInfo): string {
+export function send_message(info: SendInfo, callback: MessageCallback): void {
     local_id_seq += 1;
     const local_id = local_id_seq.toString();
 
@@ -171,7 +178,20 @@ export function send_message(info: SendInfo): string {
         },
         body: body.toString(),
     });
-    // TODO: actually look at response
 
-    return local_id;
+    SENT_MESSAGE_CALLBACKS.set(local_id, callback);
 }
+
+export function handle_event(event: ZulipEvent): void {
+    if (event.flavor === EventFlavor.MESSAGE) {
+        const local_message_id = event.message.local_message_id;
+
+        if (local_message_id) {
+            const callback = SENT_MESSAGE_CALLBACKS.get(local_message_id);
+            if (callback) {
+                callback(event.message);
+            }
+        }
+    }
+}
+
