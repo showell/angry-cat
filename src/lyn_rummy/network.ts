@@ -92,19 +92,26 @@ function deserialize_game_events(game_id: number): JsonGameEvent[] {
     return json_events;
 }
 
-export function serialize_cards(
-    json_cards: JsonCard[],
-    message_callback: MessageCallback,
-): void {
-    const channel_id = model.channel_id_for("Lyn Rummy");
-    if (channel_id === undefined) {
-        console.log("could not find stream");
-        return undefined;
-    }
+export function serialize(info: {
+    channel_id: number;
+    category: string;
+    key: string;
+    content_label: string;
+    value: object;
+    message_callback: MessageCallback;
+}): void {
+    const {
+        channel_id,
+        category,
+        key,
+        content_label,
+        value,
+        message_callback,
+    } = info;
 
-    const topic_name = "__game_transport__";
-    const json = JSON.stringify(json_cards);
-    const content = `~~~ lynrummy-cards\n${json}`;
+    const topic_name = `__${category}_${key}__`;
+    const json = JSON.stringify(value);
+    const content = `~~~ ${content_label}\n${json}`;
 
     zulip_client.send_message(
         {
@@ -137,7 +144,7 @@ export function find_last_game_message(): Message | undefined {
         return undefined;
     }
 
-    const topic_name = "__game_transport__";
+    const topic_name = "__games_*__";
 
     const topic_id = DB.topic_map.get_topic_id(channel_id, topic_name);
 

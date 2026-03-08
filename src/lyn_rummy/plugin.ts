@@ -7,6 +7,7 @@ import { MessageRow } from "../row_types";
 import type { JsonCard, JsonGameEvent } from "./game";
 
 import * as lyn_rummy from "./game";
+import * as model from "../backend/model";
 import * as network from "./network";
 
 export function plugin(plugin_helper: PluginHelper) {
@@ -54,14 +55,29 @@ class GameLauncher {
             return deck_card.toJSON();
         });
 
-        network.serialize_cards(json_cards, (message) => {
+        const channel_id = model.channel_id_for("Lyn Rummy");
+        if (channel_id === undefined) {
+            console.log("could not find stream");
+            return;
+        }
+
+        network.serialize({
+            channel_id,
+            category: "games",
+            key: "*",
+            content_label: "lynrummy-cards",
+            value: json_cards,
+            message_callback,
+        });
+
+        function message_callback(message: Message) {
             if (self.game_id) return;
 
             div.innerHTML = "";
             self.game_id = message.id;
             const is_spectator = false;
             start_new_game(self.game_id, json_cards, div, is_spectator);
-        });
+        }
     }
 }
 
