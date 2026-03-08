@@ -123,28 +123,25 @@ export function serialize(info: {
     );
 }
 
-export function deserialize_cards(content: string): JsonCard[] | undefined {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(content, "text/html");
+type RowType = {
+    message: Message,
+    value_string: string;
+};
 
-    const div = doc.querySelector("div.codehilite");
-    if (div && div.getAttribute("data-code-language") === "lynrummy-cards") {
-        const pre = div.querySelector("pre");
-        if (pre) {
-            return JSON.parse(pre.innerText);
-        }
-    }
-    return undefined;
-}
+export function get_most_recent_row_for_category(info: {
+    channel_id: number;
+    category: string;
+    key: string;
+    content_label: string,
+}): RowType | undefined {
+    const {
+        channel_id,
+        category,
+        key,
+        content_label,
+    } = info;
 
-export function find_last_game_message(): Message | undefined {
-    const channel_id = model.channel_id_for("Lyn Rummy");
-    if (channel_id === undefined) {
-        console.log("could not find channel");
-        return undefined;
-    }
-
-    const topic_name = "__games_*__";
+    const topic_name = `__${category}_${key}__`;
 
     const topic_id = DB.topic_map.get_topic_id(channel_id, topic_name);
 
@@ -155,5 +152,20 @@ export function find_last_game_message(): Message | undefined {
         return undefined;
     }
 
-    return messages[messages.length - 1];
+    const message = messages[messages.length - 1];
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(message.content, "text/html");
+
+    const div = doc.querySelector("div.codehilite");
+    if (div && div.getAttribute("data-code-language") === content_label) {
+        const pre = div.querySelector("pre");
+        if (pre) {
+            return {
+                message,
+                value_string: pre.innerText,
+            };
+        }
+    }
+    return undefined;
 }

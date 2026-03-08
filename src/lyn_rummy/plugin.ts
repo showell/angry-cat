@@ -110,35 +110,42 @@ class GameFinder {
         this.div = div;
         this.landing_div = landing_div;
 
-        const message = network.find_last_game_message();
-        if (message) {
-            this.add_game_from_message(message);
-        }
-    }
-
-    add_game_from_message(message: Message) {
-        const div = this.div;
-        const landing_div = this.landing_div;
-        const game_id = message.id;
-        const json_cards = network.deserialize_cards(message.content);
-
-        if (json_cards === undefined) {
-            console.log("UNEXPECTED lack of cards");
+        const channel_id = model.channel_id_for("Lyn Rummy");
+        if (channel_id === undefined) {
+            console.log("could not find stream");
             return;
         }
 
-        const message_row = new MessageRow(message);
+        const row = network.get_most_recent_row_for_category({
+            channel_id,
+            category: "games",
+            key: "*",
+            content_label: "lynrummy-cards",
+        });
 
-        const button = new Button(
-            `Play ${message_row.sender_name()}`,
-            150,
-            () => {
-                div.innerHTML = "";
-                const is_spectator = true;
-                start_new_game(game_id, json_cards, div, is_spectator);
-            },
-        );
+        if (row) {
+            const message = row.message;
+            const game_id = message.id;
+            const json_cards = JSON.parse(row.value_string);
 
-        landing_div.append(button.div);
+            if (json_cards === undefined) {
+                console.log("UNEXPECTED lack of cards");
+                return;
+            }
+
+            const message_row = new MessageRow(message);
+
+            const button = new Button(
+                `Play ${message_row.sender_name()}`,
+                150,
+                () => {
+                    div.innerHTML = "";
+                    const is_spectator = true;
+                    start_new_game(game_id, json_cards, div, is_spectator);
+                },
+            );
+
+            landing_div.append(button.div);
+        }
     }
 }
