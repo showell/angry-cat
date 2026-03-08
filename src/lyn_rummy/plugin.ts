@@ -86,8 +86,14 @@ function start_new_game(
     json_cards: JsonCard[],
     div: HTMLDivElement,
     is_spectator: boolean,
-) {
-    const game_session = new network.GameSession(game_id);
+): void {
+    const channel_id = model.channel_id_for("Lyn Rummy");
+    if (channel_id === undefined) {
+        console.log("could not find stream");
+        return;
+    }
+
+    const game_session = new network.GameSession({ game_id, channel_id });
 
     function broadcast(json_game_event: JsonGameEvent) {
         game_session.broadcast(json_game_event);

@@ -9,40 +9,31 @@ import * as zulip_client from "../backend/zulip_client";
 
 export class GameSession {
     game_id: number;
+    channel_id: number;
 
-    constructor(game_id: number) {
+    constructor(info: { game_id: number; channel_id: number }) {
+        const { game_id, channel_id } = info;
         this.game_id = game_id;
+        this.channel_id = channel_id;
         console.log("CONSTRUCTOR", game_id, this.game_id);
     }
 
     broadcast(json_game_event: JsonGameEvent) {
-        serialize_game_event(this.game_id, json_game_event);
+        const game_id = this.game_id;
+        const channel_id = this.channel_id;
+        serialize({
+            channel_id,
+            category: "game_events",
+            key: game_id.toString(),
+            content_label: "lynrummy-event",
+            value: json_game_event,
+            message_callback: (_message) => {},
+        });
     }
 
     get_events(): JsonGameEvent[] {
         return deserialize_game_events(this.game_id);
     }
-}
-
-function serialize_game_event(game_id: number, json_game_event: JsonGameEvent) {
-    const channel_id = model.channel_id_for("Lyn Rummy");
-    if (channel_id === undefined) {
-        console.log("could not find stream");
-        return undefined;
-    }
-
-    const topic_name = `__game_events_${game_id}__`;
-    const json = JSON.stringify(json_game_event);
-    const content = `~~~ lynrummy-event\n${json}`;
-
-    zulip_client.send_message(
-        {
-            channel_id,
-            topic_name,
-            content,
-        },
-        () => {},
-    );
 }
 
 function get_topic_id_for_game(game_id: number): number | undefined {
