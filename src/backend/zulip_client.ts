@@ -121,7 +121,7 @@ export async function fetch_image(image_url: string): Promise<string> {
 }
 
 type SendInfo = {
-    stream_id: number;
+    channel_id: number;
     topic_name: string;
     content: string;
 };
@@ -158,7 +158,7 @@ export function send_message(info: SendInfo, callback: MessageCallback): void {
         type: "stream",
         local_id,
         queue_id: queue_id!,
-        to: `${info.stream_id}`,
+        to: `${info.channel_id}`,
         topic: info.topic_name,
         content: info.content,
         read_by_sender: "true",

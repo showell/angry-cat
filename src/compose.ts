@@ -151,11 +151,11 @@ export class ComposeBox {
     }
 
     send(content: string): void {
-        const stream_id = this.stream_id;
+        const channel_id = this.stream_id;
         const topic_name = this.topic_input.topic_name();
 
         zulip_client.send_message(
-            { stream_id, topic_name, content },
+            { channel_id, topic_name, content },
             (_message) => {
                 console.log(
                     `the sent message from ${topic_name} came as event`,

@@ -25,8 +25,8 @@ export class GameSession {
 }
 
 function serialize_game_event(game_id: number, json_game_event: JsonGameEvent) {
-    const stream_id = model.channel_id_for("Lyn Rummy");
-    if (stream_id === undefined) {
+    const channel_id = model.channel_id_for("Lyn Rummy");
+    if (channel_id === undefined) {
         console.log("could not find stream");
         return undefined;
     }
@@ -37,7 +37,7 @@ function serialize_game_event(game_id: number, json_game_event: JsonGameEvent) {
 
     zulip_client.send_message(
         {
-            stream_id,
+            channel_id,
             topic_name,
             content,
         },
@@ -96,8 +96,8 @@ export function serialize_cards(
     json_cards: JsonCard[],
     message_callback: MessageCallback,
 ): void {
-    const stream_id = model.channel_id_for("Lyn Rummy");
-    if (stream_id === undefined) {
+    const channel_id = model.channel_id_for("Lyn Rummy");
+    if (channel_id === undefined) {
         console.log("could not find stream");
         return undefined;
     }
@@ -108,7 +108,7 @@ export function serialize_cards(
 
     zulip_client.send_message(
         {
-            stream_id,
+            channel_id,
             topic_name,
             content,
         },
