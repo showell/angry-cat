@@ -18,6 +18,24 @@ export function deserialize_game_events(game_id: number): JsonGameEvent[] {
     const content_label = "lynrummy-event";
     const key = game_id.toString();
 
+    const rows = get_rows_for_category({
+        channel_id,
+        category,
+        key,
+        content_label,
+    });
+
+    return rows.map((row) => JSON.parse(row.value_string));
+}
+
+export function get_rows_for_category(info: {
+    channel_id: number;
+    category: string;
+    key: string;
+    content_label: string;
+}): RowType[] {
+    const { channel_id, category, key, content_label } = info;
+
     const topic_name = `__${category}_${key}__`;
     const topic_id = DB.topic_map.get_topic_id(channel_id, topic_name);
 
@@ -30,18 +48,17 @@ export function deserialize_game_events(game_id: number): JsonGameEvent[] {
 
     messages.sort((m1, m2) => m1.id - m2.id);
 
-    const json_events = [];
+    const rows = [];
 
     for (const message of messages) {
         const row = data_from_message(message, content_label);
 
         if (row) {
-            const json_event = JSON.parse(row.value_string);
-            json_events.push(json_event);
+            rows.push(row);
         }
     }
 
-    return json_events;
+    return rows;
 }
 
 export function serialize(info: {
