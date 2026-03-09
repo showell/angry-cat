@@ -1,22 +1,21 @@
 import type { JsonGameEvent } from "./game";
 
-import * as network from "../backend/network";
+import { NetworkHelper } from "../backend/network";
 
 export class GameHelper {
     game_id: number;
-    channel_id: number;
+    network_helper: NetworkHelper;
 
-    constructor(info: { game_id: number; channel_id: number }) {
-        const { game_id, channel_id } = info;
-        this.game_id = game_id;
-        this.channel_id = channel_id;
+    constructor(info: { game_id: number; network_helper: NetworkHelper }) {
+        this.game_id = info.game_id;
+        this.network_helper = info.network_helper;
     }
 
     broadcast(json_game_event: JsonGameEvent) {
         const game_id = this.game_id;
-        const channel_id = this.channel_id;
-        network.serialize({
-            channel_id,
+        const network_helper = this.network_helper;
+
+        network_helper.serialize({
             category: "game_events",
             key: game_id.toString(),
             content_label: "lynrummy-event",
@@ -26,15 +25,14 @@ export class GameHelper {
     }
 
     get_events(): JsonGameEvent[] {
-        const channel_id = this.channel_id;
         const game_id = this.game_id;
+        const network_helper = this.network_helper;
 
         const category = "game_events";
         const content_label = "lynrummy-event";
         const key = game_id.toString();
 
-        const rows = network.get_rows_for_category({
-            channel_id,
+        const rows = network_helper.get_rows_for_category({
             category,
             key,
             content_label,

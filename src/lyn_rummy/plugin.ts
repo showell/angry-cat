@@ -5,7 +5,7 @@ import type { PluginHelper } from "../plugin_helper";
 import type { JsonCard, JsonGameEvent } from "./game";
 
 import * as model from "../backend/model";
-import * as network from "../backend/network";
+import { NetworkHelper } from "../backend/network";
 
 import { Button } from "../button";
 import { MessageRow } from "../row_types";
@@ -26,16 +26,25 @@ export function plugin(plugin_helper: PluginHelper) {
 
     plugin_helper.update_label(lyn_rummy.get_title());
 
+    const channel_id = model.channel_id_for("Lyn Rummy");
+    if (channel_id === undefined) {
+        console.log("could not find stream");
+        div.innerText = "Your admin needs to create a Lyn Rummy channel.";
+        return { div };
+    }
+
+    const network_helper = new NetworkHelper(channel_id);
+
     const button = new Button("Launch new game", 150, () => {
         div.innerHTML = "";
         div.innerText = "waiting on server";
-        new GameLauncher(div);
+        new GameLauncher(network_helper, div);
     });
 
     landing_div.append(button.div);
     div.append(landing_div);
 
-    new GameFinder(div, landing_div);
+    new GameFinder(network_helper, div, landing_div);
 
     return { div };
 }
@@ -44,7 +53,7 @@ class GameLauncher {
     game_id: number | undefined;
     div: HTMLDivElement;
 
-    constructor(div: HTMLDivElement) {
+    constructor(network_helper: NetworkHelper, div: HTMLDivElement) {
         const self = this;
         this.div = div;
 
@@ -53,14 +62,7 @@ class GameLauncher {
             return deck_card.toJSON();
         });
 
-        const channel_id = model.channel_id_for("Lyn Rummy");
-        if (channel_id === undefined) {
-            console.log("could not find stream");
-            return;
-        }
-
-        network.serialize({
-            channel_id,
+        network_helper.serialize({
             category: "games",
             key: "*",
             content_label: "lynrummy-cards",
@@ -74,24 +76,25 @@ class GameLauncher {
             div.innerHTML = "";
             self.game_id = message.id;
             const is_spectator = false;
-            start_new_game(self.game_id, json_cards, div, is_spectator);
+            start_new_game(
+                network_helper,
+                self.game_id,
+                json_cards,
+                div,
+                is_spectator,
+            );
         }
     }
 }
 
 function start_new_game(
+    network_helper: NetworkHelper,
     game_id: number,
     json_cards: JsonCard[],
     div: HTMLDivElement,
     is_spectator: boolean,
 ): void {
-    const channel_id = model.channel_id_for("Lyn Rummy");
-    if (channel_id === undefined) {
-        console.log("could not find stream");
-        return;
-    }
-
-    const game_helper = new GameHelper({ game_id, channel_id });
+    const game_helper = new GameHelper({ game_id, network_helper });
 
     function broadcast(json_game_event: JsonGameEvent) {
         game_helper.broadcast(json_game_event);
@@ -107,18 +110,15 @@ class GameFinder {
     div: HTMLDivElement;
     landing_div: HTMLDivElement;
 
-    constructor(div: HTMLDivElement, landing_div: HTMLDivElement) {
+    constructor(
+        network_helper: NetworkHelper,
+        div: HTMLDivElement,
+        landing_div: HTMLDivElement,
+    ) {
         this.div = div;
         this.landing_div = landing_div;
 
-        const channel_id = model.channel_id_for("Lyn Rummy");
-        if (channel_id === undefined) {
-            console.log("could not find stream");
-            return;
-        }
-
-        const row = network.get_most_recent_row_for_category({
-            channel_id,
+        const row = network_helper.get_most_recent_row_for_category({
             category: "games",
             key: "*",
             content_label: "lynrummy-cards",
@@ -142,7 +142,13 @@ class GameFinder {
                 () => {
                     div.innerHTML = "";
                     const is_spectator = true;
-                    start_new_game(game_id, json_cards, div, is_spectator);
+                    start_new_game(
+                        network_helper,
+                        game_id,
+                        json_cards,
+                        div,
+                        is_spectator,
+                    );
                 },
             );
 
