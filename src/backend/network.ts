@@ -102,6 +102,8 @@ export class NetworkHelper {
         const filter = topic_filter(topic_id);
         const messages = model.filtered_messages(filter);
 
+        messages.sort((m1, m2) => m1.id - m2.id);
+
         if (messages.length === 0) {
             return undefined;
         }
