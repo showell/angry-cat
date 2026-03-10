@@ -102,8 +102,10 @@ function start_new_game(
 
     const json_events = is_spectator ? game_helper.get_events() : [];
 
+    const webxdc = game_helper.xdc_interface();
+
     const deck_cards = json_cards.map(lyn_rummy.Card.from_json);
-    lyn_rummy.start_game(deck_cards, div, broadcast, json_events);
+    lyn_rummy.start_game(deck_cards, div, webxdc, json_events);
 }
 
 class GameFinder {

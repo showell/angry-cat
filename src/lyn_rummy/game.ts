@@ -1,3 +1,5 @@
+import type { Update, WebXdc } from "../backend/webxdc";
+
 const enum CardValue {
     ACE = 1,
     TWO = 2,
@@ -1371,10 +1373,10 @@ class GameEventTrackerSingleton {
     json_game_events: JsonGameEvent[];
     orig_deck: Deck;
     orig_board: Board;
-    broadcast_callback: BroadcastCallback | undefined;
+    webxdc: WebXdc;
 
-    constructor(broadcast_callback: BroadcastCallback | undefined) {
-        this.broadcast_callback = broadcast_callback;
+    constructor(webxdc: WebXdc) {
+        this.webxdc = webxdc;
         this.replay_in_progress = false;
         this.json_game_events = [];
         this.orig_deck = TheDeck.clone();
@@ -1399,9 +1401,7 @@ class GameEventTrackerSingleton {
 
             this.json_game_events.push(json_game_event);
 
-            if (this.broadcast_callback) {
-                this.broadcast_callback(json_game_event);
-            }
+            this.webxdc.sendUpdate({ payload: json_game_event });
         }
     }
 
@@ -3425,14 +3425,17 @@ export function gui() {
     set_title();
     const container = document.body;
     const deck_cards = build_full_double_deck();
-    const broadcast_callback = undefined;
-    start_game(deck_cards, container, broadcast_callback, []);
+    const webxdc = {
+        sendUpdate(_update: Update) {},
+    };
+
+    start_game(deck_cards, container, webxdc, []);
 }
 
 export function start_game(
     deck_cards: Card[],
     container: HTMLElement,
-    broadcast_callback: BroadcastCallback | undefined,
+    webxdc: WebXdc,
     json_game_events: JsonGameEvent[],
 ) {
     TheDeck = new Deck(deck_cards);
@@ -3443,7 +3446,7 @@ export function start_game(
     EventManager = new EventManagerSingleton();
     TheGame = new Game();
     CurrentBoard = initial_board();
-    GameEventTracker = new GameEventTrackerSingleton(broadcast_callback);
+    GameEventTracker = new GameEventTrackerSingleton(webxdc);
     PlayerGroup = new PlayerGroupSingleton(["Susan", "Lyn"]);
     ActivePlayer.start_turn();
     new MainGamePage(container);

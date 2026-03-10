@@ -1,4 +1,5 @@
 import type { JsonGameEvent } from "./game";
+import type * as webxdc from "../backend/webxdc";
 
 import { NetworkHelper } from "../backend/network";
 
@@ -9,6 +10,17 @@ export class GameHelper {
     constructor(info: { game_id: number; network_helper: NetworkHelper }) {
         this.game_id = info.game_id;
         this.network_helper = info.network_helper;
+    }
+
+    xdc_interface() {
+        const self = this;
+
+        return {
+            sendUpdate(update: webxdc.Update): void {
+                const json_game_event = update.payload as JsonGameEvent;
+                self.broadcast(json_game_event);
+            },
+        };
     }
 
     broadcast(json_game_event: JsonGameEvent) {
