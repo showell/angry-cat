@@ -91,6 +91,7 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     local_message_id,
                     reactions: fetch.convert_server_reactions(
                         raw_message.reactions,
+                        raw_message.id,
                     ),
                     sender_id: raw_message.sender_id,
                     stream_id: raw_message.stream_id,
