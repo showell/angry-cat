@@ -174,6 +174,17 @@ export class Page {
             StatusBar.celebrate(`Messages have been marked as ${val}.`);
         }
 
+        if (event.flavor === EventFlavor.REACTION_ADD_EVENT) {
+            const sender_id = event.user_id;
+            const message = DB.message_map.get(event.message_id);
+            if (sender_id === DB.current_user_id) {
+                StatusBar.celebrate(`Your reaction was posted!`);
+            } else if (message?.sender_id === DB.current_user_id) {
+                const reactor_name = DB.user_map.get(sender_id)?.full_name;
+                StatusBar.celebrate(`${reactor_name} reacted to your message!`);
+            }
+        }
+
         for (const plugin_helper of this.plugin_helpers) {
             plugin_helper.handle_zulip_event(event);
         }
