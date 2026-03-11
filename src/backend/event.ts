@@ -77,6 +77,7 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     id: raw_message.id,
                     is_super_new: true,
                     local_message_id,
+                    reactions: [], // TODO: fix
                     sender_id: raw_message.sender_id,
                     stream_id: raw_message.stream_id,
                     timestamp: raw_message.timestamp,
