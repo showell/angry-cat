@@ -19,6 +19,10 @@ export function addr(): string {
     return `${DB.current_user_id}-${queue_id}`;
 }
 
+export function slash_join(s1: string, s2: string): string {
+    return s1.replace(/\/+$/, "") + "/" + s2.replace(/^\/+/, "");
+}
+
 function get_headers() {
     const auth = btoa(
         `${config.get_email_for_current_realm()}:${config.get_api_key_for_current_realm()}`,
@@ -122,7 +126,7 @@ export async function fetch_image(image_url: string): Promise<string> {
     const data = await response.json();
 
     // we get a temporary url that we have access to
-    return config.get_current_realm_url() + data.url;
+    return slash_join(config.get_current_realm_url(), data.url);
 }
 
 type SendInfo = {

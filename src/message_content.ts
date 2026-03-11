@@ -3,6 +3,8 @@ import * as config from "./config";
 
 import * as mouse_drag from "./util/mouse_drag";
 
+import { slash_join } from "./backend/zulip_client";
+
 import { APP } from "./app";
 import * as address from "./address";
 import * as images from "./images";
@@ -150,10 +152,6 @@ function fix_anchor_links(ele: HTMLAnchorElement) {
     if (a_href.startsWith("/#narrow/channel")) {
         fix_in_site_link(ele);
         return;
-    }
-
-    function slash_join(s1: string, s2: string): string {
-        return s1.replace(/\/+$/, "") + "/" + s2.replace(/^\/+/, "");
     }
 
     if (a_href.startsWith("/")) {
