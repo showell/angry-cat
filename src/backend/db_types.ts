@@ -13,6 +13,15 @@ export type Message = {
     topic_id: number;
     type: "stream";
     unread: boolean;
+    reactions: Reaction[];
+};
+
+// We only support unicode emoji right now,
+// so reaction_type is out of the question.
+export type Reaction = {
+    emoji_name: string;
+    emoji_code: string;
+    user_ids: number[];
 };
 
 export type Stream = {

@@ -1,6 +1,6 @@
 import * as model from "./backend/model";
 
-import type { Message, Stream, Topic } from "./backend/db_types.ts";
+import type { Message, Reaction, Stream, Topic } from "./backend/db_types.ts";
 import type { ListInfo } from "./backend/message_list.ts";
 
 import type { Address } from "./address";
@@ -199,5 +199,34 @@ export class MessageRow {
         const topic_name = this.topic_name();
 
         return `#${stream_name} > ${topic_name}`;
+    }
+
+    reactions(): Reaction[] {
+        return this._message.reactions;
+    }
+}
+
+export class ReactionItem {
+    _reaction: Reaction;
+    constructor(reaction: Reaction) {
+        this._reaction = reaction;
+    }
+
+    sender_names(): string[] {
+        return this._reaction.user_ids.map(
+            (id) => DB.user_map.get(id)!.full_name,
+        );
+    }
+
+    get_emoji() {
+        return String.fromCodePoint(parseInt(this._reaction.emoji_code, 16));
+    }
+
+    reactor_count() {
+        return this._reaction.user_ids.length;
+    }
+
+    toggle_reaction_from_current_user() {
+        // TODO
     }
 }

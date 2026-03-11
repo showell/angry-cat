@@ -1,4 +1,4 @@
-import type { Message, Stream, User } from "./db_types";
+import type { Message, Reaction, Stream, User } from "./db_types";
 
 import * as config from "../config";
 import { Database } from "./database";
@@ -75,6 +75,28 @@ export async function fetch_model_data(): Promise<Database> {
             );
             const unread =
                 row.flags.find((flag: string) => flag === "read") === undefined;
+
+            const raw_reactions = row.reactions.filter(
+                (reaction: any) => reaction.reaction_type === "unicode_emoji",
+            );
+            // Maps emoji name to a Reaction object.
+            const reaction_map = new Map<string, Reaction>();
+
+            for (const raw_reaction of raw_reactions) {
+                if (!reaction_map.has(raw_reaction.emoji_name)) {
+                    const reaction: Reaction = {
+                        emoji_code: raw_reaction.emoji_code,
+                        emoji_name: raw_reaction.emoji_name,
+                        user_ids: [raw_reaction.user_id],
+                    };
+                    reaction_map.set(raw_reaction.emoji_name, reaction);
+                } else {
+                    reaction_map
+                        .get(raw_reaction.emoji_name)!
+                        .user_ids.push(raw_reaction.user_id);
+                }
+            }
+
             const message: Message = {
                 code_snippets: [],
                 content: row.content,
@@ -87,8 +109,12 @@ export async function fetch_model_data(): Promise<Database> {
                 timestamp: row.timestamp,
                 topic_id: topic.topic_id,
                 type: row.type,
+                reactions: [...reaction_map.values()],
                 unread,
             };
+            if (message.reactions.length > 0) {
+                console.log(message.reactions);
+            }
             parse.parse_content(message);
             return message;
         });

@@ -1,5 +1,5 @@
 import type { MessageRow } from "./row_types";
-
+import * as reactions_widget_row from "./reactions_row_widget";
 import * as mouse_drag from "./util/mouse_drag";
 
 import { APP } from "./app";
@@ -114,8 +114,12 @@ export class MessageRowWidget {
 
         const content = message_row.content();
         const content_div = render_message_content(content);
+        const reactions_div = new reactions_widget_row.ReactionsRowWidget(
+            message_row.reactions(),
+        ).div;
 
         div.append(content_div);
+        div.append(reactions_div);
 
         this.div = div;
     }
