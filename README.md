@@ -54,6 +54,13 @@ Install vite-node:
 npm install vite-node --save-dev
 ```
 
+We need JSDOM for parsing:
+
+```
+npm i --save-dev @types/node
+npm install jsdom --save-dev
+```
+
 Then do:
 
 ```
