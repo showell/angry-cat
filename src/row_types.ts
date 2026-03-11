@@ -1,5 +1,3 @@
-import * as model from "./backend/model";
-
 import type { Message, Reaction, Stream, Topic } from "./backend/db_types.ts";
 import type { ListInfo } from "./backend/message_list.ts";
 
@@ -218,12 +216,25 @@ export class ReactionItem {
         );
     }
 
+    get_emoji_name() {
+        return this._reaction.emoji_name;
+    }
+
+    get_message_id() {
+        return this._reaction.message_id;
+    }
+
     get_emoji() {
         return String.fromCodePoint(parseInt(this._reaction.emoji_code, 16));
     }
 
     reactor_count() {
         return this._reaction.user_ids.size;
+    }
+
+    current_user_reacted(): boolean {
+        console.log(DB.current_user_id, this._reaction.user_ids);
+        return this._reaction.user_ids.has(DB.current_user_id);
     }
 
     toggle_reaction_from_current_user() {

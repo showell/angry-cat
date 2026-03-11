@@ -191,6 +191,27 @@ export function send_message(info: SendInfo, callback: MessageCallback): void {
     SENT_MESSAGE_CALLBACKS.set(local_id, callback);
 }
 
+export function toggle_reaction_on_message(
+    message_id: number,
+    emoji_name: string,
+    current_user_has_reacted: boolean,
+) {
+    const email = config.get_email_for_current_realm();
+    const api_key = config.get_api_key_for_current_realm();
+
+    const credentials = btoa(`${email}:${api_key}`);
+    const api_url = `${config.get_current_realm_url()}/api/v1/messages/${message_id}/reactions`;
+
+    fetch(api_url, {
+        method: current_user_has_reacted ? "DELETE" : "POST",
+        headers: {
+            Authorization: `Basic ${credentials}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ emoji_name }).toString(),
+    });
+}
+
 export function handle_event(event: ZulipEvent): void {
     if (event.flavor === EventFlavor.MESSAGE) {
         const local_message_id = event.message.local_message_id;

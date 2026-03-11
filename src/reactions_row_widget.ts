@@ -1,5 +1,6 @@
 import { Reaction } from "./backend/db_types";
 import { ReactionItem } from "./row_types";
+import * as zulip_client from "./backend/zulip_client";
 
 export class ReactionsRowWidget {
     div: HTMLDivElement;
@@ -20,12 +21,30 @@ export class ReactionsRowWidget {
         return reactions_div;
     }
 
-    render_reaction_pill(reaction_row: ReactionItem): HTMLButtonElement {
+    render_reaction_pill(reaction_item: ReactionItem): HTMLButtonElement {
         const reaction_pill = document.createElement("button");
-        const count = reaction_row.reactor_count();
-        const emoji = reaction_row.get_emoji();
+        reaction_pill.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (reaction_item.current_user_reacted()) {
+                reaction_pill.innerText = `${reaction_item.get_emoji()} ${reaction_item.reactor_count() - 1}`;
+            } else {
+                reaction_pill.innerText = `${reaction_item.get_emoji()} ${reaction_item.reactor_count() + 1}`;
+            }
+            zulip_client.toggle_reaction_on_message(
+                reaction_item.get_message_id(),
+                reaction_item.get_emoji_name(),
+                reaction_item.current_user_reacted(),
+            );
+        });
+        const count = reaction_item.reactor_count();
+        const emoji = reaction_item.get_emoji();
         reaction_pill.innerText = `${emoji} ${count}`;
-        reaction_pill.title = reaction_row.sender_names().join(", ");
+        reaction_pill.title = reaction_item.sender_names().join(", ");
+        if (!reaction_item.current_user_reacted()) {
+            reaction_pill.style.opacity = "0.8";
+        } else {
+            reaction_pill.style.opacity = "1";
+        }
         return reaction_pill;
     }
 }

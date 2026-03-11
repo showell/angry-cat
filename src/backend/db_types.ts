@@ -22,6 +22,7 @@ export type Reaction = {
     emoji_name: string;
     emoji_code: string;
     user_ids: Set<number>;
+    message_id: number;
 };
 
 export type Stream = {

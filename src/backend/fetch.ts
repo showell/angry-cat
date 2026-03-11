@@ -35,7 +35,10 @@ async function fetch_users(): Promise<User[]> {
     });
 }
 
-export function convert_server_reactions(reactions: any[]): Reaction[] {
+export function convert_server_reactions(
+    reactions: any[],
+    message_id: number,
+): Reaction[] {
     const raw_reactions = reactions.filter(
         (reaction: any) => reaction.reaction_type === "unicode_emoji",
     );
@@ -48,6 +51,7 @@ export function convert_server_reactions(reactions: any[]): Reaction[] {
                 emoji_code: raw_reaction.emoji_code,
                 emoji_name: raw_reaction.emoji_name,
                 user_ids: new Set<number>([raw_reaction.user_id]),
+                message_id: message_id,
             };
             reaction_map.set(raw_reaction.emoji_name, reaction);
         } else {
@@ -100,7 +104,7 @@ export async function fetch_model_data(): Promise<Database> {
             const unread =
                 row.flags.find((flag: string) => flag === "read") === undefined;
 
-            const reactions = convert_server_reactions(row.reactions);
+            const reactions = convert_server_reactions(row.reactions, row.id);
 
             const message: Message = {
                 code_snippets: [],
@@ -117,9 +121,6 @@ export async function fetch_model_data(): Promise<Database> {
                 reactions,
                 unread,
             };
-            if (message.reactions.length > 0) {
-                console.log(message.reactions);
-            }
             parse.parse_content(message);
             return message;
         });
