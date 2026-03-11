@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "server": "vite-node src/server.ts",
+    "fetch": "vite-node src/fetch.ts",
     "test": "vite-node src/test.ts",
     "build": "vite build",
     "lint": "oxlint",

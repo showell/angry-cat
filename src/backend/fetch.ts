@@ -35,7 +35,7 @@ async function fetch_users(): Promise<User[]> {
     });
 }
 
-function convert_server_reactions(reactions: any[]): Reaction[] {
+export function convert_server_reactions(reactions: any[]): Reaction[] {
     const raw_reactions = reactions.filter(
         (reaction: any) => reaction.reaction_type === "unicode_emoji",
     );

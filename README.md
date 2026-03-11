@@ -43,13 +43,12 @@ I also lint every now and then:
 
 * npm run test
 
-## Server stuff (in progress)
+## Node stuff (in progress)
 
-We don't really use a server yet, but for node
-code you can try resurrecting `server.js`. At some
-point it was working.
+We don't heavily use node yet, but it's occasionally
+useful for ad-hoc testing (automated or manual).
 
-I did:
+Install vite-node:
 
 ```
 npm install vite-node --save-dev
@@ -58,7 +57,8 @@ npm install vite-node --save-dev
 Then do:
 
 ```
-npm run server
+npm run test
+npm run fetch
 ```
 
 ## GH Pages
