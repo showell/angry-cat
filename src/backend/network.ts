@@ -2,6 +2,8 @@ import type { Message } from "./db_types";
 import type { MessageCallback } from "./zulip_client";
 import type { ZulipEvent } from "./event";
 
+import { get_dom_parser } from "../parser";
+
 import { DB } from "./database";
 import { EventFlavor } from "./event";
 import { topic_filter } from "./filter";
@@ -148,7 +150,7 @@ function data_from_message(
     message: Message,
     content_label: string,
 ): RowType | undefined {
-    const parser = new DOMParser();
+    const parser = get_dom_parser();
     const doc = parser.parseFromString(message.content, "text/html");
 
     const div = doc.querySelector("div.codehilite");

@@ -1,7 +1,8 @@
+import { get_dom_parser } from "../parser";
 import type { Message } from "./db_types";
 
 export function parse_content(message: Message) {
-    const parser = new DOMParser();
+    const parser = get_dom_parser();
     const doc = parser.parseFromString(message.content, "text/html");
 
     doc.querySelectorAll("a").forEach((a) => {
