@@ -54,6 +54,7 @@ export function handle_event(event: ZulipEvent): void {
                 reaction.user_ids.add(event.user_id);
             } else {
                 message.reactions.push({
+                    message_id: event.message_id,
                     emoji_code: event.emoji_code,
                     emoji_name: event.emoji_name,
                     user_ids: new Set<number>([event.user_id]),

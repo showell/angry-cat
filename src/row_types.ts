@@ -4,6 +4,7 @@ import type { ListInfo } from "./backend/message_list.ts";
 import type { Address } from "./address";
 
 import { DB } from "./backend/database";
+import * as model from "./backend/model";
 
 /*
  *  In some ways this code would more logically belong in the
