@@ -85,6 +85,7 @@ class GameLauncher {
                 self.game_id,
                 json_cards,
                 div,
+                model.current_user_name(),
                 is_spectator,
             );
         }
@@ -96,6 +97,7 @@ function start_new_game(
     game_id: number,
     json_cards: JsonCard[],
     div: HTMLDivElement,
+    player1_name: string,
     is_spectator: boolean,
 ): void {
     const game_helper = new GameHelper({ game_id, network_helper });
@@ -103,7 +105,16 @@ function start_new_game(
     const webxdc = game_helper.xdc_interface();
 
     const deck_cards = json_cards.map(lyn_rummy.Card.from_json);
-    lyn_rummy.start_game(deck_cards, div, webxdc, event_rows);
+
+    const player2_name = "Player Two";
+    lyn_rummy.start_game(
+        deck_cards,
+        div,
+        webxdc,
+        event_rows,
+        player1_name,
+        player2_name,
+    );
 }
 
 class GameFinder {
@@ -147,6 +158,7 @@ class GameFinder {
                         game_id,
                         json_cards,
                         div,
+                        message_row.sender_name(),
                         is_spectator,
                     );
                 },

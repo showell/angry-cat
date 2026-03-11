@@ -12,6 +12,10 @@ export function is_me(user_id: number): boolean {
     return user_id === DB.current_user_id;
 }
 
+export function current_user_name(): string {
+    return DB.user_map.get(DB.current_user_id)!.full_name;
+}
+
 // STREAMS
 //
 export function get_channel_rows(): ChannelRow[] {

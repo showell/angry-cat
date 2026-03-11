@@ -3450,7 +3450,7 @@ export function gui() {
     };
 
     const event_rows: EventRow[] = [];
-    start_game(deck_cards, container, webxdc, event_rows);
+    start_game(deck_cards, container, webxdc, event_rows, "Susan", "Lyn");
 }
 
 export function start_game(
@@ -3458,6 +3458,8 @@ export function start_game(
     container: HTMLElement,
     webxdc: WebXdc,
     event_rows: EventRow[],
+    player1_name: string,
+    player2_name: string,
 ) {
     TheDeck = new Deck(deck_cards);
     DragDropHelper = new DragDropHelperSingleton();
@@ -3468,7 +3470,7 @@ export function start_game(
     TheGame = new Game();
     CurrentBoard = initial_board();
     GameEventTracker = new GameEventTrackerSingleton(webxdc);
-    PlayerGroup = new PlayerGroupSingleton(["Susan", "Lyn"]);
+    PlayerGroup = new PlayerGroupSingleton([player1_name, player2_name]);
     ActivePlayer.start_turn();
     new MainGamePage(container);
 
