@@ -35,6 +35,30 @@ async function fetch_users(): Promise<User[]> {
     });
 }
 
+function convert_server_reactions(reactions: any[]): Reaction[] {
+    const raw_reactions = reactions.filter(
+        (reaction: any) => reaction.reaction_type === "unicode_emoji",
+    );
+    // Maps emoji name to a Reaction object.
+    const reaction_map = new Map<string, Reaction>();
+
+    for (const raw_reaction of raw_reactions) {
+        if (!reaction_map.has(raw_reaction.emoji_name)) {
+            const reaction: Reaction = {
+                emoji_code: raw_reaction.emoji_code,
+                emoji_name: raw_reaction.emoji_name,
+                user_ids: [raw_reaction.user_id],
+            };
+            reaction_map.set(raw_reaction.emoji_name, reaction);
+        } else {
+            reaction_map
+                .get(raw_reaction.emoji_name)!
+                .user_ids.push(raw_reaction.user_id);
+        }
+    }
+    return [...reaction_map.values()];
+}
+
 export async function fetch_model_data(): Promise<Database> {
     console.log("start fetch");
 
@@ -76,26 +100,7 @@ export async function fetch_model_data(): Promise<Database> {
             const unread =
                 row.flags.find((flag: string) => flag === "read") === undefined;
 
-            const raw_reactions = row.reactions.filter(
-                (reaction: any) => reaction.reaction_type === "unicode_emoji",
-            );
-            // Maps emoji name to a Reaction object.
-            const reaction_map = new Map<string, Reaction>();
-
-            for (const raw_reaction of raw_reactions) {
-                if (!reaction_map.has(raw_reaction.emoji_name)) {
-                    const reaction: Reaction = {
-                        emoji_code: raw_reaction.emoji_code,
-                        emoji_name: raw_reaction.emoji_name,
-                        user_ids: [raw_reaction.user_id],
-                    };
-                    reaction_map.set(raw_reaction.emoji_name, reaction);
-                } else {
-                    reaction_map
-                        .get(raw_reaction.emoji_name)!
-                        .user_ids.push(raw_reaction.user_id);
-                }
-            }
+            const reactions = convert_server_reactions(row.reactions);
 
             const message: Message = {
                 code_snippets: [],
@@ -109,7 +114,7 @@ export async function fetch_model_data(): Promise<Database> {
                 timestamp: row.timestamp,
                 topic_id: topic.topic_id,
                 type: row.type,
-                reactions: [...reaction_map.values()],
+                reactions,
                 unread,
             };
             if (message.reactions.length > 0) {
