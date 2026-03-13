@@ -72,14 +72,28 @@ export async function start_polling(event_handler: EventHandler) {
     }
 }
 
-export async function get_messages(num_before: number) {
+export type ServerMessage = {
+    content: string;
+    flags: string[];
+    id: number;
+    reactions: any[];
+    sender_email: string;
+    sender_full_name: string;
+    sender_id: number;
+    stream_id: number;
+    subject: string;
+    timestamp: number;
+    type: "stream";
+};
+
+export async function get_messages(anchor: string, num_before: number) {
     const url = new URL(`/api/v1/messages`, config.get_current_realm_url());
     url.searchParams.set("narrow", `[]`);
     url.searchParams.set("num_before", JSON.stringify(num_before));
-    url.searchParams.set("anchor", "newest");
+    url.searchParams.set("anchor", anchor);
     const response = await fetch(url, { headers: get_headers() });
     const data = await response.json();
-    return data.messages;
+    return data;
 }
 
 export async function get_users() {

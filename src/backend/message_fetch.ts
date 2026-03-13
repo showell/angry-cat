@@ -1,34 +1,37 @@
 import type { Database } from "./database";
 import type { Message } from "./db_types";
+import type { ServerMessage } from "./zulip_client";
 
 import * as parse from "./parse";
 import * as zulip_client from "./zulip_client";
 
-type ServerMessage = {
-    content: string;
-    flags: string[];
-    id: number;
-    reactions: any[];
-    sender_email: string;
-    sender_full_name: string;
-    sender_id: number;
-    stream_id: number;
-    subject: string;
-    timestamp: number;
-    type: "stream";
-};
-
 const INITIAL_BATCH_SIZE = 2000;
 
-export async function fetch_initial_messages(db: Database): Promise<void> {
-    const rows = await zulip_client.get_messages(INITIAL_BATCH_SIZE);
+type State = {
+    found_oldest: boolean;
+    oldest_id: number;
+};
 
-    await process_message_rows_from_server(db, rows);
+let STATE: State;
+
+export async function fetch_initial_messages(db: Database): Promise<void> {
+    const data = await zulip_client.get_messages("newest", INITIAL_BATCH_SIZE);
+
+    STATE = {
+        found_oldest: data.found_oldest,
+        oldest_id: data.messages[0].id,
+    };
+
+    await process_message_rows_from_server(db, data.messages);
 
     console.log(`${db.message_map.size} messages fetched!`);
+    console.log(STATE);
 }
 
-async function process_message_rows_from_server(db: Database, rows: ServerMessage[]): Promise<void> {
+async function process_message_rows_from_server(
+    db: Database,
+    rows: ServerMessage[],
+): Promise<void> {
     const messages: Message[] = rows
         .filter((row) => row.type === "stream")
         .map((row) => {
