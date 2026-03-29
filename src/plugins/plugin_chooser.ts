@@ -5,7 +5,6 @@ import { APP } from "../app";
 import * as code_search from "./code_search";
 import * as event_radio from "./event_radio";
 import * as github_search from "./github_search";
-import * as recent_conversations from "./recent_conversations";
 
 export function plugin(plugin_helper: PluginHelper) {
     const div = document.createElement("div");
@@ -26,7 +25,6 @@ export function plugin(plugin_helper: PluginHelper) {
     add_plugin("Event Radio", event_radio.plugin);
     add_plugin("Code Search", code_search.plugin);
     add_plugin("GitHub Search", github_search.plugin);
-    add_plugin("Recent Conversations", recent_conversations.plugin);
 
     plugin_helper.update_label("Plugins");
 
