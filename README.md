@@ -11,21 +11,27 @@ We are hosted now (*as of March 2026*) on
 and our primary Zulip server is
 [macandcheese](https://macandcheese.zulipchat.com/).
 
-## Initial setup
 
-Install vite:
+## Initial development setup
 
-`npm install vite --save-dev`
+We assume you have a somewhat typical npm setup from
+developing other TypeScript projects. Most of the
+development has happened on WSL instances on Windows
+machines running Ubuntu, but you should be able to
+develop on any linux distro and maybe even MacOS (not
+tested).
 
-Install oxlint:
-
-`npm add -D oxlint`
-
-Install biome:
-
-`npm i -D --save-exact @biomejs/biome`
+Install vite: `npm install vite --save-dev`
+Install oxlint: `npm add -D oxlint`
+Install biome: `npm i -D --save-exact @biomejs/biome`
 
 ## Create a local src/test_config.ts file
+
+When you have the TS compiler running in watch
+mode, you will get some noise when it tries to
+compile `fetch.ts`.  Some developers don't care
+about running `fetch.ts`, but you still want to
+suppress this annoyance, and it's easy to do.
 
 Create a file like this named `src/test_config.ts`
 in order to use node for running ad-hoc queries
