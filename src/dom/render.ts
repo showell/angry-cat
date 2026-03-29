@@ -45,7 +45,7 @@ export function render_tr(divs: HTMLElement[]): HTMLElement {
 
     for (const div of divs) {
         const td = document.createElement("td");
-        td.style.verticalAlign = "bottom";
+        td.style.verticalAlign = "top";
         td.style.padding = "4px";
         td.append(div);
         tr.append(td);
