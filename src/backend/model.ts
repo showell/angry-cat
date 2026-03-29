@@ -80,6 +80,10 @@ export function get_topic_rows(stream_id: number): TopicRow[] {
 
 // MESSAGES
 
+export function all_messages(): Message[] {
+    return [...DB.message_map.values()];
+}
+
 export function filtered_messages(filter: Filter): Message[] {
     const result = [];
     for (const message of DB.message_map.values()) {

@@ -1,13 +1,11 @@
-import type { Message } from "../backend/db_types";
-
 import type { PluginHelper } from "../plugin_helper";
 import { APP } from "../app";
 import * as model from "../backend/model";
 
-import { DB } from "../backend/database";
-import { Address } from "../address";
 import { RowWidget, table } from "../dom/table_widget";
+
 import { render_message_content } from "../message_content";
+import { MessageRow } from "../row_types";
 
 export function plugin(plugin_helper: PluginHelper) {
     const div = document.createElement("div");
@@ -15,41 +13,40 @@ export function plugin(plugin_helper: PluginHelper) {
 
     plugin_helper.update_label("Recent conversations");
 
-    const filter = {
-        predicate(_message: Message) {
-            return true;
-        },
-    };
-
-    const messages = model.filtered_messages(filter);
+    const messages = model.all_messages();
     messages.sort((a, b) => b.timestamp - a.timestamp);
-    const channel_topic_map = new Map<number, Address>();
+
+    const used_topic_ids = new Set<number>();
+    const recent_message_rows = [];
 
     for (const message of messages) {
-        const key = message.topic_id;
-        if (channel_topic_map.has(key)) continue;
-        channel_topic_map.set(key, {
-            channel_id: message.stream_id!,
-            message_id: message.id!,
-            topic_id: message.topic_id!,
-        });
+        const topic_id = message.topic_id;
+
+        if (used_topic_ids.has(topic_id)) continue;
+        used_topic_ids.add(topic_id);
+
+        recent_message_rows.push(new MessageRow(message));
+
+        if (recent_message_rows.length >= 30) break;
     }
 
     const rows = [];
-    for (const [_key, address] of channel_topic_map.entries()) {
+    for (const message_row of recent_message_rows) {
+        const channel_name = message_row.stream_name();
+        const topic_name = message_row.topic_name();
+        const content = message_row.content();
+        const address = message_row.address();
+
         const channel_cell = document.createElement("div");
         const topic_cell = document.createElement("div");
         const message_cell = document.createElement("div");
 
         message_cell.style.maxWidth = "400px";
-        channel_cell.innerText = DB.channel_map.get(address.channel_id!)!.name;
-        topic_cell.innerText = DB.topic_map.get(address.topic_id!)!.topic_name;
+        channel_cell.innerText = channel_name;
+        topic_cell.innerText = topic_name;
 
-        message_cell.append(
-            render_message_content(
-                DB.message_map.get(address.message_id!)!.content,
-            ),
-        );
+        message_cell.append(render_message_content(content));
+
         topic_cell.addEventListener("click", () => {
             APP.add_search_widget(address);
         });
