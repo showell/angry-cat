@@ -12,7 +12,7 @@ function render_topic_count(count: number): HTMLDivElement {
     return div;
 }
 
-function render_topic_name(topic_name: string): HTMLDivElement {
+export function render_topic_name(topic_name: string): HTMLDivElement {
     const div = document.createElement("div");
     div.innerText = "> " + topic_name;
     div.style.maxWidth = "270px";

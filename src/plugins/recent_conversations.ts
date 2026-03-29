@@ -3,9 +3,23 @@ import { APP } from "../app";
 import * as model from "../backend/model";
 
 import { RowWidget, table } from "../dom/table_widget";
+import { render_topic_name } from "../dom/topic_row_widget";
 
 import { render_message_content } from "../message_content";
 import { MessageRow } from "../row_types";
+
+function build_topic_cell(message_row: MessageRow): HTMLDivElement {
+    const topic_name = message_row.topic_name();
+    const address = message_row.address();
+
+    const div = render_topic_name(topic_name);
+
+    div.addEventListener("click", () => {
+        APP.add_search_widget(address);
+    });
+
+    return div;
+}
 
 export function plugin(plugin_helper: PluginHelper) {
     const div = document.createElement("div");
@@ -33,23 +47,16 @@ export function plugin(plugin_helper: PluginHelper) {
     const rows = [];
     for (const message_row of recent_message_rows) {
         const channel_name = message_row.stream_name();
-        const topic_name = message_row.topic_name();
         const content = message_row.content();
-        const address = message_row.address();
 
         const channel_cell = document.createElement("div");
-        const topic_cell = document.createElement("div");
+        const topic_cell = build_topic_cell(message_row); // has click handler
         const message_cell = document.createElement("div");
 
         message_cell.style.maxWidth = "400px";
         channel_cell.innerText = channel_name;
-        topic_cell.innerText = topic_name;
 
         message_cell.append(render_message_content(content));
-
-        topic_cell.addEventListener("click", () => {
-            APP.add_search_widget(address);
-        });
 
         const row_widget: RowWidget = {
             divs: [channel_cell, topic_cell, message_cell],
