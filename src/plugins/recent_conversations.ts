@@ -2,7 +2,7 @@ import type { PluginHelper } from "../plugin_helper";
 import { APP } from "../app";
 import * as model from "../backend/model";
 
-import { RowWidget, table } from "../dom/table_widget";
+import * as table_widget from "../dom/table_widget";
 import { render_topic_name } from "../dom/topic_row_widget";
 
 import { render_message_content } from "../message_content";
@@ -22,9 +22,6 @@ function build_topic_cell(message_row: MessageRow): HTMLDivElement {
 }
 
 export function plugin(plugin_helper: PluginHelper) {
-    const div = document.createElement("div");
-    div.style.maxWidth = "100vw";
-
     plugin_helper.update_label("Recent conversations");
 
     const messages = model.all_messages();
@@ -58,13 +55,29 @@ export function plugin(plugin_helper: PluginHelper) {
 
         message_cell.append(render_message_content(content));
 
-        const row_widget: RowWidget = {
+        const row_widget: table_widget.RowWidget = {
             divs: [channel_cell, topic_cell, message_cell],
         };
         rows.push(row_widget);
     }
-    const table_widget = table(["Channel", "Topic", "Last message"], rows);
-    div.append(table_widget);
+
+    const table = table_widget.table(
+        ["Channel", "Topic", "Last message"],
+        rows,
+    );
+
+    const inner_div = document.createElement("div");
+    inner_div.style.maxHeight = "82vh";
+    inner_div.style.overflow = "auto";
+
+    inner_div.append(table);
+
+    const div = document.createElement("div");
+    div.style.paddingTop = "15px";
+    div.style.maxHeight = "fit-content";
+    div.style.maxWidth = "fit-content";
+
+    div.append(inner_div);
 
     return { div };
 }
