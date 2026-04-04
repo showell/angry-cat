@@ -1,12 +1,10 @@
 import type { Update, UpdateListener, WebXdc } from "../backend/webxdc";
 import {
-    CardValue,
     OriginDeck,
     Suit,
     CardColor,
     type JsonCard,
     Card,
-    is_pair_of_dups,
     value_str,
     suit_emoji_str,
     all_suits,
