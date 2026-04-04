@@ -29,6 +29,8 @@ function build_table(): HTMLElement {
     const messages = model.all_messages();
     messages.sort((a, b) => b.timestamp - a.timestamp);
 
+    const grouped = model.messages_grouped_by_topic();
+
     const used_topic_ids = new Set<number>();
     const recent_message_rows = [];
 
@@ -48,7 +50,7 @@ function build_table(): HTMLElement {
         const channel_name = message_row.stream_name();
         const content = message_row.content();
         const topic_id = message_row.topic_id();
-        const topic_messages = model.messages_for_topic(topic_id);
+        const topic_messages = grouped.get(topic_id) ?? [];
         const participants = model.participants_for_messages(topic_messages);
 
         const channel_cell = document.createElement("div");

@@ -84,6 +84,20 @@ export function all_messages(): Message[] {
     return [...DB.message_map.values()];
 }
 
+export function messages_grouped_by_topic(): Map<number, Message[]> {
+    const map = new Map<number, Message[]>();
+    for (const message of DB.message_map.values()) {
+        const topic_id = message.topic_id;
+        const group = map.get(topic_id);
+        if (group) {
+            group.push(message);
+        } else {
+            map.set(topic_id, [message]);
+        }
+    }
+    return map;
+}
+
 export function filtered_messages(filter: Filter): Message[] {
     const result = [];
     for (const message of DB.message_map.values()) {
