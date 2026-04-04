@@ -47,23 +47,33 @@ function build_table(): HTMLElement {
     for (const message_row of recent_message_rows) {
         const channel_name = message_row.stream_name();
         const content = message_row.content();
+        const topic_id = message_row.topic_id();
+        const topic_messages = model.messages_for_topic(topic_id);
+        const participants = model.participants_for_messages(topic_messages);
 
         const channel_cell = document.createElement("div");
         const topic_cell = build_topic_cell(message_row);
         const message_cell = document.createElement("div");
+        const senders_cell = document.createElement("div");
 
         message_cell.style.maxWidth = "400px";
         channel_cell.innerText = channel_name;
+        senders_cell.innerText = participants
+            .map((u) => u.full_name)
+            .join(", ");
 
         message_cell.append(render_message_content(content));
 
         const row_widget: table_widget.RowWidget = {
-            divs: [channel_cell, topic_cell, message_cell],
+            divs: [channel_cell, topic_cell, senders_cell, message_cell],
         };
         rows.push(row_widget);
     }
 
-    return table_widget.table(["Channel", "Topic", "Last message"], rows);
+    return table_widget.table(
+        ["Channel", "Topic", "Senders", "Last message"],
+        rows,
+    );
 }
 
 class RecentConversations {

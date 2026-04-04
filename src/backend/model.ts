@@ -46,7 +46,7 @@ export function stream_name_for(stream_id: number): string {
 
 // TOPICS
 
-export function message_for_topic(topic_id: number): Message[] {
+export function messages_for_topic(topic_id: number): Message[] {
     // The index can return false positives, so be careful (due
     // to topic moves), but it will be a superset of the ids
     // that match on topic (and generally much smaller than the

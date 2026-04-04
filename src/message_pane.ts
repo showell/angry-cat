@@ -18,7 +18,7 @@ export class MessagePane {
         const topic_line = new MessageViewHeader(topic_row);
         const topic_id = topic_row.topic_id();
 
-        const messages = model.message_for_topic(topic_id);
+        const messages = model.messages_for_topic(topic_id);
 
         const filter: Filter = {
             predicate(message) {

@@ -71,7 +71,7 @@ export class NetworkHelper {
             return [];
         }
 
-        const messages = model.message_for_topic(topic_id);
+        const messages = model.messages_for_topic(topic_id);
 
         const rows = [];
 
@@ -97,7 +97,7 @@ export class NetworkHelper {
         const topic_name = `__${category}_${key}__`;
         const topic_id = DB.topic_map.get_topic_id(channel_id, topic_name);
 
-        const messages = model.message_for_topic(topic_id);
+        const messages = model.messages_for_topic(topic_id);
 
         if (messages.length === 0) {
             return undefined;
