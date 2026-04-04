@@ -47,8 +47,13 @@ class TextArea {
         this.add_paste_handler();
     }
 
+    async upload_file(file: File): Promise<void> {
+        this.insert_text(`[${file.name}]` + "(");
+        const url = await zulip_client.upload_file(file);
+        this.insert_text(url + ")");
+    }
+
     add_paste_handler(): void {
-        const self = this;
         const elem = this.elem;
 
         elem.addEventListener("paste", (event) => {
@@ -67,13 +72,7 @@ class TextArea {
                 return;
             }
 
-            async function add_upload_link() {
-                self.insert_text(`[${file.name}]` + "(");
-                const url = await zulip_client.upload_file(file);
-                self.insert_text(url + ")");
-            }
-
-            add_upload_link();
+            this.upload_file(file);
         });
     }
 
@@ -139,6 +138,22 @@ export class ComposeBox {
 
         const div = compose_widget.button_row_div();
 
+        const file_input = document.createElement("input");
+        file_input.type = "file";
+        file_input.style.display = "none";
+        file_input.addEventListener("change", () => {
+            const file = file_input.files?.[0];
+            if (file) {
+                self.textarea.upload_file(file);
+                file_input.value = "";
+            }
+        });
+        div.append(file_input);
+
+        const upload_button = new Button("Upload", 100, () => {
+            file_input.click();
+        });
+
         const send_button = new Button("Send", 100, () => {
             // TODO: save draft
             const content = self.get_content_to_send();
@@ -148,6 +163,7 @@ export class ComposeBox {
         });
 
         div.append(send_button.div);
+        div.append(upload_button.div);
 
         return div;
     }
