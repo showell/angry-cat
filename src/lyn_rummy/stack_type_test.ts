@@ -18,23 +18,41 @@ function cards(...labels: string[]): Card[] {
 
 // pure run (same suit, sequential)
 {
-    assert.equal(get_stack_type(cards("AH", "2H", "3H")), CardStackType.PURE_RUN);
-    assert.equal(get_stack_type(cards("TD", "JD", "QD", "KD")), CardStackType.PURE_RUN);
+    assert.equal(
+        get_stack_type(cards("AH", "2H", "3H")),
+        CardStackType.PURE_RUN,
+    );
+    assert.equal(
+        get_stack_type(cards("TD", "JD", "QD", "KD")),
+        CardStackType.PURE_RUN,
+    );
 
     // K wraps to A in Lyn Rummy
-    assert.equal(get_stack_type(cards("KS", "AS", "2S")), CardStackType.PURE_RUN);
+    assert.equal(
+        get_stack_type(cards("KS", "AS", "2S")),
+        CardStackType.PURE_RUN,
+    );
 }
 
 // red/black alternating run
 {
-    assert.equal(get_stack_type(cards("AH", "2S", "3H")), CardStackType.RED_BLACK_RUN);
-    assert.equal(get_stack_type(cards("AC", "2H", "3C", "4H")), CardStackType.RED_BLACK_RUN);
+    assert.equal(
+        get_stack_type(cards("AH", "2S", "3H")),
+        CardStackType.RED_BLACK_RUN,
+    );
+    assert.equal(
+        get_stack_type(cards("AC", "2H", "3C", "4H")),
+        CardStackType.RED_BLACK_RUN,
+    );
 }
 
 // set (same value, different suits, no dups)
 {
     assert.equal(get_stack_type(cards("7S", "7D", "7C")), CardStackType.SET);
-    assert.equal(get_stack_type(cards("AC", "AD", "AH", "AS")), CardStackType.SET);
+    assert.equal(
+        get_stack_type(cards("AC", "AD", "AH", "AS")),
+        CardStackType.SET,
+    );
 }
 
 // dup (same value and suit)
@@ -48,7 +66,10 @@ function cards(...labels: string[]): Card[] {
     const seven_s1 = Card.from("7S", D1);
     const seven_s2 = Card.from("7S", D2);
     const seven_d = Card.from("7D", D1);
-    assert.equal(get_stack_type([seven_s1, seven_s2, seven_d]), CardStackType.DUP);
+    assert.equal(
+        get_stack_type([seven_s1, seven_s2, seven_d]),
+        CardStackType.DUP,
+    );
 }
 
 // bogus (inconsistent or invalid)

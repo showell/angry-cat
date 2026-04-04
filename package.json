@@ -11,7 +11,7 @@
     "dev": "vite",
     "fetch": "vite-node src/fetch.ts",
     "test": "vite-node src/test.ts",
-    "check": "tsc --noEmit && oxlint && biome format --write src/*.ts src/*/*.ts && vite-node src/lyn_rummy/card_test.ts && vite-node src/lyn_rummy/stack_type_test.ts",
+    "check": "tsc --noEmit && oxlint && biome format --write src/*.ts src/*/*.ts && vite-node src/lyn_rummy/card_test.ts && vite-node src/lyn_rummy/stack_type_test.ts && vite-node src/lyn_rummy/card_stack_test.ts",
     "build": "vite build",
     "lint": "oxlint",
     "format": "biome format --write src/*.ts src/*/*.ts"

@@ -32,14 +32,22 @@ import {
 
 // Card construction, str, from, equals, clone, JSON roundtrip
 {
-    const ace_of_hearts = new Card(CardValue.ACE, Suit.HEART, OriginDeck.DECK_ONE);
+    const ace_of_hearts = new Card(
+        CardValue.ACE,
+        Suit.HEART,
+        OriginDeck.DECK_ONE,
+    );
     assert.equal(ace_of_hearts.value, CardValue.ACE);
     assert.equal(ace_of_hearts.suit, Suit.HEART);
     assert.equal(ace_of_hearts.color, CardColor.RED);
     assert.equal(ace_of_hearts.origin_deck, OriginDeck.DECK_ONE);
     assert.equal(ace_of_hearts.str(), "A\u2665");
 
-    const two_of_spades = new Card(CardValue.TWO, Suit.SPADE, OriginDeck.DECK_ONE);
+    const two_of_spades = new Card(
+        CardValue.TWO,
+        Suit.SPADE,
+        OriginDeck.DECK_ONE,
+    );
     assert.equal(two_of_spades.color, CardColor.BLACK);
     assert.equal(two_of_spades.str(), "2\u2660");
 
@@ -78,8 +86,8 @@ import {
     const ace_s1 = new Card(CardValue.ACE, Suit.SPADE, OriginDeck.DECK_ONE);
     const two_h1 = new Card(CardValue.TWO, Suit.HEART, OriginDeck.DECK_ONE);
 
-    assert.ok(is_pair_of_dups(ace_h1, ace_h2));  // same value+suit, different deck
-    assert.ok(is_pair_of_dups(ace_h1, ace_h1));  // same value+suit, same deck — still a dup
+    assert.ok(is_pair_of_dups(ace_h1, ace_h2)); // same value+suit, different deck
+    assert.ok(is_pair_of_dups(ace_h1, ace_h1)); // same value+suit, same deck — still a dup
     assert.ok(!is_pair_of_dups(ace_h1, ace_s1)); // different suit
     assert.ok(!is_pair_of_dups(ace_h1, two_h1)); // different value
 }
