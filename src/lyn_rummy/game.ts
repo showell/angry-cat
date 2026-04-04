@@ -360,6 +360,11 @@ class Player {
         return this.player_turn.get_score();
     }
 
+    get_board_delta(): number {
+        assert(this.player_turn !== undefined);
+        return CurrentBoard.score() - this.player_turn.starting_board_score;
+    }
+
     get_updated_score(): number {
         if (CurrentBoard.is_clean() && this.player_turn && this.active) {
             this.total_score =
@@ -1728,6 +1733,11 @@ class UndoButton {
     }
 }
 
+function clean_board_message(prefix: string): string {
+    const delta = ActivePlayer.player_turn ? ActivePlayer.get_board_delta() : 0;
+    return `${prefix} Your board delta for this turn is ${delta}.`;
+}
+
 let EventManager: EventManagerSingleton;
 
 class EventManagerSingleton {
@@ -1863,7 +1873,7 @@ class EventManagerSingleton {
         BoardArea.populate();
 
         if (CurrentBoard.is_clean()) {
-            StatusBar.celebrate("You are back with a clean board!");
+            StatusBar.celebrate(clean_board_message("Back to a clean board!"));
         } else {
             StatusBar.scold("You still are in a bad state!");
         }
@@ -1905,7 +1915,13 @@ class EventManagerSingleton {
 
         if (size >= 3) {
             SoundEffects.play_ding_sound();
-            StatusBar.celebrate("Combined!");
+            if (CurrentBoard.is_clean()) {
+                StatusBar.celebrate(
+                    clean_board_message("Combined! Clean board!"),
+                );
+            } else {
+                StatusBar.celebrate("Combined!");
+            }
         } else {
             StatusBar.scold("Nice, but where's the third card?");
         }

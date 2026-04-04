@@ -74,4 +74,24 @@ function stack_from(...labels: string[]): CardStack {
     assert.equal(Score.for_cards_played(3), 1100);
 }
 
+// The same 9 cards arranged as three pure runs vs three sets.
+// A/2/3 of hearts, spades, diamonds can go either way.
+{
+    const runs_score = Score.for_stacks([
+        stack_from("AH", "2H", "3H"),
+        stack_from("AS", "2S", "3S"),
+        stack_from("AD", "2D", "3D"),
+    ]);
+
+    const sets_score = Score.for_stacks([
+        stack_from("AH", "AS", "AD"),
+        stack_from("2H", "2S", "2D"),
+        stack_from("3H", "3S", "3D"),
+    ]);
+
+    assert.equal(runs_score, 300); // 3 * (3-2) * 100
+    assert.equal(sets_score, 180); // 3 * (3-2) * 60
+    assert.ok(runs_score > sets_score, "pure runs should outscore sets");
+}
+
 console.log("All score tests passed.");
