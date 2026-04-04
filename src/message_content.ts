@@ -106,12 +106,20 @@ function fix_images(img: HTMLImageElement) {
         return;
     }
 
+    const dims = img.getAttribute("data-original-dimensions");
+    if (dims) {
+        const [w, h] = dims.split("x").map(Number);
+        img.style.width = w + "px";
+        img.style.height = h + "px";
+    }
+
     img.removeAttribute("src");
 
     async function use_temporary_url() {
         const temp_src = await get_temporary_upload(src);
         img.src = temp_src;
         img.style.width = "90%";
+        img.style.height = "auto";
 
         img.addEventListener("click", (e) => {
             images.show_image_in_popup(img.src);
