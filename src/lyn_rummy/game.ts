@@ -304,6 +304,10 @@ class PlayerTurn {
         this.cards_played_during_turn += 1;
     }
 
+    undo_score_after_move() {
+        this.cards_played_during_turn -= 1;
+    }
+
     revoke_empty_hand_bonuses() {
         this.empty_hand_bonus = 0;
         this.victory_bonus = 0;
@@ -425,9 +429,7 @@ class Player {
 
         this.hand.add_cards([hand_card.card], HandCardState.BACK_FROM_BOARD);
 
-        // they get a bonus for playing a card
-        assert(this.player_turn !== undefined);
-        this.player_turn.update_score_after_move();
+        this.player_turn.undo_score_after_move();
     }
 
     release_card(hand_card: HandCard) {
