@@ -31,14 +31,7 @@ export type {
 } from "./card_stack";
 export { CardStack } from "./card_stack";
 import { Score } from "./score";
-
-enum CompleteTurnResult {
-    SUCCESS,
-    SUCCESS_BUT_NEEDS_CARDS,
-    SUCCESS_WITH_HAND_EMPTIED,
-    SUCCESS_AS_VICTOR,
-    FAILURE,
-}
+import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 
 enum GameEventType {
     ADVANCE_TURN,
@@ -255,84 +248,6 @@ class Hand {
     }
 }
 
-class PlayerTurn {
-    starting_board_score: number;
-    cards_played_during_turn: number;
-    empty_hand_bonus: number;
-    victory_bonus: number;
-
-    constructor() {
-        this.starting_board_score = CurrentBoard.score();
-        this.cards_played_during_turn = 0;
-        this.empty_hand_bonus = 0;
-        this.victory_bonus = 0;
-    }
-
-    get_score(): number {
-        const board_score = CurrentBoard.score() - this.starting_board_score;
-        const cards_score = Score.for_cards_played(
-            this.cards_played_during_turn,
-        );
-
-        return (
-            board_score +
-            cards_score +
-            this.victory_bonus +
-            this.empty_hand_bonus
-        );
-    }
-
-    get_num_cards_played(): number {
-        return this.cards_played_during_turn;
-    }
-
-    emptied_hand(): boolean {
-        return this.empty_hand_bonus > 0;
-    }
-
-    got_victory_bonus(): boolean {
-        return this.victory_bonus > 0;
-    }
-
-    update_score_after_move() {
-        // We get called once and only once each time
-        // a card is released to the board.
-        this.cards_played_during_turn += 1;
-    }
-
-    undo_score_after_move() {
-        this.cards_played_during_turn -= 1;
-    }
-
-    revoke_empty_hand_bonuses() {
-        this.empty_hand_bonus = 0;
-        this.victory_bonus = 0;
-    }
-
-    update_score_for_empty_hand() {
-        this.empty_hand_bonus = 1000;
-
-        if (TheGame.declares_me_victor()) {
-            this.victory_bonus = 500;
-        }
-    }
-
-    turn_result(): CompleteTurnResult {
-        if (this.get_num_cards_played() === 0) {
-            return CompleteTurnResult.SUCCESS_BUT_NEEDS_CARDS;
-        } else if (this.emptied_hand()) {
-            if (this.got_victory_bonus()) {
-                return CompleteTurnResult.SUCCESS_AS_VICTOR;
-            } else {
-                return CompleteTurnResult.SUCCESS_WITH_HAND_EMPTIED;
-            }
-        } else {
-            // vanilla success...we played some cards
-            return CompleteTurnResult.SUCCESS;
-        }
-    }
-}
-
 let ActivePlayer: Player;
 
 class Player {
@@ -357,7 +272,7 @@ class Player {
 
     get_turn_score(): number {
         assert(this.player_turn !== undefined);
-        return this.player_turn.get_score();
+        return this.player_turn.get_score(CurrentBoard.score());
     }
 
     get_board_delta(): number {
@@ -378,7 +293,7 @@ class Player {
         this.show = true;
         this.active = true;
         this.num_drawn = 0; // only used after end_turn
-        this.player_turn = new PlayerTurn();
+        this.player_turn = new PlayerTurn(CurrentBoard.score());
     }
 
     end_turn(): CompleteTurnResult {
@@ -439,7 +354,9 @@ class Player {
 
         // When we empty our hand, we get additional bonuses.
         if (this.hand.is_empty()) {
-            this.player_turn.update_score_for_empty_hand();
+            this.player_turn.update_score_for_empty_hand(
+                TheGame.declares_me_victor(),
+            );
         }
     }
 
