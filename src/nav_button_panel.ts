@@ -51,8 +51,12 @@ export class ButtonPanel {
         this.div = div;
     }
 
-    update(info: { channel_selected: boolean; topic_selected: boolean }): void {
-        const { channel_selected, topic_selected } = info;
+    update(info: {
+        channel_selected: boolean;
+        topic_selected: boolean;
+        has_unreads: boolean;
+    }): void {
+        const { channel_selected, topic_selected, has_unreads } = info;
 
         function show_if(button: Button, cond: boolean): void {
             if (cond) {
@@ -67,7 +71,7 @@ export class ButtonPanel {
 
         show_if(this.add_topic, channel_selected);
 
-        show_if(this.mark_topic_read, topic_selected);
+        show_if(this.mark_topic_read, has_unreads);
         show_if(this.reply, topic_selected);
     }
 }

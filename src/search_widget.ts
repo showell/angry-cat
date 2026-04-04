@@ -229,6 +229,7 @@ export class SearchWidget {
         this.button_panel.update({
             channel_selected: this.channel_selected(),
             topic_selected: this.topic_selected(),
+            has_unreads: this.topic_selected() && this.unread_count() > 0,
         });
     }
 
