@@ -53,11 +53,13 @@ function build_table(): HTMLElement {
         const topic_messages = grouped.get(topic_id) ?? [];
         const participants = model.participants_for_messages(topic_messages);
 
+        const count_cell = document.createElement("div");
         const channel_cell = document.createElement("div");
         const topic_cell = build_topic_cell(message_row);
-        const message_cell = document.createElement("div");
         const senders_cell = document.createElement("div");
+        const message_cell = document.createElement("div");
 
+        count_cell.innerText = String(topic_messages.length);
         message_cell.style.maxWidth = "400px";
         channel_cell.innerText = channel_name;
         senders_cell.innerText = participants
@@ -67,13 +69,19 @@ function build_table(): HTMLElement {
         message_cell.append(render_message_content(content));
 
         const row_widget: table_widget.RowWidget = {
-            divs: [channel_cell, topic_cell, senders_cell, message_cell],
+            divs: [
+                count_cell,
+                channel_cell,
+                topic_cell,
+                senders_cell,
+                message_cell,
+            ],
         };
         rows.push(row_widget);
     }
 
     return table_widget.table(
-        ["Channel", "Topic", "Senders", "Last message"],
+        ["Count", "Channel", "Topic", "Senders", "Last message"],
         rows,
     );
 }
