@@ -30,7 +30,7 @@ export class ScoreSingleton {
     }
 
     for_cards_played(num: number) {
-        if (num === 0) return 0;
+        if (num <= 0) return 0;
         const actually_played_bonus = 200;
         const progressive_points_for_played_cards = 100 * num * num;
         return actually_played_bonus + progressive_points_for_played_cards;

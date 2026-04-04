@@ -62,6 +62,7 @@ function stack_from(...labels: string[]): CardStack {
 
 // for_cards_played
 {
+    assert.equal(Score.for_cards_played(-1), 0);
     assert.equal(Score.for_cards_played(0), 0);
 
     // 1 card: 200 + 100*1*1 = 300

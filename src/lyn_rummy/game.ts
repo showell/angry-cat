@@ -282,10 +282,6 @@ class PlayerTurn {
         );
     }
 
-    roll_back_num_cards_played(num_cards_played: number): void {
-        this.cards_played_during_turn = num_cards_played;
-    }
-
     get_num_cards_played(): number {
         return this.cards_played_during_turn;
     }
@@ -455,11 +451,6 @@ class Player {
 
     cards_drawn_for_next_turn(): string {
         return pluralize(this.num_drawn, "more card");
-    }
-
-    roll_back_num_cards_played(num_cards_played: number): void {
-        assert(this.player_turn !== undefined);
-        this.player_turn.roll_back_num_cards_played(num_cards_played);
     }
 
     get_num_cards_played(): number {
