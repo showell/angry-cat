@@ -22,7 +22,7 @@ function render_message_box() {
     return div;
 }
 
-function render_sender_name(sender_name: string): HTMLElement {
+export function render_sender_name(sender_name: string): HTMLElement {
     const div = document.createElement("div");
     div.innerText = sender_name;
     div.style.fontWeight = "bold";

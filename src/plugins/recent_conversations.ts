@@ -10,6 +10,7 @@ import { render_topic_name } from "../dom/topic_row_widget";
 
 import { Button } from "../button";
 import { render_message_content } from "../message_content";
+import { render_sender_name } from "../message_row_widget";
 import { MessageRow } from "../row_types";
 
 function build_topic_cell(message_row: MessageRow): HTMLDivElement {
@@ -66,6 +67,7 @@ function build_table(): HTMLElement {
             .map((u) => u.full_name)
             .join(", ");
 
+        message_cell.append(render_sender_name(message_row.sender_name()));
         message_cell.append(render_message_content(content));
 
         const row_widget: table_widget.RowWidget = {
