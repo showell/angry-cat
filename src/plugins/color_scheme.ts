@@ -6,6 +6,7 @@ type SwatchEntry = {
     value: string;
     description: string;
     is_text_color?: boolean;
+    demo_bg?: string; // background to show text-color entries against, when not white
 };
 
 type SwatchGroup = {
@@ -27,6 +28,8 @@ const GROUPS: SwatchGroup[] = [
                 name: "on_primary",
                 value: colors.on_primary,
                 description: "Text on primary-colored surfaces (button labels)",
+                is_text_color: true,
+                demo_bg: colors.primary,
             },
             {
                 name: "primary_focus",
@@ -68,6 +71,7 @@ const GROUPS: SwatchGroup[] = [
                 value: colors.tab_inactive_text,
                 description: "Text color on background tabs",
                 is_text_color: true,
+                demo_bg: colors.tab_inactive_bg,
             },
         ],
     },
@@ -212,6 +216,11 @@ function render_swatch(entry: SwatchEntry): HTMLDivElement {
     desc_span.innerText = entry.description;
     desc_span.style.fontSize = "13px";
     desc_span.style.color = entry.is_text_color ? entry.value : colors.text_body;
+    if (entry.demo_bg) {
+        desc_span.style.backgroundColor = entry.demo_bg;
+        desc_span.style.padding = "1px 5px";
+        desc_span.style.borderRadius = "3px";
+    }
     row.append(desc_span);
 
     return row;
