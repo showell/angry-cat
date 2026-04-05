@@ -3,6 +3,7 @@ import * as database from "./backend/database";
 import { DB } from "./backend/database";
 import { EventHandler, type ZulipEvent } from "./backend/event";
 import * as message_fetch from "./backend/message_fetch";
+import * as event_queue from "./backend/event_queue";
 import * as zulip_client from "./backend/zulip_client";
 import * as config from "./config";
 import * as login_manager from "./login_manager";
@@ -58,11 +59,11 @@ export async function run() {
 
     // we wait for register to finish, but then polling goes
     // on "forever" asynchronously
-    await zulip_client.register_queue();
+    await event_queue.register_queue();
 
     await database.fetch_original_data();
 
-    zulip_client.start_polling(event_manager);
+    event_queue.start_polling(event_manager);
 
     app.init(page);
 

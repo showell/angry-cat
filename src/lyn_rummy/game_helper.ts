@@ -1,7 +1,7 @@
 import type { NetworkHelper, RowType } from "../backend/network";
 import type * as webxdc from "../backend/webxdc";
 
-import * as zulip_client from "../backend/zulip_client";
+import * as event_queue from "../backend/event_queue";
 import type { EventRow, JsonGameEvent } from "./game";
 
 export class GameHelper {
@@ -20,7 +20,7 @@ export class GameHelper {
         const network_helper = this.network_helper;
 
         return {
-            selfAddr: zulip_client.addr(),
+            selfAddr: event_queue.addr(),
             sendUpdate(update: webxdc.Update): void {
                 const json_game_event = update.payload as JsonGameEvent;
                 self.broadcast(json_game_event);

@@ -1,8 +1,7 @@
 import * as address from "./address";
 import { APP } from "./app";
+import { slash_join } from "./backend/api_helpers";
 import * as zulip_client from "./backend/zulip_client";
-
-import { slash_join } from "./backend/zulip_client";
 import * as config from "./config";
 import * as images from "./images";
 import * as popup from "./popup";

@@ -1,151 +1,16 @@
 import * as config from "../config";
-import { DB } from "./database";
 import type { Message } from "./db_types";
-import type { EventHandler, ZulipEvent } from "./event";
+import type { ZulipEvent } from "./event";
 import { EventFlavor } from "./event";
+import { api_form_request, api_get, api_url, get_headers, slash_join } from "./api_helpers";
+import { get_queue_id } from "./event_queue";
 
-let queue_id: string | undefined;
-let last_event_id: number | undefined;
 let local_id_seq = 0;
 
 export type MessageCallback = (message: Message) => void;
 type LocalIdType = string;
 
 const SENT_MESSAGE_CALLBACKS = new Map<LocalIdType, MessageCallback>();
-
-export function addr(): string {
-    return `${DB.current_user_id}-${queue_id}`;
-}
-
-export function slash_join(s1: string, s2: string): string {
-    return `${s1.replace(/\/+$/, "")}/${s2.replace(/^\/+/, "")}`;
-}
-
-function api_url(path: string): URL {
-    return new URL(`/api/v1/${path}`, config.get_current_realm_url());
-}
-
-function get_headers(): Record<string, string> {
-    const auth = btoa(
-        `${config.get_email_for_current_realm()}:${config.get_api_key_for_current_realm()}`,
-    );
-    return { Authorization: `Basic ${auth}` };
-}
-
-function form_headers(): Record<string, string> {
-    return {
-        ...get_headers(),
-        "Content-Type": "application/x-www-form-urlencoded",
-    };
-}
-
-const MAX_RETRIES = 3;
-
-async function with_retry(fn: () => Promise<Response>): Promise<Response> {
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        const response = await fn();
-        if (response.status !== 429) {
-            return response;
-        }
-        const retry_after = response.headers.get("Retry-After");
-        const wait_ms = retry_after ? parseFloat(retry_after) * 1000 : 1000;
-        console.warn(`Rate limited (429). Retrying in ${wait_ms}ms…`);
-        await new Promise<void>((resolve) => setTimeout(resolve, wait_ms));
-    }
-    return fn();
-}
-
-async function api_get(path: string, params?: Record<string, string>) {
-    const url = api_url(path);
-    if (params) {
-        for (const [key, value] of Object.entries(params)) {
-            url.searchParams.set(key, value);
-        }
-    }
-    const response = await with_retry(() =>
-        fetch(url, { headers: get_headers() }),
-    );
-    return response.json();
-}
-
-async function api_form_request(
-    method: string,
-    path: string,
-    params: Record<string, string>,
-): Promise<{ result: string; msg?: string }> {
-    const response = await with_retry(() =>
-        fetch(api_url(path), {
-            method,
-            headers: form_headers(),
-            body: new URLSearchParams(params).toString(),
-        }),
-    );
-    return response.json();
-}
-
-function assert_event_id(value: unknown): number {
-    if (!Number.isInteger(value)) {
-        throw new Error(`Expected integer event id, got: ${JSON.stringify(value)}`);
-    }
-    return value as number;
-}
-
-export async function register_queue() {
-    const url = api_url("register");
-    url.searchParams.set("apply_markdown", "true");
-    url.searchParams.set("include_subscribers", "false");
-    url.searchParams.set("slim_presence", "true");
-    url.searchParams.set("all_public_streams", "false");
-    url.searchParams.set("client", "Angry Cat (showell)");
-
-    const response = await with_retry(() =>
-        fetch(url, {
-            method: "POST",
-            headers: get_headers(),
-        }),
-    );
-    const data = await response.json();
-    queue_id = data.queue_id;
-    last_event_id = assert_event_id(data.last_event_id);
-}
-
-async function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function start_polling(event_handler: EventHandler) {
-    const url = api_url("events");
-
-    while (queue_id !== undefined) {
-        url.searchParams.set("queue_id", queue_id);
-        url.searchParams.set("last_event_id", last_event_id!.toString());
-
-        let data;
-        try {
-            const response = await fetch(url, { headers: get_headers() });
-            data = await response.json();
-        } catch (e) {
-            console.warn("Polling network error, retrying in 5s...", e);
-            await sleep(5000);
-            continue;
-        }
-
-        if (data.result !== "success") {
-            console.warn("Queue error, re-registering...", data.msg);
-            await register_queue();
-            // TODO: After re-registering, the in-memory model may be stale
-            // due to missed events during the gap. We should trigger a full
-            // data refresh here (e.g. re-fetch messages, re-sync unread state)
-            // before resuming normal polling.
-            continue;
-        }
-
-        if (data.events?.length) {
-            last_event_id = assert_event_id(data.events[data.events.length - 1].id);
-            event_handler.process_events(data.events);
-        }
-    }
-}
 
 export type ServerMessage = {
     content: string;
@@ -229,6 +94,8 @@ export function send_message(
     callback: MessageCallback,
     on_error?: (msg: string) => void,
 ): void {
+    const queue_id = get_queue_id();
+
     if (queue_id === undefined) {
         console.log("send_message called before queue initialized");
         return;
