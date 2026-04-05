@@ -21,9 +21,11 @@ const mode_label: Record<SortMode, string> = {
 
 export class SortCycle {
     mode: SortMode;
+    private labels: Record<SortMode, string>;
 
-    constructor() {
+    constructor(count_label: string) {
         this.mode = "alpha";
+        this.labels = { ...mode_label, count: count_label };
     }
 
     toggle(): void {
@@ -31,7 +33,7 @@ export class SortCycle {
     }
 
     label(): string {
-        return mode_label[this.mode];
+        return this.labels[this.mode];
     }
 }
 

@@ -30,6 +30,7 @@ export class TopicList {
 
         this.sort_controls = new SortControls({
             initial_max: this.all_topic_rows.length,
+            count_label: "Most Messages",
             on_change: () => {
                 this.populate_topic_rows();
                 this.redraw();

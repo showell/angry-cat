@@ -8,8 +8,12 @@ export class SortControls {
     batch_size: number;
     on_change: () => void;
 
-    constructor(info: { initial_max: number; on_change: () => void }) {
-        this.topic_sort = new SortCycle();
+    constructor(info: {
+        initial_max: number;
+        on_change: () => void;
+        count_label: string;
+    }) {
+        this.topic_sort = new SortCycle(info.count_label);
         this.batch_size = 10;
         this.on_change = info.on_change;
 
