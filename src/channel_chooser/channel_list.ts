@@ -5,6 +5,9 @@ import type { ChannelRow } from "../row_types";
 import * as channel_row_widget from "./channel_row_widget";
 import * as table_widget from "../dom/table_widget";
 
+import { SortControls } from "../sort_controls";
+import { sort_recent, get_display_rows } from "../grouping_sort";
+
 type Opts = {
     channel_id: number | undefined;
     handle_channel_chosen: (channel_id: number) => void;
@@ -16,17 +19,37 @@ export class ChannelList {
     channel_id: number | undefined;
     handle_channel_chosen: (channel_id: number) => void;
     handle_channel_cleared: () => void;
+    all_channel_rows: ChannelRow[];
     channel_rows: ChannelRow[];
+    sort_controls: SortControls;
 
     constructor(opts: Opts) {
         this.channel_id = opts.channel_id;
         this.handle_channel_chosen = opts.handle_channel_chosen;
         this.handle_channel_cleared = opts.handle_channel_cleared;
 
-        this.div = document.createElement("div");
+        // these get re-assigned in populate_channel_rows
+        this.all_channel_rows = [];
+        this.channel_rows = [];
 
-        this.channel_rows = this.populate_channel_rows();
+        this.populate_channel_rows();
+
+        this.sort_controls = new SortControls({
+            initial_max: this.all_channel_rows.length,
+            count_label: "Most Topics",
+            on_change: () => {
+                this.populate_channel_rows();
+                this.redraw();
+                this.sort_controls.repopulate(this.all_channel_rows.length);
+            },
+        });
+
+        this.div = document.createElement("div");
         this.redraw();
+    }
+
+    get_adjuster_div(): HTMLDivElement {
+        return this.sort_controls.div;
     }
 
     get_channel_id(): number | undefined {
@@ -39,7 +62,7 @@ export class ChannelList {
 
     get_channel_row(): ChannelRow | undefined {
         const channel_id = this.channel_id;
-        const channel_rows = this.channel_rows;
+        const channel_rows = this.all_channel_rows;
 
         if (channel_id === undefined) {
             return undefined;
@@ -48,16 +71,14 @@ export class ChannelList {
         return channel_rows.find((row) => row.stream_id() === channel_id);
     }
 
-    sort(channel_rows: ChannelRow[]) {
-        channel_rows.sort((c1, c2) => {
-            return c2.last_msg_id() - c1.last_msg_id();
-        });
-    }
-
-    populate_channel_rows(): ChannelRow[] {
-        const channel_rows = model.get_channel_rows();
-        this.sort(channel_rows);
-        return channel_rows;
+    populate_channel_rows(): void {
+        this.all_channel_rows = model.get_channel_rows();
+        sort_recent(this.all_channel_rows);
+        this.channel_rows = get_display_rows(
+            this.all_channel_rows,
+            this.sort_controls?.topic_sort.mode ?? "alpha",
+            this.sort_controls?.batch_size ?? 10,
+        );
     }
 
     make_table(): HTMLElement {
@@ -94,7 +115,7 @@ export class ChannelList {
     total_unread_count(): number {
         let count = 0;
 
-        for (const channel_row of this.channel_rows!) {
+        for (const channel_row of this.all_channel_rows) {
             count += channel_row.unread_count();
         }
 
@@ -102,7 +123,7 @@ export class ChannelList {
     }
 
     refresh_completely() {
-        this.channel_rows = this.populate_channel_rows();
+        this.populate_channel_rows();
         this.redraw();
     }
 

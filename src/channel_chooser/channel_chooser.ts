@@ -13,12 +13,12 @@ export function make_channel_chooser(opts: ChannelChooserOpts) {
 
     function pane_div(): HTMLDivElement {
         const channel_pane_div = document.createElement("div");
-        const empty_div = document.createElement("div");
+        const adjuster_div = channel_list.get_adjuster_div();
 
         layout.draw_table_pane(
             channel_pane_div,
             "Channels",
-            empty_div,
+            adjuster_div,
             channel_list.div,
         );
         return channel_pane_div;
