@@ -1,5 +1,5 @@
 import type { TopicRow } from "../row_types";
-import type { SearchWidget } from "../search_widget";
+import type { Navigator } from "../navigator";
 
 import { render_unread_count } from "./render";
 
@@ -27,7 +27,7 @@ export function render_topic_name(topic_name: string): HTMLDivElement {
 function render_name_div(
     topic_row: TopicRow,
     selected: boolean,
-    search_widget: SearchWidget,
+    navigator: Navigator,
 ): HTMLDivElement {
     const topic_id = topic_row.topic_id();
     const topic_name = topic_row.name();
@@ -36,9 +36,9 @@ function render_name_div(
 
     div.addEventListener("click", () => {
         if (selected) {
-            search_widget.clear_message_view();
+            navigator.clear_message_view();
         } else {
-            search_widget.set_topic_id(topic_id);
+            navigator.set_topic_id(topic_id);
         }
     });
 
@@ -52,9 +52,9 @@ function render_name_div(
 export function row_widget(
     topic_row: TopicRow,
     selected: boolean,
-    search_widget: SearchWidget,
+    navigator: Navigator,
 ): { divs: HTMLDivElement[] } {
-    const name_div = render_name_div(topic_row, selected, search_widget);
+    const name_div = render_name_div(topic_row, selected, navigator);
 
     return {
         divs: [

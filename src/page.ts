@@ -18,7 +18,7 @@ import { PluginHelper } from "./plugin_helper";
 import * as address from "./address";
 import * as layout from "./layout";
 import { MessageRow } from "./row_types";
-import * as search_widget from "./search_widget";
+import * as navigator from "./navigator";
 import { StatusBar, create_global_status_bar } from "./status_bar";
 import { get_current_realm_nickname } from "./config";
 
@@ -54,7 +54,7 @@ export class Page {
         this.add_plugin(lyn_rummy.plugin);
         this.add_plugin(recent_conversations.plugin);
         this.add_plugin(reading_list.plugin);
-        this.add_search_widget(address.nada());
+        this.add_navigator(address.nada());
         this.update_title();
     }
 
@@ -129,21 +129,21 @@ export class Page {
             return plugin_helper.tab_button.div;
         });
 
-        function add_search_widget(): void {
-            self.add_search_widget(address.nada());
+        function add_navigator(): void {
+            self.add_navigator(address.nada());
         }
 
         const button_bar = page_widget.make_button_bar(
             tab_button_divs,
-            add_search_widget,
+            add_navigator,
         );
 
         this.button_bar_div.innerHTML = "";
         this.button_bar_div.append(button_bar);
     }
 
-    add_search_widget(address: Address): void {
-        this.add_plugin(search_widget.plugin_maker_for_address(address));
+    add_navigator(address: Address): void {
+        this.add_plugin(navigator.plugin_maker_for_address(address));
     }
 
     handle_zulip_event(event: ZulipEvent): void {

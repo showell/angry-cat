@@ -141,7 +141,7 @@ function fix_in_site_link(anchor_elem: HTMLAnchorElement) {
         const addr = address.get_address_from_path(path);
 
         if (addr) {
-            APP.add_search_widget(addr);
+            APP.add_navigator(addr);
         } else {
             console.log("could not understand path", path);
         }

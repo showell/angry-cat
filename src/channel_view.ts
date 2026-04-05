@@ -1,6 +1,6 @@
 import type { Message } from "./backend/db_types";
 import type { TopicRow } from "./row_types";
-import type { SearchWidget } from "./search_widget";
+import type { Navigator } from "./navigator";
 
 import * as model from "./backend/model";
 
@@ -25,7 +25,7 @@ export class ChannelView {
 
     constructor(
         channel_row: ChannelRow,
-        search_widget: SearchWidget,
+        navigator: Navigator,
         pane_manager: PaneManager,
     ) {
         this.channel_row = channel_row;
@@ -36,7 +36,7 @@ export class ChannelView {
         const topic_pane_div = document.createElement("div");
 
         // TopicList will immediately populate itself.
-        const topic_list = new TopicList(channel_row, search_widget);
+        const topic_list = new TopicList(channel_row, navigator);
 
         const heading_text = "#" + channel_row.name();
         const adjuster_div = topic_list.get_adjuster_div();

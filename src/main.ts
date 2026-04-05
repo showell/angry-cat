@@ -36,7 +36,7 @@ export async function run() {
 
     // We overwrite this as soon as we fetch data
     // and call page.start(), which in turn calls
-    // into SearchWidget to get the unread counts
+    // into Navigator to get the unread counts
     // for our initial download of Zulip data.  But
     // this is nice to have while data is still loading.
     document.title = config.get_current_realm_nickname()!;

@@ -66,7 +66,7 @@ function address_line(message_row: MessageRow): HTMLDivElement {
     from_div.style.color = "rgb(51, 51, 51)";
 
     const button = new Button("view", 60, () => {
-        APP.add_search_widget(message_row.address());
+        APP.add_navigator(message_row.address());
         button.set_normal_color();
     });
 

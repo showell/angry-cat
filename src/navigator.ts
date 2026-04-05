@@ -1,3 +1,8 @@
+// Navigator is the main pane for browsing channels, topics, and messages.
+// It is created by Page (via APP.add_navigator) when the app starts and
+// whenever the user opens a new navigation tab. Recent Conversations and
+// message links in the Reading List also open Navigator tabs via APP.add_navigator.
+
 import type { ZulipEvent } from "./backend/event";
 import type { Message } from "./backend/db_types";
 
@@ -43,17 +48,17 @@ function narrow_label(
 
 export function plugin_maker_for_address(start_address: Address) {
     function maker(plugin_helper: PluginHelper) {
-        const search_widget = new SearchWidget(plugin_helper, start_address);
+        const navigator = new Navigator(plugin_helper, start_address);
         plugin_helper.set_zulip_event_listener((event) => {
-            search_widget.handle_zulip_event(event);
+            navigator.handle_zulip_event(event);
         });
-        return search_widget;
+        return navigator;
     }
 
     return maker;
 }
 
-export class SearchWidget {
+export class Navigator {
     div: HTMLDivElement;
     button_panel: ButtonPanel;
     pane_manager: PaneManager;
@@ -92,7 +97,7 @@ export class SearchWidget {
             pane_widget: { div: channel_chooser.div },
         });
 
-        layout.draw_search_widget(div, button_panel.div, pane_manager.div);
+        layout.draw_navigator(div, button_panel.div, pane_manager.div);
 
         this.button_panel = button_panel;
         this.channel_chooser = channel_chooser;
@@ -284,7 +289,7 @@ export class SearchWidget {
     }
 
     update_channel(): void {
-        const search_widget = this;
+        const navigator = this;
         const pane_manager = this.pane_manager;
         const channel_row = this.get_channel_row();
 
@@ -293,7 +298,7 @@ export class SearchWidget {
         // ChannelView will add panes
         this.channel_view = new ChannelView(
             channel_row,
-            search_widget,
+            navigator,
             pane_manager,
         );
 

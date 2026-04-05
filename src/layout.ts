@@ -26,15 +26,15 @@ export function make_navbar(
     return navbar_div;
 }
 
-export function draw_search_widget(
-    search_widget_div: HTMLDivElement,
+export function draw_navigator(
+    navigator_div: HTMLDivElement,
     button_panel_div: HTMLDivElement,
     pane_manager_div: HTMLDivElement,
 ) {
-    search_widget_div.innerHTML = "";
+    navigator_div.innerHTML = "";
 
-    search_widget_div.append(button_panel_div);
-    search_widget_div.append(pane_manager_div);
+    navigator_div.append(button_panel_div);
+    navigator_div.append(pane_manager_div);
 }
 
 export function layout_pane_div(div: HTMLDivElement) {

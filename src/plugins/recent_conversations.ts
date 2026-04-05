@@ -20,7 +20,7 @@ function build_topic_cell(message_row: MessageRow): HTMLDivElement {
     const div = render_topic_name(topic_name);
 
     div.addEventListener("click", () => {
-        APP.add_search_widget(address);
+        APP.add_navigator(address);
     });
 
     return div;

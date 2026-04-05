@@ -33,7 +33,7 @@ function render_content(data: TodoItemData): HTMLElement {
     button.style.textAlign = "left";
     button.addEventListener("click", (e) => {
         e.stopPropagation();
-        APP.add_search_widget(data.address);
+        APP.add_navigator(data.address);
     });
     return button;
 }

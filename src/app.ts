@@ -14,8 +14,8 @@ class Application {
         this.reading_list_todo = undefined;
     }
 
-    add_search_widget(address: Address) {
-        this.page!.add_search_widget(address);
+    add_navigator(address: Address) {
+        this.page!.add_navigator(address);
     }
 
     add_plugin(plugin_maker: PluginMaker) {

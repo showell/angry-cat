@@ -1,4 +1,4 @@
-function add_search_button(add_search_widget: () => void): HTMLDivElement {
+function add_search_button(add_navigator: () => void): HTMLDivElement {
     const div = document.createElement("div");
     div.style.marginRight = "15px";
 
@@ -11,7 +11,7 @@ function add_search_button(add_search_widget: () => void): HTMLDivElement {
     button.style.border = "1px green solid";
 
     button.addEventListener("click", () => {
-        add_search_widget();
+        add_navigator();
     });
 
     div.append(button);
@@ -31,7 +31,7 @@ function tab_bottom_border_spacer(): HTMLDivElement {
 
 export function make_button_bar(
     tab_button_divs: HTMLDivElement[],
-    add_search_widget: () => void,
+    add_navigator: () => void,
 ): HTMLDivElement {
     const button_bar = document.createElement("div");
     button_bar.style.display = "flex";
@@ -40,7 +40,7 @@ export function make_button_bar(
     button_bar.style.marginBottom = "3px";
     button_bar.style.maxHeight = "fit-content";
 
-    button_bar.append(add_search_button(add_search_widget));
+    button_bar.append(add_search_button(add_navigator));
 
     for (const tab_button_div of tab_button_divs) {
         button_bar.append(tab_button_div);

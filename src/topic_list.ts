@@ -1,7 +1,7 @@
 import * as model from "./backend/model";
 
 import type { ChannelRow, TopicRow } from "./row_types";
-import type { SearchWidget } from "./search_widget";
+import type { Navigator } from "./navigator";
 
 import * as table_widget from "./dom/table_widget";
 import * as topic_row_widget from "./dom/topic_row_widget";
@@ -16,10 +16,10 @@ export class TopicList {
     sort_controls: SortControls;
     stream_id: number;
     topic_id?: number;
-    search_widget: SearchWidget;
+    navigator: Navigator;
 
-    constructor(channel_row: ChannelRow, search_widget: SearchWidget) {
-        this.search_widget = search_widget;
+    constructor(channel_row: ChannelRow, navigator: Navigator) {
+        this.navigator = navigator;
         this.stream_id = channel_row.stream_id();
 
         // these get re-assigned in populate_topic_rows
@@ -93,7 +93,7 @@ export class TopicList {
     make_table(): HTMLTableElement {
         const topic_id = this.topic_id;
         const topic_rows = this.topic_rows;
-        const search_widget = this.search_widget;
+        const navigator = this.navigator;
 
         const row_widgets = [];
 
@@ -102,7 +102,7 @@ export class TopicList {
             const row_widget = topic_row_widget.row_widget(
                 topic_row,
                 selected,
-                search_widget,
+                navigator,
             );
             row_widgets.push(row_widget);
         }
