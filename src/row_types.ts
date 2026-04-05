@@ -46,6 +46,11 @@ export class ChannelRow {
         return this._list_info.num_topics;
     }
 
+    // num_children is an alias for num_topics, used in generic sorting code.
+    num_children(): number {
+        return this.num_topics();
+    }
+
     stream_weekly_traffic(): number {
         return this._channel.stream_weekly_traffic;
     }
@@ -87,6 +92,11 @@ export class TopicRow {
 
     num_messages(): number {
         return this._list_info.count;
+    }
+
+    // num_children is an alias for num_messages, used in generic sorting code.
+    num_children(): number {
+        return this.num_messages();
     }
 
     last_msg_id(): number {

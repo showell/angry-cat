@@ -2,7 +2,8 @@ export type SortMode = "alpha" | "recent" | "count";
 
 export interface MessageGrouping {
     name(): string;
-    num_messages(): number;
+    // num_children means messages for topics, topics for channels.
+    num_children(): number;
     last_msg_id(): number;
 }
 
@@ -48,7 +49,7 @@ export function get_display_rows<T extends MessageGrouping>(
     }
     if (sort_mode === "count") {
         const rows = [...all_rows];
-        rows.sort((a, b) => b.num_messages() - a.num_messages());
+        rows.sort((a, b) => b.num_children() - a.num_children());
         return rows;
     }
     const rows = all_rows.slice(0, batch_size);
