@@ -8,8 +8,7 @@ import * as topic_row_widget from "./dom/topic_row_widget";
 
 import * as batch_count from "./batch_count";
 import { Button } from "./button";
-
-type SortMode = "alpha" | "recent" | "count";
+import { TopicSort } from "./topic_sort";
 
 export class TopicList {
     div: HTMLDivElement;
@@ -17,7 +16,7 @@ export class TopicList {
     topic_rows: TopicRow[];
     adjuster_div: HTMLDivElement;
     batch_size: number;
-    sort_mode: SortMode;
+    topic_sort: TopicSort;
     stream_id: number;
     topic_id?: number;
     search_widget: SearchWidget;
@@ -27,7 +26,7 @@ export class TopicList {
         this.stream_id = channel_row.stream_id();
 
         this.batch_size = 10;
-        this.sort_mode = "alpha";
+        this.topic_sort = new TopicSort();
 
         // these get re-assigned in populate_topic_rows
         this.all_topic_rows = [];
@@ -52,12 +51,7 @@ export class TopicList {
         adjuster_div.innerHTML = "";
 
         const toggle_button = new Button("Toggle Sort", 100, () => {
-            const next: Record<SortMode, SortMode> = {
-                alpha: "recent",
-                recent: "count",
-                count: "alpha",
-            };
-            this.sort_mode = next[this.sort_mode];
+            this.topic_sort.toggle();
             this.populate_topic_rows();
             this.redraw();
             this.populate_adjuster();
@@ -65,15 +59,10 @@ export class TopicList {
         adjuster_div.append(toggle_button.div);
 
         const sort_label = document.createElement("div");
-        const sort_labels: Record<SortMode, string> = {
-            alpha: "A-Z",
-            recent: "Recent",
-            count: "Most Messages",
-        };
-        sort_label.innerText = sort_labels[this.sort_mode];
+        sort_label.innerText = this.topic_sort.label();
         adjuster_div.append(sort_label);
 
-        if (this.sort_mode === "alpha") {
+        if (this.topic_sort.mode === "alpha") {
             const slider = batch_count.adjuster({
                 min: 1,
                 max: this.all_topic_rows.length,
@@ -143,10 +132,10 @@ export class TopicList {
     }
 
     get_display_rows(): TopicRow[] {
-        if (this.sort_mode === "recent") {
+        if (this.topic_sort.mode === "recent") {
             return [...this.all_topic_rows];
         }
-        if (this.sort_mode === "count") {
+        if (this.topic_sort.mode === "count") {
             const rows = [...this.all_topic_rows];
             this.sort_by_count(rows);
             return rows;
