@@ -2,7 +2,7 @@ import type { Address } from "./address";
 
 export type TodoItemData =
     | { kind: "text"; text: string }
-    | { kind: "message_link"; address: Address };
+    | { kind: "address_link"; address: Address };
 
 type InternalItem = {
     id: number;
@@ -47,11 +47,11 @@ export class TodoList {
         this.render();
     }
 
-    add_message_link_item(address: Address): void {
+    add_address_link_item(address: Address): void {
         this.items.push({
             id: next_id++,
             done: false,
-            data: { kind: "message_link", address },
+            data: { kind: "address_link", address },
         });
         this.render();
     }

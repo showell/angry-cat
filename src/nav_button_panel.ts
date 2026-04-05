@@ -1,3 +1,4 @@
+import { APP } from "./app";
 import { Button } from "./button";
 import type { Navigator } from "./navigator";
 
@@ -7,6 +8,7 @@ export class ButtonPanel {
     fork: Button;
     add_topic: Button;
     mark_topic_read: Button;
+    read_later: Button;
     reply: Button;
 
     constructor(navigator: Navigator) {
@@ -36,6 +38,17 @@ export class ButtonPanel {
             navigator.mark_topic_read();
         });
 
+        this.read_later = new Button("Read later", 120, () => {
+            const channel_id = navigator.channel_id;
+            const topic_id = navigator.get_topic_id();
+            APP.add_address_link_to_reading_list({
+                channel_id,
+                topic_id,
+                message_id: undefined,
+            });
+            this.read_later.set_normal_color();
+        });
+
         this.reply = new Button("Reply", 150, () => {
             navigator.reply();
         });
@@ -46,6 +59,7 @@ export class ButtonPanel {
         div.append(this.add_topic.div);
 
         div.append(this.mark_topic_read.div);
+        div.append(this.read_later.div);
         div.append(this.reply.div);
 
         this.div = div;
@@ -72,6 +86,7 @@ export class ButtonPanel {
         show_if(this.add_topic, channel_selected);
 
         show_if(this.mark_topic_read, has_unreads);
+        show_if(this.read_later, topic_selected);
         show_if(this.reply, topic_selected);
     }
 }

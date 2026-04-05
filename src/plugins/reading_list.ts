@@ -1,8 +1,7 @@
-import type { PluginHelper } from "../plugin_helper";
-import type { TodoItemData } from "../todo_list";
-
 import { APP } from "../app";
 import { DB } from "../backend/database";
+import type { PluginHelper } from "../plugin_helper";
+import type { TodoItemData } from "../todo_list";
 import { TodoList } from "../todo_list";
 
 function render_content(data: TodoItemData): HTMLElement {
@@ -22,8 +21,13 @@ function render_content(data: TodoItemData): HTMLElement {
             ? (DB.topic_map.get(topic_id)?.topic_name ?? `topic:${topic_id}`)
             : "?";
 
+    const label =
+        message_id !== undefined
+            ? `#${channel_name} > ${topic_name} (msg ${message_id})`
+            : `#${channel_name} > ${topic_name}`;
+
     const button = document.createElement("button");
-    button.innerText = `#${channel_name} > ${topic_name} (msg ${message_id})`;
+    button.innerText = label;
     button.style.color = "darkgreen";
     button.style.fontWeight = "bold";
     button.style.background = "none";

@@ -1,8 +1,7 @@
-import * as table_widget from "./dom/table_widget";
-
 import { APP } from "./app";
 import { Button } from "./button";
-import { MessageRow } from "./row_types";
+import * as table_widget from "./dom/table_widget";
+import type { MessageRow } from "./row_types";
 
 function text(s: string): HTMLDivElement {
     const div = document.createElement("div");
@@ -37,7 +36,7 @@ export class MessagePopup {
         button_container.style.marginTop = "10px";
 
         const read_later_button = new Button("Read Later", 120, () => {
-            APP.add_message_link_to_reading_list(message_row.address());
+            APP.add_address_link_to_reading_list(message_row.address());
             button_container.innerHTML = "";
             const confirmation = document.createElement("span");
             confirmation.innerText = "OK! Reading list updated.";
