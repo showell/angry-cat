@@ -208,6 +208,7 @@ export function send_message(info: SendInfo, callback: MessageCallback): void {
 export function toggle_reaction_on_message(
     message_id: number,
     emoji_name: string,
+    emoji_code: string,
     current_user_has_reacted: boolean,
 ) {
     const email = config.get_email_for_current_realm();
@@ -222,7 +223,11 @@ export function toggle_reaction_on_message(
             Authorization: `Basic ${credentials}`,
             "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: new URLSearchParams({ emoji_name }).toString(),
+        body: new URLSearchParams({
+            emoji_name,
+            emoji_code,
+            reaction_type: "unicode_emoji",
+        }).toString(),
     });
 }
 

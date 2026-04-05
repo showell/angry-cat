@@ -227,6 +227,10 @@ export class ReactionItem {
         return this._reaction.emoji_name;
     }
 
+    get_emoji_code() {
+        return this._reaction.emoji_code;
+    }
+
     get_message_id() {
         return this._reaction.message_id;
     }
