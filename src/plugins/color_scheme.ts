@@ -5,6 +5,7 @@ type SwatchEntry = {
     name: string;
     value: string;
     description: string;
+    is_text_color?: boolean;
 };
 
 type SwatchGroup = {
@@ -20,6 +21,7 @@ const GROUPS: SwatchGroup[] = [
                 name: "primary",
                 value: colors.primary,
                 description: "Buttons, headings, labels, accent borders",
+                is_text_color: true,
             },
             {
                 name: "on_primary",
@@ -65,6 +67,7 @@ const GROUPS: SwatchGroup[] = [
                 name: "tab_inactive_text",
                 value: colors.tab_inactive_text,
                 description: "Text color on background tabs",
+                is_text_color: true,
             },
         ],
     },
@@ -90,17 +93,20 @@ const GROUPS: SwatchGroup[] = [
                 name: "danger",
                 value: colors.danger,
                 description: "Destructive actions (close button, error status)",
+                is_text_color: true,
             },
             {
                 name: "success",
                 value: colors.success,
                 description:
                     "Positive feedback (celebrate status, compose headings)",
+                is_text_color: true,
             },
             {
                 name: "status_info",
                 value: colors.status_info,
                 description: "Informational status bar messages",
+                is_text_color: true,
             },
         ],
     },
@@ -111,21 +117,25 @@ const GROUPS: SwatchGroup[] = [
                 name: "text_heading",
                 value: colors.text_heading,
                 description: "Section labels, table column headers",
+                is_text_color: true,
             },
             {
                 name: "text_body",
                 value: colors.text_body,
                 description: "Standard body text",
+                is_text_color: true,
             },
             {
                 name: "text_muted",
                 value: colors.text_muted,
                 description: "De-emphasized text (edit buttons, etc.)",
+                is_text_color: true,
             },
             {
                 name: "link_text",
                 value: colors.link_text,
                 description: "Link-styled text buttons (reading list items)",
+                is_text_color: true,
             },
         ],
     },
@@ -201,7 +211,7 @@ function render_swatch(entry: SwatchEntry): HTMLDivElement {
     const desc_span = document.createElement("span");
     desc_span.innerText = entry.description;
     desc_span.style.fontSize = "13px";
-    desc_span.style.color = colors.text_body;
+    desc_span.style.color = entry.is_text_color ? entry.value : colors.text_body;
     row.append(desc_span);
 
     return row;
