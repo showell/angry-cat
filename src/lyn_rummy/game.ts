@@ -32,6 +32,7 @@ export type {
 export { CardStack } from "./card_stack";
 import { Score } from "./score";
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
+import { find_playable_hand_cards } from "./hints";
 
 enum GameEventType {
     ADVANCE_TURN,
@@ -987,6 +988,19 @@ function render_undo_button(): HTMLElement {
     return button;
 }
 
+function render_hint_button(): HTMLElement {
+    const button = document.createElement("button");
+    button.classList.add("button", "hint-button");
+    button.style.backgroundColor = "darkgreen";
+    button.style.color = "white";
+    button.innerText = "Hint";
+    button.style.cursor = "pointer";
+    button.style.marginTop = "6px";
+    button.style.display = "block";
+    button.style.marginBottom = "2px";
+    return button;
+}
+
 function heading_color() {
     return button_color(); // needs another color haha
 }
@@ -1015,10 +1029,12 @@ class PhysicalHandCard {
     hand_card: HandCard;
     card: Card;
     card_span: HTMLElement;
+    is_hint: boolean;
 
-    constructor(hand_card: HandCard) {
+    constructor(hand_card: HandCard, is_hint = false) {
         this.hand_card = hand_card;
         this.card = hand_card.card;
+        this.is_hint = is_hint;
         this.card_span = render_playing_card(this.card);
         this.card_span.style.margin = "3px";
         this.card_span.style.cursor = "grab";
@@ -1062,7 +1078,9 @@ class PhysicalHandCard {
     update_state_styles(): void {
         const span = this.card_span;
 
-        if (this.hand_card.state === HandCardState.FRESHLY_DRAWN) {
+        if (this.is_hint) {
+            span.style.backgroundColor = "lightgreen";
+        } else if (this.hand_card.state === HandCardState.FRESHLY_DRAWN) {
             span.style.backgroundColor = new_card_color();
         } else if (this.hand_card.state === HandCardState.BACK_FROM_BOARD) {
             span.style.backgroundColor = "yellow";
@@ -1367,7 +1385,10 @@ class PhysicalBoardSingleton {
     }
 }
 
-function row_of_cards_in_hand(hand_cards: HandCard[]): HTMLElement {
+function row_of_cards_in_hand(
+    hand_cards: HandCard[],
+    hint_cards: Set<HandCard> = new Set(),
+): HTMLElement {
     /*
         This can be a pure function, because even though
         users can mutate our row (by clicking a card to put it
@@ -1378,7 +1399,10 @@ function row_of_cards_in_hand(hand_cards: HandCard[]): HTMLElement {
     const card_spans = [];
 
     for (const hand_card of hand_cards) {
-        const physical_hand_card = new PhysicalHandCard(hand_card);
+        const physical_hand_card = new PhysicalHandCard(
+            hand_card,
+            hint_cards.has(hand_card),
+        );
         const span = physical_hand_card.dom();
         card_spans.push(span);
     }
@@ -1407,7 +1431,7 @@ class PhysicalHand {
         return this.div;
     }
 
-    populate(): void {
+    populate(hint_cards: Set<HandCard> = new Set()): void {
         const div = this.div;
         const hand_cards = this.hand.hand_cards;
         div.innerHTML = "";
@@ -1416,7 +1440,7 @@ class PhysicalHand {
             const suit_cards = get_sorted_cards_for_suit(suit, hand_cards);
 
             if (suit_cards.length > 0) {
-                const row = row_of_cards_in_hand(suit_cards);
+                const row = row_of_cards_in_hand(suit_cards, hint_cards);
                 div.append(row);
             }
         }
@@ -1481,6 +1505,7 @@ class PhysicalPlayer {
             div.append(this.physical_hand.dom());
             if (this.player.active) {
                 div.append(render_hand_advice());
+                div.append(new HintButton().dom());
                 div.append(this.complete_turn_button.dom());
             }
         } else {
@@ -1511,6 +1536,13 @@ class PlayerAreaSingleton {
 
     get_physical_hand_for_player(player_index: number): PhysicalHand {
         return this.physical_players![player_index].physical_hand;
+    }
+
+    show_hints(hint_cards: Set<HandCard>): void {
+        const physical_hand = this.get_physical_hand_for_player(
+            PlayerGroup.current_player_index,
+        );
+        physical_hand.populate(hint_cards);
     }
 
     populate(): void {
@@ -1634,6 +1666,22 @@ class UndoButton {
         const button = render_undo_button();
         button.addEventListener("click", () => {
             EventManager.undo_mistakes();
+        });
+        this.button = button;
+    }
+
+    dom(): HTMLElement {
+        return this.button;
+    }
+}
+
+class HintButton {
+    button: HTMLElement;
+
+    constructor() {
+        const button = render_hint_button();
+        button.addEventListener("click", () => {
+            EventManager.show_hints();
         });
         this.button = button;
     }
@@ -1773,6 +1821,24 @@ class EventManagerSingleton {
         BoardArea.populate();
 
         StatusBar.inform(`${ActivePlayer.name}, you may begin your turn.`);
+    }
+
+    show_hints(): void {
+        const playable = find_playable_hand_cards(
+            ActivePlayer.hand.hand_cards,
+            CurrentBoard.card_stacks,
+        );
+        if (playable.length === 0) {
+            StatusBar.scold(
+                "No obvious moves. You may need to get creative and rearrange the board.",
+            );
+        } else {
+            const count = playable.length;
+            StatusBar.inform(
+                `${count} hand card${count === 1 ? "" : "s"} may be playable to the board.`,
+            );
+            PlayerArea.show_hints(new Set(playable));
+        }
     }
 
     undo_mistakes(): void {
