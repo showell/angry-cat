@@ -5,6 +5,39 @@ type AdjusterInfo = {
     callback: (count: number) => void;
 };
 
+function wire_press(button: HTMLButtonElement, action: () => void): void {
+    let initial_timer: ReturnType<typeof setTimeout> | undefined;
+    let repeat_timer: ReturnType<typeof setInterval> | undefined;
+
+    function stop(): void {
+        clearTimeout(initial_timer);
+        clearInterval(repeat_timer);
+        initial_timer = undefined;
+        repeat_timer = undefined;
+    }
+
+    button.addEventListener("mousedown", (e: Event) => {
+        action();
+        initial_timer = setTimeout(() => {
+            repeat_timer = setInterval(action, 110);
+        }, 375);
+        document.addEventListener("mouseup", stop, { once: true });
+        e.preventDefault();
+        e.stopPropagation();
+    });
+
+    button.addEventListener("touchstart", (e: Event) => {
+        action();
+        initial_timer = setTimeout(() => {
+            repeat_timer = setInterval(action, 110);
+        }, 375);
+        document.addEventListener("touchend", stop, { once: true });
+        document.addEventListener("touchcancel", stop, { once: true });
+        e.preventDefault();
+        e.stopPropagation();
+    });
+}
+
 export function adjuster(info: AdjusterInfo) {
     const div = document.createElement("div");
     div.style.display = "flex";
@@ -38,30 +71,26 @@ export function adjuster(info: AdjusterInfo) {
     count_label.style.minWidth = "30px";
     count_label.style.textAlign = "center";
 
-    function update() {
+    function update(): void {
         count_label.innerText = value.toString();
         minus_button.disabled = value <= info.min;
         plus_button.disabled = value >= info.max;
     }
 
-    minus_button.addEventListener("click", (e: Event) => {
+    wire_press(minus_button, () => {
         if (value > info.min) {
             value -= 1;
             update();
             info.callback(value);
         }
-        e.preventDefault();
-        e.stopPropagation();
     });
 
-    plus_button.addEventListener("click", (e: Event) => {
+    wire_press(plus_button, () => {
         if (value < info.max) {
             value += 1;
             update();
             info.callback(value);
         }
-        e.preventDefault();
-        e.stopPropagation();
     });
 
     update();
