@@ -68,9 +68,9 @@ export async function run() {
 
     zulip_client.start_polling(event_manager);
 
-    page.start();
-
     app.init(page);
+
+    page.start();
 
     message_fetch.backfill(DB);
 }

@@ -3,12 +3,15 @@
 import type { Address } from "./address";
 import type { Page } from "./page";
 import type { PluginMaker } from "./plugin_helper";
+import type { TodoList } from "./todo_list";
 
 class Application {
     page: Page;
+    reading_list_todo: TodoList | undefined;
 
     constructor(page: Page) {
         this.page = page;
+        this.reading_list_todo = undefined;
     }
 
     add_search_widget(address: Address) {
@@ -17,6 +20,14 @@ class Application {
 
     add_plugin(plugin_maker: PluginMaker) {
         this.page!.add_plugin(plugin_maker);
+    }
+
+    set_reading_list(todo_list: TodoList): void {
+        this.reading_list_todo = todo_list;
+    }
+
+    add_to_reading_list(text: string): void {
+        this.reading_list_todo?.add_item(text);
     }
 }
 
