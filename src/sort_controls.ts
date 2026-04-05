@@ -1,15 +1,15 @@
 import * as batch_count from "./batch_count";
 import { Button } from "./button";
-import { TopicSort } from "./topic_sort";
+import { SortCycle } from "./grouping_sort";
 
 export class SortControls {
     div: HTMLDivElement;
-    topic_sort: TopicSort;
+    topic_sort: SortCycle;
     batch_size: number;
     on_change: () => void;
 
     constructor(info: { initial_max: number; on_change: () => void }) {
-        this.topic_sort = new TopicSort();
+        this.topic_sort = new SortCycle();
         this.batch_size = 10;
         this.on_change = info.on_change;
 

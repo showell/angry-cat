@@ -7,7 +7,7 @@ import * as table_widget from "./dom/table_widget";
 import * as topic_row_widget from "./dom/topic_row_widget";
 
 import { SortControls } from "./sort_controls";
-import { sort_recent, get_display_rows } from "./topic_sort";
+import { sort_recent, get_display_rows } from "./grouping_sort";
 
 export class TopicList {
     div: HTMLDivElement;

@@ -14,7 +14,7 @@ const mode_label: Record<SortMode, string> = {
     count: "Most Messages",
 };
 
-export class TopicSort {
+export class SortCycle {
     mode: SortMode;
 
     constructor() {
