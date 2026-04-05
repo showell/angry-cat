@@ -14,6 +14,9 @@ export class PaneManager {
     constructor() {
         const div = document.createElement("div");
         div.style.display = "flex";
+        div.style.flex = "1";
+        div.style.minHeight = "0";
+        div.style.overflowX = "auto";
 
         this.div = div;
         this.panes = [];

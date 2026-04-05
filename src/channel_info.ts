@@ -108,6 +108,7 @@ export class ChannelInfo {
         const div = document.createElement("div");
         layout.layout_pane_div(div);
         div.style.minWidth = "180px";
+        div.style.alignSelf = "flex-start";
 
         div.append(render_list_heading(`#${channel_row.name()}`));
 

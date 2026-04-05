@@ -25,9 +25,9 @@ export class Page {
 
     constructor() {
         const div = document.createElement("div");
+        document.body.style.margin = "0";
         document.body.append(div);
 
-        div.style.margin = "0";
         div.style.marginLeft = "8px";
         create_global_status_bar();
 

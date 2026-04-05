@@ -73,6 +73,9 @@ export class Navigator {
         this.channel_id = start_address.channel_id;
 
         const div = document.createElement("div");
+        div.style.display = "flex";
+        div.style.flexDirection = "column";
+        div.style.height = "100%";
 
         const button_panel = new ButtonPanel(self);
         const pane_manager = new PaneManager();

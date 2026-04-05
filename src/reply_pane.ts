@@ -19,9 +19,7 @@ export class ReplyPane {
     constructor(topic_row: TopicRow) {
         const div = document.createElement("div");
         layout.layout_pane_div(div);
-
-        div.innerHTML = "";
-        div.style.height = "fit-content";
+        div.style.alignSelf = "flex-start";
 
         div.append(render_heading(topic_row.stream_name()));
 

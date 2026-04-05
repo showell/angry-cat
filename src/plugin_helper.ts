@@ -24,6 +24,8 @@ export class PluginHelper {
 
     constructor(plugin_maker: PluginMaker, page: Page) {
         const div = document.createElement("div");
+        div.style.height = "100%";
+        div.style.overflow = "hidden";
         this.page = page;
         this.deleted = false;
         this.open = false;

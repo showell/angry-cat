@@ -9,6 +9,13 @@ export function draw_page(
     page_div.append(navbar_div);
     page_div.append(container_div);
     page_div.style.height = "100vh";
+    page_div.style.display = "flex";
+    page_div.style.flexDirection = "column";
+    page_div.style.overflow = "hidden";
+
+    container_div.style.flex = "1";
+    container_div.style.minHeight = "0";
+    container_div.style.overflow = "hidden";
 }
 
 export function make_navbar(
@@ -18,10 +25,7 @@ export function make_navbar(
     const navbar_div = document.createElement("div");
     navbar_div.append(status_bar_div);
     navbar_div.append(button_bar_div);
-    navbar_div.style.position = "sticky";
     navbar_div.style.marginTop = "8px";
-    navbar_div.style.top = "0px";
-    navbar_div.style.zIndex = "100";
 
     return navbar_div;
 }
@@ -46,13 +50,14 @@ export function layout_pane_div(div: HTMLDivElement) {
     div.style.borderRadius = "8px";
     div.style.border = "1px #CCCCFF solid";
     div.style.marginRight = "12px";
-    div.style.height = "fit-content";
+    div.style.display = "flex";
+    div.style.flexDirection = "column";
 }
 
 function layout_main_pane_div(div: HTMLDivElement): void {
     div.style.paddingRight = "5px";
-    div.style.marginBottom = "4px";
-    div.style.maxHeight = "70vh";
+    div.style.flex = "1";
+    div.style.minHeight = "0";
     div.style.overflowY = "auto";
 }
 
