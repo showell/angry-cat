@@ -18,7 +18,7 @@ export function addr(): string {
 }
 
 export function slash_join(s1: string, s2: string): string {
-    return s1.replace(/\/+$/, "") + "/" + s2.replace(/^\/+/, "");
+    return `${s1.replace(/\/+$/, "")}/${s2.replace(/^\/+/, "")}`;
 }
 
 function api_url(path: string): URL {
@@ -39,10 +39,7 @@ function form_headers(): Record<string, string> {
     };
 }
 
-async function api_get(
-    path: string,
-    params?: Record<string, string>,
-): Promise<any> {
+async function api_get(path: string, params?: Record<string, string>) {
     const url = api_url(path);
     if (params) {
         for (const [key, value] of Object.entries(params)) {
@@ -111,7 +108,7 @@ export type ServerMessage = {
     content: string;
     flags: string[];
     id: number;
-    reactions: any[];
+    reactions: unknown[];
     sender_email: string;
     sender_full_name: string;
     sender_id: number;
@@ -185,13 +182,18 @@ export function mark_message_ids_unread(unread_message_ids: number[]): void {
 }
 
 export function send_message(info: SendInfo, callback: MessageCallback): void {
+    if (queue_id === undefined) {
+        console.log("send_message called before queue initialized");
+        return;
+    }
+
     local_id_seq += 1;
     const local_id = local_id_seq.toString();
 
     api_form_request("POST", "messages", {
         type: "stream",
         local_id,
-        queue_id: queue_id!,
+        queue_id,
         to: `${info.channel_id}`,
         topic: info.topic_name,
         content: info.content,
