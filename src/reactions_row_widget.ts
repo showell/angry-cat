@@ -4,6 +4,7 @@ import { DB } from "./backend/database";
 import * as zulip_client from "./backend/zulip_client";
 
 import { ReactionItem } from "./row_types";
+import { show_emoji_picker } from "./emoji_picker";
 
 const THUMBS_UP_EMOJI_NAME = "thumbs_up";
 const THUMBS_UP_EMOJI = "👍";
@@ -43,6 +44,7 @@ export class ReactionsRowWidget {
         if (!this.current_user_has_thumbs_up(reactions)) {
             reactions_div.append(this.render_thumbs_up_button(message_id));
         }
+        reactions_div.append(this.render_add_reaction_button(message_id));
         return reactions_div;
     }
 
@@ -71,6 +73,24 @@ export class ReactionsRowWidget {
             reaction_pill.style.opacity = "1";
         }
         return reaction_pill;
+    }
+
+    render_add_reaction_button(message_id: number): HTMLButtonElement {
+        const button = document.createElement("button");
+        button.innerText = "+";
+        button.style.opacity = "0.4";
+        button.title = "Add reaction";
+        button.addEventListener("click", (e) => {
+            e.stopPropagation();
+            show_emoji_picker((emoji_name: string) => {
+                zulip_client.toggle_reaction_on_message(
+                    message_id,
+                    emoji_name,
+                    false,
+                );
+            });
+        });
+        return button;
     }
 
     render_thumbs_up_button(message_id: number): HTMLButtonElement {
