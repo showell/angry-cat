@@ -57,21 +57,10 @@ const GROUPS: SwatchGroup[] = [
         heading: "Tab bar",
         entries: [
             {
-                name: "tab_active_bg",
-                value: colors.tab_active_bg,
-                description: "Background of the currently open tab",
-            },
-            {
                 name: "tab_inactive_bg",
                 value: colors.tab_inactive_bg,
-                description: "Background of background tabs",
-            },
-            {
-                name: "tab_inactive_text",
-                value: colors.tab_inactive_text,
-                description: "Text color on background tabs",
-                is_text_color: true,
-                demo_bg: colors.tab_inactive_bg,
+                description:
+                    "Background of background tabs (active tabs use surface)",
             },
         ],
     },
@@ -215,7 +204,9 @@ function render_swatch(entry: SwatchEntry): HTMLDivElement {
     const desc_span = document.createElement("span");
     desc_span.innerText = entry.description;
     desc_span.style.fontSize = "13px";
-    desc_span.style.color = entry.is_text_color ? entry.value : colors.text_body;
+    desc_span.style.color = entry.is_text_color
+        ? entry.value
+        : colors.text_body;
     if (entry.demo_bg) {
         desc_span.style.backgroundColor = entry.demo_bg;
         desc_span.style.padding = "1px 5px";
@@ -317,11 +308,11 @@ function render_compound_examples(): HTMLDivElement {
     {
         const tab = document.createElement("div");
         tab.innerText = "Active tab";
-        tab.style.backgroundColor = colors.tab_active_bg;
+        tab.style.backgroundColor = colors.surface;
         tab.style.color = colors.primary;
-        tab.style.borderBottom = `2px solid ${colors.tab_active_bg}`;
+        tab.style.borderBottom = `2px solid ${colors.surface}`;
         tab.style.border = `1px solid ${colors.border}`;
-        tab.style.borderBottomColor = colors.tab_active_bg;
+        tab.style.borderBottomColor = colors.surface;
         tab.style.padding = "4px 10px";
         tab.style.fontSize = "13px";
         tab.style.cursor = "default";
@@ -333,7 +324,7 @@ function render_compound_examples(): HTMLDivElement {
         const tab = document.createElement("div");
         tab.innerText = "Inactive tab";
         tab.style.backgroundColor = colors.tab_inactive_bg;
-        tab.style.color = colors.tab_inactive_text;
+        tab.style.color = colors.primary;
         tab.style.border = `1px solid ${colors.border}`;
         tab.style.padding = "4px 10px";
         tab.style.fontSize = "13px";

@@ -33,13 +33,13 @@ export class TabButton {
         tab_button.innerText = plugin_helper.label;
 
         if (plugin_helper.open) {
-            tab_button.style.backgroundColor = colors.tab_active_bg;
-            tab_button.style.borderBottom = `1px ${colors.tab_active_bg} solid`;
+            tab_button.style.backgroundColor = colors.surface;
+            tab_button.style.borderBottom = `1px ${colors.surface} solid`;
             tab_button.style.color = colors.primary;
         } else {
             tab_button.style.backgroundColor = colors.tab_inactive_bg;
             tab_button.style.borderBottom = `1px ${colors.border} solid`;
-            tab_button.style.color = colors.tab_inactive_text;
+            tab_button.style.color = colors.primary;
         }
     }
 
