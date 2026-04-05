@@ -51,14 +51,17 @@ export class TopicList {
         const adjuster_div = this.adjuster_div;
         adjuster_div.innerHTML = "";
 
-        const label = this.sort_mode === "alpha" ? "Sort: A-Z" : "Sort: Recent";
-        const toggle_button = new Button(label, 100, () => {
+        const toggle_button = new Button("Toggle Sort", 100, () => {
             this.sort_mode = this.sort_mode === "alpha" ? "recent" : "alpha";
             this.populate_topic_rows();
             this.redraw();
             this.populate_adjuster();
         });
         adjuster_div.append(toggle_button.div);
+
+        const sort_label = document.createElement("div");
+        sort_label.innerText = this.sort_mode === "alpha" ? "A-Z" : "Recent";
+        adjuster_div.append(sort_label);
 
         if (this.sort_mode === "alpha") {
             const slider = batch_count.adjuster({
