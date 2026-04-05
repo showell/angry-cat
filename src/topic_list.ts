@@ -8,7 +8,7 @@ import * as topic_row_widget from "./dom/topic_row_widget";
 
 import * as batch_count from "./batch_count";
 import { Button } from "./button";
-import { TopicSort } from "./topic_sort";
+import { TopicSort, sort_recent, get_display_rows } from "./topic_sort";
 
 export class TopicList {
     div: HTMLDivElement;
@@ -69,7 +69,11 @@ export class TopicList {
                 value: this.batch_size,
                 callback: (batch_size: number) => {
                     this.batch_size = batch_size;
-                    this.topic_rows = this.get_display_rows();
+                    this.topic_rows = get_display_rows(
+                        this.all_topic_rows,
+                        this.topic_sort.mode,
+                        batch_size,
+                    );
                     this.redraw();
                 },
             });
@@ -113,42 +117,14 @@ export class TopicList {
         return topic_rows.find((row) => row.topic_id() === topic_id);
     }
 
-    sort_recent(topic_rows: TopicRow[]) {
-        topic_rows.sort((topic1, topic2) => {
-            return topic2.last_msg_id() - topic1.last_msg_id();
-        });
-    }
-
-    sort_alpha(topic_rows: TopicRow[]) {
-        topic_rows.sort((topic1, topic2) => {
-            return topic1.name().localeCompare(topic2.name());
-        });
-    }
-
-    sort_by_count(topic_rows: TopicRow[]) {
-        topic_rows.sort((topic1, topic2) => {
-            return topic2.num_messages() - topic1.num_messages();
-        });
-    }
-
-    get_display_rows(): TopicRow[] {
-        if (this.topic_sort.mode === "recent") {
-            return [...this.all_topic_rows];
-        }
-        if (this.topic_sort.mode === "count") {
-            const rows = [...this.all_topic_rows];
-            this.sort_by_count(rows);
-            return rows;
-        }
-        const rows = this.all_topic_rows.slice(0, this.batch_size);
-        this.sort_alpha(rows);
-        return rows;
-    }
-
     populate_topic_rows() {
         this.all_topic_rows = model.get_topic_rows(this.stream_id);
-        this.sort_recent(this.all_topic_rows);
-        this.topic_rows = this.get_display_rows();
+        sort_recent(this.all_topic_rows);
+        this.topic_rows = get_display_rows(
+            this.all_topic_rows,
+            this.topic_sort.mode,
+            this.batch_size,
+        );
     }
 
     make_table(): HTMLTableElement {
