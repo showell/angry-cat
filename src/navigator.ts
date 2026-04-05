@@ -101,6 +101,12 @@ export class Navigator {
         this.pane_manager = pane_manager;
         this.div = div;
 
+        this.navigate_to_start_address();
+    }
+
+    private navigate_to_start_address(): void {
+        const start_address = this.start_address;
+
         switch (address_type(start_address)) {
             case AddressType.NADA: {
                 this.update_button_panel();
@@ -128,8 +134,8 @@ export class Navigator {
                 // ChannelView will add panes
                 this.channel_view = new ChannelView(
                     channel_row,
-                    self,
-                    pane_manager,
+                    this,
+                    this.pane_manager,
                 );
 
                 this.channel_view!.select_topic_id(start_address.topic_id!);
@@ -150,6 +156,8 @@ export class Navigator {
         }
     }
 
+    // --- Actions ---
+
     fork(): void {
         const channel_id = this.channel_id;
         const topic_id = this.get_topic_id();
@@ -157,6 +165,8 @@ export class Navigator {
         const address = { channel_id, topic_id, message_id };
         APP.add_plugin(plugin_maker_for_address(address));
     }
+
+    // --- Event handling ---
 
     refresh_message_ids(message_ids: number[]): void {
         this.channel_chooser.refresh_completely();
@@ -179,6 +189,8 @@ export class Navigator {
             this.channel_view.refresh(message);
         }
     }
+
+    // --- State ---
 
     get_topic_list(): TopicList | undefined {
         if (this.channel_view === undefined) {
@@ -221,11 +233,7 @@ export class Navigator {
         return this.channel_id !== undefined;
     }
 
-    build_main_section(): HTMLElement {
-        const div = document.createElement("div");
-        div.style.display = "flex";
-        return div;
-    }
+    // --- Updates ---
 
     update_button_panel(): void {
         const topic_selected = this.topic_selected();
@@ -371,34 +379,29 @@ export class Navigator {
     }
 
     handle_zulip_event(event: ZulipEvent): void {
-        if (event.flavor === EventFlavor.MESSAGE) {
-            this.handle_incoming_message(event.message);
-        }
-
-        if (event.flavor === EventFlavor.MUTATE_MESSAGE_ADDRESS) {
-            this.refresh_message_ids(event.message_ids);
-        }
-
-        if (event.flavor === EventFlavor.MUTATE_MESSAGE_CONTENT) {
-            this.refresh_message_ids([event.message_id]);
-        }
-
-        if (event.flavor === EventFlavor.MUTATE_UNREAD) {
-            this.refresh_message_ids(event.message_ids);
-        }
-
-        if (
-            event.flavor === EventFlavor.REACTION_ADD_EVENT ||
-            event.flavor === EventFlavor.REACTION_REMOVE_EVENT
-        ) {
-            this.refresh_message_ids([event.message_id]);
-        }
-
-        if (event.flavor === EventFlavor.MUTATE_STREAM) {
-            this.channel_view?.handle_stream_update(
-                event.stream_id,
-                event.rendered_description,
-            );
+        switch (event.flavor) {
+            case EventFlavor.MESSAGE:
+                this.handle_incoming_message(event.message);
+                break;
+            case EventFlavor.MUTATE_MESSAGE_ADDRESS:
+                this.refresh_message_ids(event.message_ids);
+                break;
+            case EventFlavor.MUTATE_MESSAGE_CONTENT:
+                this.refresh_message_ids([event.message_id]);
+                break;
+            case EventFlavor.MUTATE_UNREAD:
+                this.refresh_message_ids(event.message_ids);
+                break;
+            case EventFlavor.REACTION_ADD_EVENT:
+            case EventFlavor.REACTION_REMOVE_EVENT:
+                this.refresh_message_ids([event.message_id]);
+                break;
+            case EventFlavor.MUTATE_STREAM:
+                this.channel_view?.handle_stream_update(
+                    event.stream_id,
+                    event.rendered_description,
+                );
+                break;
         }
 
         this.update_button_panel();
