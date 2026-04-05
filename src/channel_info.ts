@@ -41,6 +41,62 @@ function render_participants(participants: User[]): HTMLDivElement {
     return div;
 }
 
+function render_description_header(on_edit: () => void): HTMLDivElement {
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.alignItems = "baseline";
+    row.style.gap = "8px";
+    row.append(render_section_label("Description"));
+
+    const edit_button = document.createElement("button");
+    edit_button.innerText = "edit";
+    edit_button.style.fontSize = "11px";
+    edit_button.style.color = "#888";
+    edit_button.style.background = "none";
+    edit_button.style.border = "none";
+    edit_button.style.cursor = "pointer";
+    edit_button.style.padding = "0";
+    edit_button.addEventListener("click", on_edit);
+    row.append(edit_button);
+
+    return row;
+}
+
+function render_traffic(traffic: number): HTMLDivElement {
+    const div = document.createElement("div");
+    div.innerText = `~${traffic} messages/week`;
+    div.style.fontSize = "14px";
+    div.style.color = "#333";
+    return div;
+}
+
+function build_edit_popup_content(
+    stream_name: string,
+    description: string,
+): { div: HTMLDivElement; textarea: HTMLTextAreaElement } {
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.flexDirection = "column";
+    div.style.gap = "8px";
+
+    const label = document.createElement("div");
+    label.innerText = `Edit description for #${stream_name}`;
+    label.style.fontWeight = "bold";
+    label.style.color = "#000080";
+    div.append(label);
+
+    const textarea = document.createElement("textarea");
+    textarea.value = description;
+    textarea.style.width = "500px";
+    textarea.style.minHeight = "120px";
+    textarea.style.fontSize = "14px";
+    textarea.style.padding = "6px";
+    textarea.style.boxSizing = "border-box";
+    div.append(textarea);
+
+    return { div, textarea };
+}
+
 export class ChannelInfo {
     div: HTMLElement;
     stream_id: number;
@@ -57,28 +113,13 @@ export class ChannelInfo {
 
         const rendered_description = channel_row.rendered_description();
         if (rendered_description || model.current_user_is_admin()) {
-            const label_row = document.createElement("div");
-            label_row.style.display = "flex";
-            label_row.style.alignItems = "baseline";
-            label_row.style.gap = "8px";
-            label_row.append(render_section_label("Description"));
-
             if (model.current_user_is_admin()) {
-                const edit_button = document.createElement("button");
-                edit_button.innerText = "edit";
-                edit_button.style.fontSize = "11px";
-                edit_button.style.color = "#888";
-                edit_button.style.background = "none";
-                edit_button.style.border = "none";
-                edit_button.style.cursor = "pointer";
-                edit_button.style.padding = "0";
-                edit_button.addEventListener("click", () => {
-                    this.show_edit_form();
-                });
-                label_row.append(edit_button);
+                div.append(
+                    render_description_header(() => this.show_edit_form()),
+                );
+            } else {
+                div.append(render_section_label("Description"));
             }
-
-            div.append(label_row);
         }
 
         const description_content_div = document.createElement("div");
@@ -89,11 +130,7 @@ export class ChannelInfo {
         const stream_weekly_traffic = channel_row.stream_weekly_traffic();
         if (stream_weekly_traffic) {
             div.append(render_section_label("Traffic"));
-            const traffic_div = document.createElement("div");
-            traffic_div.innerText = `~${stream_weekly_traffic} messages/week`;
-            traffic_div.style.fontSize = "14px";
-            traffic_div.style.color = "#333";
-            div.append(traffic_div);
+            div.append(render_traffic(stream_weekly_traffic));
         }
 
         const filter = stream_filter(channel_row.stream_id());
@@ -118,29 +155,13 @@ export class ChannelInfo {
 
     show_edit_form(): void {
         const stream = model.stream_for(this.stream_id);
-
-        const popup_div = document.createElement("div");
-        popup_div.style.display = "flex";
-        popup_div.style.flexDirection = "column";
-        popup_div.style.gap = "8px";
-
-        const label = document.createElement("div");
-        label.innerText = `Edit description for #${stream.name}`;
-        label.style.fontWeight = "bold";
-        label.style.color = "#000080";
-        popup_div.append(label);
-
-        const textarea = document.createElement("textarea");
-        textarea.value = stream.description;
-        textarea.style.width = "500px";
-        textarea.style.minHeight = "120px";
-        textarea.style.fontSize = "14px";
-        textarea.style.padding = "6px";
-        textarea.style.boxSizing = "border-box";
-        popup_div.append(textarea);
+        const { div, textarea } = build_edit_popup_content(
+            stream.name,
+            stream.description,
+        );
 
         pop({
-            div: popup_div,
+            div,
             confirm_button_text: "Save",
             cancel_button_text: "Cancel",
             callback: () => {

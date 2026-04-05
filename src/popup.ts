@@ -47,6 +47,16 @@ type PopupOptions = {
     callback: () => void;
 };
 
+function style_as_cancel(button: Button): void {
+    button.button.style.backgroundColor = "#888";
+    button.button.addEventListener("focus", () => {
+        button.button.style.backgroundColor = "#555";
+    });
+    button.button.addEventListener("blur", () => {
+        button.button.style.backgroundColor = "#888";
+    });
+}
+
 export function pop(info: PopupOptions): Popup {
     const popup = new Popup();
     popup.show(info);
@@ -84,13 +94,7 @@ class Popup {
                     this.finish();
                 },
             );
-            cancel_button.button.style.backgroundColor = "#888";
-            cancel_button.button.addEventListener("focus", () => {
-                cancel_button.button.style.backgroundColor = "#555";
-            });
-            cancel_button.button.addEventListener("blur", () => {
-                cancel_button.button.style.backgroundColor = "#888";
-            });
+            style_as_cancel(cancel_button);
             button_div.append(cancel_button.div);
         }
 
