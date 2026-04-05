@@ -2,6 +2,7 @@ import { APP } from "../app";
 import type { ZulipEvent } from "../backend/event";
 import { EventFlavor } from "../backend/event";
 import * as model from "../backend/model";
+import { adjuster } from "../batch_count";
 import { Button } from "../button";
 import { render_unread_count } from "../dom/render";
 import * as table_widget from "../dom/table_widget";
@@ -24,7 +25,39 @@ function build_topic_cell(message_row: MessageRow): HTMLDivElement {
     return div;
 }
 
-function build_table(): HTMLElement {
+function build_message_cell(
+    topic_messages: ReturnType<typeof model.all_messages>,
+    messages_per_topic: number,
+): HTMLDivElement {
+    const cell = document.createElement("div");
+    cell.style.maxWidth = "400px";
+
+    if (messages_per_topic === 0) {
+        return cell;
+    }
+
+    const sorted = [...topic_messages].sort(
+        (a, b) => b.timestamp - a.timestamp,
+    );
+    const to_show = sorted.slice(0, messages_per_topic);
+
+    for (const message of to_show) {
+        const message_row = new MessageRow(message);
+        const block = document.createElement("div");
+        if (to_show.length > 1) {
+            block.style.borderBottom = "1px dotted #ccc";
+            block.style.marginBottom = "4px";
+            block.style.paddingBottom = "4px";
+        }
+        block.append(render_sender_name(message_row.sender_name()));
+        block.append(render_message_content(message_row.content()));
+        cell.append(block);
+    }
+
+    return cell;
+}
+
+function build_table(messages_per_topic: number): HTMLElement {
     const messages = model.all_messages();
     messages.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -47,7 +80,6 @@ function build_table(): HTMLElement {
     const rows = [];
     for (const message_row of recent_message_rows) {
         const channel_name = message_row.stream_name();
-        const content = message_row.content();
         const topic_id = message_row.topic_id();
         const topic_messages = grouped.get(topic_id) ?? [];
         const participants = model.participants_for_messages(topic_messages);
@@ -65,32 +97,33 @@ function build_table(): HTMLElement {
         const channel_cell = document.createElement("div");
         const topic_cell = build_topic_cell(message_row);
         const senders_cell = document.createElement("div");
-        const message_cell = document.createElement("div");
-        message_cell.style.maxWidth = "400px";
         channel_cell.innerText = channel_name;
         senders_cell.innerText = participants
             .map((u) => u.full_name)
             .join(", ");
 
-        message_cell.append(render_sender_name(message_row.sender_name()));
-        message_cell.append(render_message_content(content));
+        const message_cell = build_message_cell(
+            topic_messages,
+            messages_per_topic,
+        );
 
-        const row_widget: table_widget.RowWidget = {
-            divs: [
-                count_cell,
-                channel_cell,
-                topic_cell,
-                senders_cell,
-                message_cell,
-            ],
-        };
+        const divs = [count_cell, channel_cell, topic_cell, senders_cell];
+        if (messages_per_topic > 0) {
+            divs.push(message_cell);
+        }
+
+        const row_widget: table_widget.RowWidget = { divs };
         rows.push(row_widget);
     }
 
-    return table_widget.table(
-        ["Count", "Channel", "Topic", "Senders", "Last message"],
-        rows,
-    );
+    const headers = ["Count", "Channel", "Topic", "Senders"];
+    if (messages_per_topic === 1) {
+        headers.push("Last message");
+    } else if (messages_per_topic > 1) {
+        headers.push("Last messages");
+    }
+
+    return table_widget.table(headers, rows);
 }
 
 class RecentConversations {
@@ -98,9 +131,11 @@ class RecentConversations {
     plugin_helper: PluginHelper;
     notification_div: HTMLDivElement;
     inner_div: HTMLDivElement;
+    messages_per_topic: number;
 
     constructor(plugin_helper: PluginHelper) {
         this.plugin_helper = plugin_helper;
+        this.messages_per_topic = 1;
 
         const notification_div = document.createElement("div");
         notification_div.style.display = "none";
@@ -118,10 +153,31 @@ class RecentConversations {
         notification_div.append(notification_text);
         notification_div.append(refresh_button.div);
 
+        const controls_div = document.createElement("div");
+        controls_div.style.display = "flex";
+        controls_div.style.alignItems = "center";
+        controls_div.style.gap = "8px";
+        controls_div.style.marginBottom = "8px";
+
+        const label = document.createElement("span");
+        label.innerText = "Messages per topic:";
+
+        const count_adjuster = adjuster({
+            min: 0,
+            max: 10,
+            value: this.messages_per_topic,
+            callback: (count) => {
+                this.messages_per_topic = count;
+                this.rebuild_table();
+            },
+        });
+
+        controls_div.append(label, count_adjuster);
+
         const inner_div = document.createElement("div");
         inner_div.style.maxHeight = "82vh";
         inner_div.style.overflow = "auto";
-        inner_div.append(build_table());
+        inner_div.append(build_table(this.messages_per_topic));
 
         const div = document.createElement("div");
         div.style.paddingTop = "15px";
@@ -129,11 +185,17 @@ class RecentConversations {
         div.style.maxWidth = "fit-content";
 
         div.append(notification_div);
+        div.append(controls_div);
         div.append(inner_div);
 
         this.div = div;
         this.notification_div = notification_div;
         this.inner_div = inner_div;
+    }
+
+    rebuild_table(): void {
+        this.inner_div.innerHTML = "";
+        this.inner_div.append(build_table(this.messages_per_topic));
     }
 
     handle_zulip_event(event: ZulipEvent): void {
@@ -146,8 +208,7 @@ class RecentConversations {
     refresh(): void {
         this.notification_div.style.display = "none";
         this.plugin_helper.redraw_tab_button();
-        this.inner_div.innerHTML = "";
-        this.inner_div.append(build_table());
+        this.rebuild_table();
     }
 }
 
