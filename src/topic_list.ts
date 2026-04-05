@@ -6,17 +6,14 @@ import type { SearchWidget } from "./search_widget";
 import * as table_widget from "./dom/table_widget";
 import * as topic_row_widget from "./dom/topic_row_widget";
 
-import * as batch_count from "./batch_count";
-import { Button } from "./button";
-import { TopicSort, sort_recent, get_display_rows } from "./topic_sort";
+import { SortControls } from "./sort_controls";
+import { sort_recent, get_display_rows } from "./topic_sort";
 
 export class TopicList {
     div: HTMLDivElement;
     all_topic_rows: TopicRow[];
     topic_rows: TopicRow[];
-    adjuster_div: HTMLDivElement;
-    batch_size: number;
-    topic_sort: TopicSort;
+    sort_controls: SortControls;
     stream_id: number;
     topic_id?: number;
     search_widget: SearchWidget;
@@ -25,20 +22,20 @@ export class TopicList {
         this.search_widget = search_widget;
         this.stream_id = channel_row.stream_id();
 
-        this.batch_size = 10;
-        this.topic_sort = new TopicSort();
-
         // these get re-assigned in populate_topic_rows
         this.all_topic_rows = [];
         this.topic_rows = [];
 
         this.populate_topic_rows();
 
-        this.adjuster_div = document.createElement("div");
-        this.adjuster_div.style.display = "flex";
-        this.adjuster_div.style.alignItems = "center";
-        this.adjuster_div.style.gap = "8px";
-        this.populate_adjuster();
+        this.sort_controls = new SortControls({
+            initial_max: this.all_topic_rows.length,
+            on_change: () => {
+                this.populate_topic_rows();
+                this.redraw();
+                this.sort_controls.repopulate(this.all_topic_rows.length);
+            },
+        });
 
         const div = document.createElement("div");
         div.append(this.make_table());
@@ -46,43 +43,8 @@ export class TopicList {
         this.div = div;
     }
 
-    populate_adjuster(): void {
-        const adjuster_div = this.adjuster_div;
-        adjuster_div.innerHTML = "";
-
-        const toggle_button = new Button("Toggle Sort", 100, () => {
-            this.topic_sort.toggle();
-            this.populate_topic_rows();
-            this.redraw();
-            this.populate_adjuster();
-        });
-        adjuster_div.append(toggle_button.div);
-
-        const sort_label = document.createElement("div");
-        sort_label.innerText = this.topic_sort.label();
-        adjuster_div.append(sort_label);
-
-        if (this.topic_sort.mode === "alpha") {
-            const slider = batch_count.adjuster({
-                min: 1,
-                max: this.all_topic_rows.length,
-                value: this.batch_size,
-                callback: (batch_size: number) => {
-                    this.batch_size = batch_size;
-                    this.topic_rows = get_display_rows(
-                        this.all_topic_rows,
-                        this.topic_sort.mode,
-                        batch_size,
-                    );
-                    this.redraw();
-                },
-            });
-            adjuster_div.append(slider);
-        }
-    }
-
     get_adjuster_div(): HTMLDivElement {
-        return this.adjuster_div;
+        return this.sort_controls.div;
     }
 
     has_selection(): boolean {
@@ -122,8 +84,8 @@ export class TopicList {
         sort_recent(this.all_topic_rows);
         this.topic_rows = get_display_rows(
             this.all_topic_rows,
-            this.topic_sort.mode,
-            this.batch_size,
+            this.sort_controls?.topic_sort.mode ?? "alpha",
+            this.sort_controls?.batch_size ?? 10,
         );
     }
 
