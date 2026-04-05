@@ -1,10 +1,8 @@
+import * as config from "../config";
+import { DB } from "./database";
 import type { Message } from "./db_types";
 import type { EventHandler, ZulipEvent } from "./event";
-
-import { DB } from "./database";
 import { EventFlavor } from "./event";
-
-import * as config from "../config";
 
 let queue_id: string | undefined;
 let last_event_id: string | undefined;
@@ -23,16 +21,53 @@ export function slash_join(s1: string, s2: string): string {
     return s1.replace(/\/+$/, "") + "/" + s2.replace(/^\/+/, "");
 }
 
-function get_headers() {
+function api_url(path: string): URL {
+    return new URL(`/api/v1/${path}`, config.get_current_realm_url());
+}
+
+function get_headers(): Record<string, string> {
     const auth = btoa(
         `${config.get_email_for_current_realm()}:${config.get_api_key_for_current_realm()}`,
     );
-    const auth_header = `Basic ${auth}`;
-    return { Authorization: auth_header };
+    return { Authorization: `Basic ${auth}` };
+}
+
+function form_headers(): Record<string, string> {
+    return {
+        ...get_headers(),
+        "Content-Type": "application/x-www-form-urlencoded",
+    };
+}
+
+async function api_get(
+    path: string,
+    params?: Record<string, string>,
+): Promise<any> {
+    const url = api_url(path);
+    if (params) {
+        for (const [key, value] of Object.entries(params)) {
+            url.searchParams.set(key, value);
+        }
+    }
+    const response = await fetch(url, { headers: get_headers() });
+    return response.json();
+}
+
+function api_form_request(
+    method: string,
+    path: string,
+    params: Record<string, string>,
+): void {
+    fetch(api_url(path), {
+        method,
+        headers: form_headers(),
+        body: new URLSearchParams(params).toString(),
+    });
+    // TODO: actually look at response
 }
 
 export async function register_queue() {
-    const url = new URL("/api/v1/register", config.get_current_realm_url());
+    const url = api_url("register");
     url.searchParams.set("apply_markdown", "true");
     url.searchParams.set("include_subscribers", "false");
     url.searchParams.set("slim_presence", "true");
@@ -53,7 +88,7 @@ export async function start_polling(event_handler: EventHandler) {
         return;
     }
 
-    const url = new URL("/api/v1/events", config.get_current_realm_url());
+    const url = api_url("events");
 
     while (queue_id !== undefined && last_event_id !== undefined) {
         url.searchParams.set("queue_id", queue_id);
@@ -87,43 +122,30 @@ export type ServerMessage = {
 };
 
 export async function get_messages(anchor: string, num_before: number) {
-    const url = new URL(`/api/v1/messages`, config.get_current_realm_url());
-    url.searchParams.set("narrow", `[]`);
-    url.searchParams.set("num_before", JSON.stringify(num_before));
-    url.searchParams.set("anchor", anchor);
-    const response = await fetch(url, { headers: get_headers() });
-    const data = await response.json();
-    return data;
+    return api_get("messages", {
+        narrow: "[]",
+        num_before: JSON.stringify(num_before),
+        anchor,
+    });
 }
 
 export async function get_users() {
-    const url = new URL(`/api/v1/users`, config.get_current_realm_url());
-    const response = await fetch(url, { headers: get_headers() });
-    const data = await response.json();
+    const data = await api_get("users");
     return data.members;
 }
 
 export async function get_subscriptions() {
-    const url = new URL(
-        `/api/v1/users/me/subscriptions`,
-        config.get_current_realm_url(),
-    );
-    const response = await fetch(url, { headers: get_headers() });
-    const data = await response.json();
+    const data = await api_get("users/me/subscriptions");
     return data.subscriptions;
 }
 
 export async function upload_file(file: File) {
-    const url = new URL("/api/v1/user_uploads", config.get_current_realm_url());
     const formData = new FormData();
-
     formData.append("FILE", file);
 
-    const headers = get_headers();
-
-    const response = await fetch(url, {
+    const response = await fetch(api_url("user_uploads"), {
         method: "POST",
-        headers,
+        headers: get_headers(),
         body: formData,
     });
     const data = await response.json();
@@ -131,12 +153,9 @@ export async function upload_file(file: File) {
 }
 
 export async function fetch_image(image_url: string): Promise<string> {
+    // image_url already contains the /api/v1 prefix
     const url = new URL(`/api/v1${image_url}`, config.get_current_realm_url());
-
-    const response = await fetch(url, {
-        method: "GET",
-        headers: get_headers(),
-    });
+    const response = await fetch(url, { headers: get_headers() });
     const data = await response.json();
 
     // we get a temporary url that we have access to
@@ -150,58 +169,26 @@ type SendInfo = {
 };
 
 export function mark_message_id_unread(message_id: number): void {
-    const body = new URLSearchParams({
+    api_form_request("POST", "messages/flags", {
         op: "remove",
         flag: "read",
         messages: JSON.stringify([message_id]),
     });
-
-    const email = config.get_email_for_current_realm();
-    const api_key = config.get_api_key_for_current_realm();
-
-    const credentials = btoa(`${email}:${api_key}`);
-    const api_url = `${config.get_current_realm_url()}/api/v1/messages/flags`;
-
-    fetch(api_url, {
-        method: "POST",
-        headers: {
-            Authorization: `Basic ${credentials}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-    });
-    // TODO: actually look at response
 }
 
 export function mark_message_ids_unread(unread_message_ids: number[]): void {
-    const body = new URLSearchParams({
+    api_form_request("POST", "messages/flags", {
         op: "add",
         flag: "read",
         messages: JSON.stringify(unread_message_ids),
     });
-
-    const email = config.get_email_for_current_realm();
-    const api_key = config.get_api_key_for_current_realm();
-
-    const credentials = btoa(`${email}:${api_key}`);
-    const api_url = `${config.get_current_realm_url()}/api/v1/messages/flags`;
-
-    fetch(api_url, {
-        method: "POST",
-        headers: {
-            Authorization: `Basic ${credentials}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-    });
-    // TODO: actually look at response
 }
 
 export function send_message(info: SendInfo, callback: MessageCallback): void {
     local_id_seq += 1;
     const local_id = local_id_seq.toString();
 
-    const body = new URLSearchParams({
+    api_form_request("POST", "messages", {
         type: "stream",
         local_id,
         queue_id: queue_id!,
@@ -211,21 +198,6 @@ export function send_message(info: SendInfo, callback: MessageCallback): void {
         read_by_sender: "true",
     });
 
-    const email = config.get_email_for_current_realm();
-    const api_key = config.get_api_key_for_current_realm();
-
-    const credentials = btoa(`${email}:${api_key}`);
-    const api_url = `${config.get_current_realm_url()}/api/v1/messages`;
-
-    fetch(api_url, {
-        method: "POST",
-        headers: {
-            Authorization: `Basic ${credentials}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-    });
-
     SENT_MESSAGE_CALLBACKS.set(local_id, callback);
 }
 
@@ -233,20 +205,7 @@ export function update_stream_description(
     stream_id: number,
     description: string,
 ): void {
-    const email = config.get_email_for_current_realm();
-    const api_key = config.get_api_key_for_current_realm();
-    const credentials = btoa(`${email}:${api_key}`);
-    const api_url = `${config.get_current_realm_url()}/api/v1/streams/${stream_id}`;
-
-    fetch(api_url, {
-        method: "PATCH",
-        headers: {
-            Authorization: `Basic ${credentials}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ description }).toString(),
-    });
-    // TODO: actually look at response
+    api_form_request("PATCH", `streams/${stream_id}`, { description });
 }
 
 export function toggle_reaction_on_message(
@@ -254,25 +213,12 @@ export function toggle_reaction_on_message(
     emoji_name: string,
     emoji_code: string,
     current_user_has_reacted: boolean,
-) {
-    const email = config.get_email_for_current_realm();
-    const api_key = config.get_api_key_for_current_realm();
-
-    const credentials = btoa(`${email}:${api_key}`);
-    const api_url = `${config.get_current_realm_url()}/api/v1/messages/${message_id}/reactions`;
-
-    fetch(api_url, {
-        method: current_user_has_reacted ? "DELETE" : "POST",
-        headers: {
-            Authorization: `Basic ${credentials}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-            emoji_name,
-            emoji_code,
-            reaction_type: "unicode_emoji",
-        }).toString(),
-    });
+): void {
+    api_form_request(
+        current_user_has_reacted ? "DELETE" : "POST",
+        `messages/${message_id}/reactions`,
+        { emoji_name, emoji_code, reaction_type: "unicode_emoji" },
+    );
 }
 
 export function handle_event(event: ZulipEvent): void {
