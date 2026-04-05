@@ -229,6 +229,26 @@ export function send_message(info: SendInfo, callback: MessageCallback): void {
     SENT_MESSAGE_CALLBACKS.set(local_id, callback);
 }
 
+export function update_stream_description(
+    stream_id: number,
+    description: string,
+): void {
+    const email = config.get_email_for_current_realm();
+    const api_key = config.get_api_key_for_current_realm();
+    const credentials = btoa(`${email}:${api_key}`);
+    const api_url = `${config.get_current_realm_url()}/api/v1/streams/${stream_id}`;
+
+    fetch(api_url, {
+        method: "PATCH",
+        headers: {
+            Authorization: `Basic ${credentials}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ description }).toString(),
+    });
+    // TODO: actually look at response
+}
+
 export function toggle_reaction_on_message(
     message_id: number,
     emoji_name: string,

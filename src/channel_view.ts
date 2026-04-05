@@ -167,6 +167,12 @@ export class ChannelView {
         this.add_topic_pane = undefined;
     }
 
+    handle_stream_update(stream_id: number, rendered_description: string): void {
+        if (stream_id === this.channel_row.stream_id()) {
+            this.channel_info.handle_stream_update(rendered_description);
+        }
+    }
+
     add_topic(): void {
         const pane_manager = this.pane_manager;
         const topic_list = this.topic_list;

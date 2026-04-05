@@ -8,6 +8,7 @@ export const enum EventFlavor {
     MUTATE_MESSAGE_ADDRESS,
     MUTATE_MESSAGE_CONTENT,
     MUTATE_UNREAD,
+    MUTATE_STREAM,
     UNKNOWN,
     REACTION_ADD_EVENT,
     REACTION_REMOVE_EVENT,
@@ -47,6 +48,13 @@ type MutateMessageContentEvent = {
     content: string;
 };
 
+type MutateStreamEvent = {
+    flavor: EventFlavor.MUTATE_STREAM;
+    stream_id: number;
+    description: string | undefined;
+    rendered_description: string;
+};
+
 type UnknownEvent = {
     flavor: EventFlavor.UNKNOWN;
     raw_event: any;
@@ -57,6 +65,7 @@ export type ZulipEvent =
     | MutateMessageAddressEvent
     | MutateMessageContentEvent
     | MutateUnreadEvent
+    | MutateStreamEvent
     | ReactionEvent
     | UnknownEvent;
 
@@ -144,6 +153,27 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                 raw_content: raw_event.content,
                 content: raw_event.rendered_content,
             };
+        }
+
+        case "stream": {
+            if (raw_event.op !== "update") return undefined;
+            if (raw_event.property === "description") {
+                return {
+                    flavor: EventFlavor.MUTATE_STREAM,
+                    stream_id: raw_event.stream_id,
+                    description: raw_event.value,
+                    rendered_description: raw_event.rendered_description,
+                };
+            }
+            if (raw_event.property === "rendered_description") {
+                return {
+                    flavor: EventFlavor.MUTATE_STREAM,
+                    stream_id: raw_event.stream_id,
+                    description: undefined,
+                    rendered_description: raw_event.value,
+                };
+            }
+            return undefined;
         }
 
         case "reaction": {

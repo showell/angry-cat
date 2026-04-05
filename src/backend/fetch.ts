@@ -14,9 +14,10 @@ async function fetch_streams(): Promise<Stream[]> {
     const streams: Stream[] = subscriptions.map((subscription: any) => {
         return {
             stream_id: subscription.stream_id,
+            name: subscription.name,
+            description: subscription.description,
             rendered_description: subscription.rendered_description,
             stream_weekly_traffic: subscription.stream_weekly_traffic,
-            name: subscription.name,
         };
     });
 
@@ -31,6 +32,7 @@ async function fetch_users(): Promise<User[]> {
             id: row.user_id,
             email: row.email,
             full_name: row.full_name,
+            is_admin: row.is_admin ?? false,
         };
     });
 }

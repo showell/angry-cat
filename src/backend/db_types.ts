@@ -27,6 +27,7 @@ export type Reaction = {
 export type Stream = {
     stream_id: number;
     name: string;
+    description: string;
     rendered_description: string;
     stream_weekly_traffic: number;
 };
@@ -35,6 +36,7 @@ export type User = {
     id: number;
     email: string;
     full_name: string;
+    is_admin: boolean;
 };
 
 export type Topic = {

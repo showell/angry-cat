@@ -53,6 +53,16 @@ export function handle_event(event: ZulipEvent): void {
         });
     }
 
+    if (event.flavor === EventFlavor.MUTATE_STREAM) {
+        const stream = DB.channel_map.get(event.stream_id);
+        if (stream) {
+            if (event.description !== undefined) {
+                stream.description = event.description;
+            }
+            stream.rendered_description = event.rendered_description;
+        }
+    }
+
     if (event.flavor === EventFlavor.REACTION_ADD_EVENT) {
         DB.reactions_map.process_add_event(event);
     }

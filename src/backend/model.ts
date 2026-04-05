@@ -16,6 +16,10 @@ export function current_user_name(): string {
     return DB.user_map.get(DB.current_user_id)!.full_name;
 }
 
+export function current_user_is_admin(): boolean {
+    return DB.user_map.get(DB.current_user_id)?.is_admin ?? false;
+}
+
 // STREAMS
 //
 export function get_channel_rows(): ChannelRow[] {

@@ -1,8 +1,7 @@
 import type { Database } from "./database";
 import type { Message } from "./db_types";
-import type { ServerMessage } from "./zulip_client";
-
 import * as parse from "./parse";
+import type { ServerMessage } from "./zulip_client";
 import * as zulip_client from "./zulip_client";
 
 const INITIAL_BATCH_SIZE = 1000;
@@ -106,7 +105,7 @@ async function process_message_rows_from_server(
             const id = row.sender_id;
             const email = row.sender_email;
             const full_name = row.sender_full_name;
-            const user = { id, email, full_name };
+            const user = { id, email, full_name, is_admin: false };
             db.user_map.set(id, user);
         }
     }

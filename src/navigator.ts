@@ -402,6 +402,13 @@ export class Navigator {
             this.refresh_message_ids([event.message_id]);
         }
 
+        if (event.flavor === EventFlavor.MUTATE_STREAM) {
+            this.channel_view?.handle_stream_update(
+                event.stream_id,
+                event.rendered_description,
+            );
+        }
+
         this.update_button_panel();
         this.update_label();
     }
