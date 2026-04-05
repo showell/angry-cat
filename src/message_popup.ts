@@ -25,10 +25,12 @@ function link_table(message_row: MessageRow): HTMLTableElement {
 
 export class MessagePopup {
     div: HTMLDivElement;
+    focus_confirm: () => void;
 
     constructor(message_row: MessageRow) {
-        const div = document.createElement("div");
+        this.focus_confirm = () => {};
 
+        const div = document.createElement("div");
         div.append(link_table(message_row));
 
         const button_container = document.createElement("div");
@@ -40,11 +42,16 @@ export class MessagePopup {
             const confirmation = document.createElement("span");
             confirmation.innerText = "OK! Reading list updated.";
             button_container.append(confirmation);
+            this.focus_confirm();
         });
 
         button_container.append(read_later_button.div);
         div.append(button_container);
 
         this.div = div;
+    }
+
+    set_focus_confirm(fn: () => void): void {
+        this.focus_confirm = fn;
     }
 }

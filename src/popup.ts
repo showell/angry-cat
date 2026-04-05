@@ -54,9 +54,14 @@ export function pop(info: PopupOptions): Popup {
 
 class Popup {
     dialog_shell: DialogShell;
+    confirm_button!: Button;
 
     constructor() {
         this.dialog_shell = new DialogShell();
+    }
+
+    focus_confirm_button(): void {
+        this.confirm_button.focus();
     }
 
     show(info: PopupOptions) {
@@ -65,6 +70,7 @@ class Popup {
         const button = new Button(info.confirm_button_text, 80, () => {
             self.finish(info.callback);
         });
+        this.confirm_button = button;
 
         const button_div = document.createElement("div");
         button_div.append(button.div);

@@ -89,11 +89,12 @@ export class MessageRowWidget {
             }
 
             const message_popup = new MessagePopup(message_row);
-            pop({
+            const popup = pop({
                 div: message_popup.div,
                 confirm_button_text: "Ok",
                 callback() {},
             });
+            message_popup.set_focus_confirm(() => popup.focus_confirm_button());
 
             e.stopPropagation();
         });
