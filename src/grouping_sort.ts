@@ -1,10 +1,9 @@
-import type { TopicRow } from "./row_types";
-
 export type SortMode = "alpha" | "recent" | "count";
 
 export interface MessageGrouping {
     name(): string;
     num_messages(): number;
+    last_msg_id(): number;
 }
 
 const next_mode: Record<SortMode, SortMode> = {
@@ -35,8 +34,8 @@ export class SortCycle {
     }
 }
 
-export function sort_recent(topic_rows: TopicRow[]): void {
-    topic_rows.sort((a, b) => b.last_msg_id() - a.last_msg_id());
+export function sort_recent<T extends MessageGrouping>(rows: T[]): void {
+    rows.sort((a, b) => b.last_msg_id() - a.last_msg_id());
 }
 
 export function get_display_rows<T extends MessageGrouping>(
