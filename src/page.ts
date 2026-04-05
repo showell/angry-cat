@@ -11,6 +11,7 @@ import * as page_widget from "./dom/page_widget";
 
 import * as lyn_rummy from "./lyn_rummy/plugin";
 import * as plugin_chooser from "./plugins/plugin_chooser";
+import * as reading_list from "./plugins/reading_list";
 import * as recent_conversations from "./plugins/recent_conversations";
 import { PluginHelper } from "./plugin_helper";
 
@@ -52,6 +53,7 @@ export class Page {
         this.add_plugin(plugin_chooser.plugin);
         this.add_plugin(lyn_rummy.plugin);
         this.add_plugin(recent_conversations.plugin);
+        this.add_plugin(reading_list.plugin);
         this.add_search_widget(address.nada());
         this.update_title();
     }
