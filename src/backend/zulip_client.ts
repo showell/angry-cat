@@ -109,6 +109,10 @@ export async function register_queue() {
     last_event_id = assert_event_id(data.last_event_id);
 }
 
+async function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function start_polling(event_handler: EventHandler) {
     const url = api_url("events");
 
@@ -116,12 +120,22 @@ export async function start_polling(event_handler: EventHandler) {
         url.searchParams.set("queue_id", queue_id);
         url.searchParams.set("last_event_id", last_event_id!.toString());
 
-        const response = await fetch(url, { headers: get_headers() });
-        const data = await response.json();
+        let data;
+        try {
+            const response = await fetch(url, { headers: get_headers() });
+            data = await response.json();
+        } catch (e) {
+            console.warn("Polling network error, retrying in 5s...", e);
+            await sleep(5000);
+            continue;
+        }
 
         if (data.result !== "success") {
-            window.location.reload();
+            console.warn("Queue error, re-registering...", data.msg);
+            await register_queue();
+            continue;
         }
+
         if (data.events?.length) {
             last_event_id = assert_event_id(data.events[data.events.length - 1].id);
             event_handler.process_events(data.events);
