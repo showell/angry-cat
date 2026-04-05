@@ -19,8 +19,6 @@ export class TopicList {
     search_widget: SearchWidget;
 
     constructor(channel_row: ChannelRow, search_widget: SearchWidget) {
-        const self = this;
-
         this.search_widget = search_widget;
         this.stream_id = channel_row.stream_id();
 
@@ -36,11 +34,10 @@ export class TopicList {
             min: 1,
             max: this.all_topic_rows.length,
             value: this.batch_size,
-            callback(batch_size: number) {
-                self.batch_size = batch_size;
-                self.topic_rows = self.all_topic_rows.slice(0, batch_size);
-                self.sort_alpha(self.topic_rows);
-                self.redraw();
+            callback: (batch_size: number) => {
+                this.batch_size = batch_size;
+                this.topic_rows = this.get_display_rows(batch_size);
+                this.redraw();
             },
         });
 
@@ -98,18 +95,16 @@ export class TopicList {
         });
     }
 
+    get_display_rows(batch_size: number): TopicRow[] {
+        const rows = this.all_topic_rows.slice(0, batch_size);
+        this.sort_alpha(rows);
+        return rows;
+    }
+
     populate_topic_rows() {
-        const stream_id = this.stream_id!;
-        const batch_size = this.batch_size;
-
-        this.all_topic_rows = model.get_topic_rows(stream_id);
-
+        this.all_topic_rows = model.get_topic_rows(this.stream_id);
         this.sort_recent(this.all_topic_rows);
-
-        const topic_rows = this.all_topic_rows.slice(0, batch_size);
-        this.sort_alpha(topic_rows);
-
-        this.topic_rows = topic_rows;
+        this.topic_rows = this.get_display_rows(this.batch_size);
     }
 
     make_table(): HTMLTableElement {

@@ -10,6 +10,7 @@ export function adjuster(info: AdjusterInfo) {
     div.style.display = "flex";
 
     if (info.max <= 5) {
+        // Not enough items to bother with a slider — return empty div.
         return div;
     }
 
