@@ -1,18 +1,29 @@
-type TodoItem = {
+export type TodoItemData =
+    | { kind: "text"; text: string }
+    | { kind: "message_link"; message_id: number; link_text: string };
+
+type InternalItem = {
     id: number;
-    text: string;
     done: boolean;
+    data: TodoItemData;
+};
+
+export type TodoListParams = {
+    render_content: (data: TodoItemData) => HTMLElement;
+    on_remove: (data: TodoItemData) => void;
 };
 
 let next_id = 1;
 
 export class TodoList {
     div: HTMLDivElement;
-    items: TodoItem[];
+    items: InternalItem[];
+    params: TodoListParams;
     drag_id: number | undefined;
     drop_index: number | undefined;
 
-    constructor() {
+    constructor(params: TodoListParams) {
+        this.params = params;
         this.items = [];
         this.drag_id = undefined;
         this.drop_index = undefined;
@@ -25,12 +36,29 @@ export class TodoList {
         this.render();
     }
 
-    add_item(text: string): void {
-        this.items.push({ id: next_id++, text, done: false });
+    add_text_item(text: string): void {
+        this.items.push({
+            id: next_id++,
+            done: false,
+            data: { kind: "text", text },
+        });
+        this.render();
+    }
+
+    add_message_link_item(message_id: number, link_text: string): void {
+        this.items.push({
+            id: next_id++,
+            done: false,
+            data: { kind: "message_link", message_id, link_text },
+        });
         this.render();
     }
 
     remove_item(id: number): void {
+        const item = this.items.find((item) => item.id === id);
+        if (item) {
+            this.params.on_remove(item.data);
+        }
         this.items = this.items.filter((item) => item.id !== id);
         this.render();
     }
@@ -122,7 +150,7 @@ export class TodoList {
         return line;
     }
 
-    render_row(item: TodoItem): HTMLDivElement {
+    render_row(item: InternalItem): HTMLDivElement {
         const row = document.createElement("div");
         row.dataset.todoId = String(item.id);
         row.style.display = "flex";
@@ -150,13 +178,12 @@ export class TodoList {
         done_button.style.padding = "2px 6px";
         done_button.addEventListener("click", () => this.toggle_done(item.id));
 
-        const label = document.createElement("span");
-        label.innerText = item.text;
-        label.style.flex = "1";
-        label.style.fontSize = "18px";
+        const content = this.params.render_content(item.data);
+        content.style.flex = "1";
+        content.style.fontSize = "18px";
         if (item.done) {
-            label.style.textDecoration = "line-through";
-            label.style.opacity = "0.5";
+            content.style.textDecoration = "line-through";
+            content.style.opacity = "0.5";
         }
 
         const remove_button = document.createElement("button");
@@ -168,7 +195,7 @@ export class TodoList {
             this.remove_item(item.id),
         );
 
-        row.append(drag_handle, done_button, label, remove_button);
+        row.append(drag_handle, done_button, content, remove_button);
         return row;
     }
 
@@ -194,7 +221,7 @@ export class TodoList {
             const text = input.value.trim();
             if (text) {
                 input.value = "";
-                this.add_item(text);
+                this.add_text_item(text);
             }
         };
 

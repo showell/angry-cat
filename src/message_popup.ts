@@ -35,7 +35,10 @@ export class MessagePopup {
         button_container.style.marginTop = "10px";
 
         const read_later_button = new Button("Read Later", 120, () => {
-            APP.add_to_reading_list(`Read ${message_row.message_link()}`);
+            APP.add_message_link_to_reading_list(
+                message_row.message_id(),
+                message_row.message_link(),
+            );
             button_container.innerHTML = "";
             const confirmation = document.createElement("span");
             confirmation.innerText = "OK! Reading list updated.";
