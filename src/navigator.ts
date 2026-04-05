@@ -231,10 +231,17 @@ export class Navigator {
     }
 
     update_button_panel(): void {
+        const topic_selected = this.topic_selected();
+        const topic_id = this.get_topic_id();
+        const has_unreads = topic_selected && this.unread_count() > 0;
+        const already_listed =
+            topic_id !== undefined && APP.is_topic_in_reading_list(topic_id);
         this.button_panel.update({
             channel_selected: this.channel_selected(),
-            topic_selected: this.topic_selected(),
-            has_unreads: this.topic_selected() && this.unread_count() > 0,
+            topic_selected,
+            has_unreads,
+            show_read_later: topic_selected && !already_listed,
+            show_mark_unread: topic_selected && !has_unreads,
         });
     }
 
@@ -315,6 +322,16 @@ export class Navigator {
         this.channel_view.add_topic();
     }
 
+    mark_topic_unread(): void {
+        const message_list = this.get_message_list();
+
+        if (!message_list) {
+            console.log("unexpected lack of message_list");
+            return;
+        }
+        message_list.mark_last_message_unread();
+    }
+
     mark_topic_read(): void {
         const message_list = this.get_message_list();
 
@@ -385,6 +402,7 @@ export class Navigator {
             this.refresh_message_ids([event.message_id]);
         }
 
+        this.update_button_panel();
         this.update_label();
     }
 }

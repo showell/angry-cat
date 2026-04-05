@@ -29,6 +29,10 @@ class Application {
     add_address_link_to_reading_list(address: Address): void {
         this.reading_list_todo?.add_address_link_item(address);
     }
+
+    is_topic_in_reading_list(topic_id: number): boolean {
+        return this.reading_list_todo?.is_topic_in_list(topic_id) ?? false;
+    }
 }
 
 export let APP: Application;

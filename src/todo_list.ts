@@ -56,6 +56,14 @@ export class TodoList {
         this.render();
     }
 
+    is_topic_in_list(topic_id: number): boolean {
+        return this.items.some(
+            (item) =>
+                item.data.kind === "address_link" &&
+                item.data.address.topic_id === topic_id,
+        );
+    }
+
     remove_item(id: number): void {
         const item = this.items.find((item) => item.id === id);
         if (item) {

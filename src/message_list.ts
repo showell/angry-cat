@@ -103,6 +103,13 @@ export class MessageList {
         this.div.focus();
     }
 
+    mark_last_message_unread(): void {
+        const last = this.rows.at(-1);
+        if (last !== undefined) {
+            zulip_client.mark_message_id_unread(last.id);
+        }
+    }
+
     mark_topic_read() {
         const unread_message_ids = this.rows
             .filter((message) => message.unread)

@@ -149,6 +149,30 @@ type SendInfo = {
     content: string;
 };
 
+export function mark_message_id_unread(message_id: number): void {
+    const body = new URLSearchParams({
+        op: "remove",
+        flag: "read",
+        messages: JSON.stringify([message_id]),
+    });
+
+    const email = config.get_email_for_current_realm();
+    const api_key = config.get_api_key_for_current_realm();
+
+    const credentials = btoa(`${email}:${api_key}`);
+    const api_url = `${config.get_current_realm_url()}/api/v1/messages/flags`;
+
+    fetch(api_url, {
+        method: "POST",
+        headers: {
+            Authorization: `Basic ${credentials}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: body.toString(),
+    });
+    // TODO: actually look at response
+}
+
 export function mark_message_ids_unread(unread_message_ids: number[]): void {
     const body = new URLSearchParams({
         op: "add",
