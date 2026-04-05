@@ -72,15 +72,15 @@ async function api_form_request(
     method: string,
     path: string,
     params: Record<string, string>,
-): Promise<void> {
-    await with_retry(() =>
+): Promise<{ result: string; msg?: string }> {
+    const response = await with_retry(() =>
         fetch(api_url(path), {
             method,
             headers: form_headers(),
             body: new URLSearchParams(params).toString(),
         }),
     );
-    // TODO: actually look at response
+    return response.json();
 }
 
 export async function register_queue() {
@@ -201,7 +201,11 @@ export function mark_message_ids_unread(unread_message_ids: number[]): void {
     });
 }
 
-export function send_message(info: SendInfo, callback: MessageCallback): void {
+export function send_message(
+    info: SendInfo,
+    callback: MessageCallback,
+    on_error?: (msg: string) => void,
+): void {
     if (queue_id === undefined) {
         console.log("send_message called before queue initialized");
         return;
@@ -209,6 +213,8 @@ export function send_message(info: SendInfo, callback: MessageCallback): void {
 
     local_id_seq += 1;
     const local_id = local_id_seq.toString();
+
+    SENT_MESSAGE_CALLBACKS.set(local_id, callback);
 
     api_form_request("POST", "messages", {
         type: "stream",
@@ -218,9 +224,12 @@ export function send_message(info: SendInfo, callback: MessageCallback): void {
         topic: info.topic_name,
         content: info.content,
         read_by_sender: "true",
+    }).then((data) => {
+        if (data.result !== "success") {
+            SENT_MESSAGE_CALLBACKS.delete(local_id);
+            on_error?.(data.msg ?? "Unknown error sending message");
+        }
     });
-
-    SENT_MESSAGE_CALLBACKS.set(local_id, callback);
 }
 
 export function update_stream_description(

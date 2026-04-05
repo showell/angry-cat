@@ -98,12 +98,21 @@ class TextArea {
         StatusBar.inform("You can hit tab to get to the Send button.");
         this.elem.focus();
     }
+
+    disable(): void {
+        this.elem.disabled = true;
+    }
+
+    enable(): void {
+        this.elem.disabled = false;
+    }
 }
 
 export class ComposeBox {
     div: HTMLElement;
     topic_input: TopicInput;
     textarea: TextArea;
+    send_button: Button;
     stream_id: number;
 
     constructor(stream_id: number, topic_name: string) {
@@ -112,26 +121,27 @@ export class ComposeBox {
         const div = document.createElement("div");
 
         const topic_input = new TopicInput(topic_name);
-
         const textarea = new TextArea();
+        const { button_row_div, send_button } = this.build_button_row();
 
         div.append(topic_input.div);
         div.append(textarea.div);
-        div.append(this.button_row());
+        div.append(button_row_div);
 
         document.body.append(div);
 
         this.topic_input = topic_input;
         this.div = div;
         this.textarea = textarea;
+        this.send_button = send_button;
     }
 
     focus_textarea(): void {
         this.textarea.focus();
     }
 
-    button_row(): HTMLElement {
-        const div = compose_widget.button_row_div();
+    build_button_row(): { button_row_div: HTMLElement; send_button: Button } {
+        const button_row_div = compose_widget.button_row_div();
 
         const file_input = document.createElement("input");
         file_input.type = "file";
@@ -143,24 +153,34 @@ export class ComposeBox {
                 file_input.value = "";
             }
         });
-        div.append(file_input);
+        button_row_div.append(file_input);
 
         const upload_button = new Button("Upload", 100, () => {
             file_input.click();
         });
 
         const send_button = new Button("Send", 100, () => {
-            // TODO: save draft
             const content = this.get_content_to_send();
             this.textarea.clear();
-            this.textarea.focus();
+            this.disable();
+            StatusBar.inform("Sending…");
             this.send(content);
         });
 
-        div.append(send_button.div);
-        div.append(upload_button.div);
+        button_row_div.append(send_button.div);
+        button_row_div.append(upload_button.div);
 
-        return div;
+        return { button_row_div, send_button };
+    }
+
+    disable(): void {
+        this.textarea.disable();
+        this.send_button.disable();
+    }
+
+    enable(): void {
+        this.textarea.enable();
+        this.send_button.enable();
     }
 
     get_content_to_send(): string {
@@ -174,9 +194,13 @@ export class ComposeBox {
         zulip_client.send_message(
             { channel_id, topic_name, content },
             (_message) => {
-                console.log(
-                    `the sent message from ${topic_name} came as event`,
-                );
+                this.enable();
+                this.textarea.focus();
+            },
+            (error_msg) => {
+                this.enable();
+                StatusBar.scold(`Failed to send: ${error_msg}`);
+                this.textarea.insert_text(content);
             },
         );
     }

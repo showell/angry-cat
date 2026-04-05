@@ -69,4 +69,14 @@ export class Button {
     set_normal_color(): void {
         this.button.style.backgroundColor = "#000080";
     }
+
+    disable(): void {
+        this.button.setAttribute("disabled", "");
+        this.button.style.opacity = "0.4";
+    }
+
+    enable(): void {
+        this.button.removeAttribute("disabled");
+        this.button.style.opacity = "1";
+    }
 }
