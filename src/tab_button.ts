@@ -1,3 +1,4 @@
+import * as colors from "./colors";
 import * as tab_button_widget from "./dom/tab_button_widget";
 import type { Page } from "./page";
 import type { PluginHelper } from "./plugin_helper";
@@ -32,17 +33,17 @@ export class TabButton {
         tab_button.innerText = plugin_helper.label;
 
         if (plugin_helper.open) {
-            tab_button.style.backgroundColor = "white";
-            tab_button.style.borderBottom = "1px white solid";
-            tab_button.style.color = "#000080";
+            tab_button.style.backgroundColor = colors.tab_active_bg;
+            tab_button.style.borderBottom = `1px ${colors.tab_active_bg} solid`;
+            tab_button.style.color = colors.primary;
         } else {
-            tab_button.style.backgroundColor = "lightgray";
-            tab_button.style.borderBottom = "1px black solid";
-            tab_button.style.color = "#0000B0";
+            tab_button.style.backgroundColor = colors.tab_inactive_bg;
+            tab_button.style.borderBottom = `1px ${colors.border} solid`;
+            tab_button.style.color = colors.tab_inactive_text;
         }
     }
 
     violet(): void {
-        this.tab_button.style.backgroundColor = "violet";
+        this.tab_button.style.backgroundColor = colors.new_message_border;
     }
 }

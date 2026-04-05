@@ -1,7 +1,6 @@
+import * as event_queue from "../backend/event_queue";
 import type { NetworkHelper, RowType } from "../backend/network";
 import type * as webxdc from "../backend/webxdc";
-
-import * as event_queue from "../backend/event_queue";
 import type { EventRow, JsonGameEvent } from "./game";
 
 export class GameHelper {

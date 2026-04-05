@@ -1,4 +1,5 @@
 import type { ChannelRow } from "./channel_row";
+import * as colors from "./colors";
 import { ComposeBox } from "./compose";
 import * as layout from "./layout";
 import { render_list_heading } from "./render";
@@ -8,7 +9,7 @@ function render_heading(stream_name: string): HTMLElement {
     const title = `Start new topic on channel: ${stream_name}`;
     const div = render_list_heading(title);
 
-    div.style.color = "green";
+    div.style.color = colors.success;
 
     return div;
 }

@@ -45,7 +45,9 @@ async function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function start_polling(event_handler: EventHandler): Promise<void> {
+export async function start_polling(
+    event_handler: EventHandler,
+): Promise<void> {
     const url = api_url("events");
 
     while (queue_id !== undefined) {

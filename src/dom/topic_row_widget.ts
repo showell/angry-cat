@@ -1,6 +1,6 @@
+import * as colors from "../colors";
 import type { Navigator } from "../navigator";
 import type { TopicRow } from "../topic_row";
-
 import { render_unread_count } from "./render";
 
 function render_topic_count(count: number): HTMLDivElement {
@@ -17,7 +17,7 @@ export function render_topic_name(topic_name: string): HTMLDivElement {
     div.innerText = "> " + topic_name;
     div.style.maxWidth = "270px";
     div.style.overflowWrap = "break-word";
-    div.style.color = "#000080";
+    div.style.color = colors.text_heading;
     div.style.cursor = "pointer";
     div.style.paddingLeft = "3px";
 
@@ -43,7 +43,7 @@ function render_name_div(
     });
 
     if (selected) {
-        div.style.backgroundColor = "cyan";
+        div.style.backgroundColor = colors.selected_bg;
     }
 
     return div;

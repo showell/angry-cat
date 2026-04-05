@@ -1,3 +1,5 @@
+import * as colors from "./colors";
+
 type DivButton = {
     div: HTMLElement;
     button: HTMLElement;
@@ -9,15 +11,15 @@ function render_div_button(label: string): DivButton {
 
     const button = document.createElement("button");
     button.innerText = label;
-    button.style.color = "white";
-    button.style.backgroundColor = "#000080";
+    button.style.color = colors.on_primary;
+    button.style.backgroundColor = colors.primary;
 
     button.addEventListener("focus", () => {
-        button.style.backgroundColor = "#00BB00";
+        button.style.backgroundColor = colors.primary_focus;
     });
 
     button.addEventListener("blur", () => {
-        button.style.backgroundColor = "#000080";
+        button.style.backgroundColor = colors.primary;
     });
 
     div.append(button);
@@ -67,7 +69,7 @@ export class Button {
     }
 
     set_normal_color(): void {
-        this.button.style.backgroundColor = "#000080";
+        this.button.style.backgroundColor = colors.primary;
     }
 
     disable(): void {

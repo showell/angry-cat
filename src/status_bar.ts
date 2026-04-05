@@ -1,3 +1,5 @@
+import * as colors from "./colors";
+
 export let StatusBar: StatusBarWidget;
 
 class StatusBarWidget {
@@ -18,17 +20,17 @@ class StatusBarWidget {
     }
 
     scold(text: string) {
-        this.text_div.style.color = "red";
+        this.text_div.style.color = colors.danger;
         this.text_div.innerText = text;
     }
 
     celebrate(text: string) {
-        this.text_div.style.color = "green";
+        this.text_div.style.color = colors.success;
         this.text_div.innerText = text;
     }
 
     inform(text: string) {
-        this.text_div.style.color = "#31708f";
+        this.text_div.style.color = colors.status_info;
         this.text_div.innerText = text;
     }
 

@@ -1,14 +1,16 @@
+import * as colors from "../colors";
+
 function add_search_button(add_navigator: () => void): HTMLDivElement {
     const div = document.createElement("div");
     div.style.marginRight = "15px";
 
     const button = document.createElement("button");
     button.innerText = "+";
-    button.style.backgroundColor = "white";
+    button.style.backgroundColor = colors.surface;
     button.style.padding = "3px";
     button.style.fontSize = "12px";
-    button.style.backgroundColor = "white";
-    button.style.border = "1px green solid";
+    button.style.backgroundColor = colors.surface;
+    button.style.border = `1px ${colors.success} solid`;
 
     button.addEventListener("click", () => {
         add_navigator();
@@ -22,7 +24,7 @@ function add_search_button(add_navigator: () => void): HTMLDivElement {
 function tab_bottom_border_spacer(): HTMLDivElement {
     const spacer = document.createElement("div");
     spacer.innerText = " ";
-    spacer.style.borderBottom = "1px black solid";
+    spacer.style.borderBottom = `1px ${colors.border} solid`;
     spacer.style.height = "1px";
     spacer.style.flexGrow = "1";
 

@@ -1,5 +1,6 @@
 import type { ChannelRow } from "../channel_row";
 
+import * as colors from "../colors";
 import { render_unread_count } from "../dom/render";
 
 function render_num_topics(count: number): HTMLDivElement {
@@ -16,7 +17,7 @@ function render_channel_name(channel_name: string): HTMLDivElement {
     div.innerText = "#" + channel_name;
     div.style.maxWidth = "270px";
     div.style.overflowWrap = "break-word";
-    div.style.color = "#000080";
+    div.style.color = colors.text_heading;
     div.style.cursor = "pointer";
 
     return div;
@@ -33,7 +34,7 @@ export function row_widget(opts: {
     const name_div = render_channel_name(channel_row.name());
 
     if (selected) {
-        name_div.style.backgroundColor = "cyan";
+        name_div.style.backgroundColor = colors.selected_bg;
     }
 
     name_div.addEventListener("click", () => {

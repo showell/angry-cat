@@ -1,3 +1,5 @@
+import * as colors from "../colors";
+
 export function render_list_heading(name: string): HTMLElement {
     const div = document.createElement("div");
 
@@ -7,7 +9,7 @@ export function render_list_heading(name: string): HTMLElement {
     text_div.style.paddingBottom = "4px";
     text_div.style.marginBottom = "12px";
     text_div.style.fontSize = "19px";
-    text_div.style.borderBottom = "1px solid black";
+    text_div.style.borderBottom = `1px solid ${colors.border}`;
 
     div.append(text_div);
 
@@ -31,11 +33,11 @@ export function render_th(label: string): HTMLElement {
     th.innerText = label;
     th.style.position = "sticky";
     th.style.top = "0";
-    th.style.backgroundColor = "white";
+    th.style.backgroundColor = colors.surface;
     th.style.zIndex = "999";
     th.style.textAlign = "left";
     th.style.fontWeight = "bold";
-    th.style.color = "#000080";
+    th.style.color = colors.text_heading;
     th.style.margin = "2px";
     return th;
 }
@@ -61,7 +63,7 @@ export function render_unread_count(count: number): HTMLDivElement {
     div.style.padding = "2px";
 
     if (count > 0) {
-        div.style.backgroundColor = "lavender";
+        div.style.backgroundColor = colors.unread_bg;
     }
 
     return div;

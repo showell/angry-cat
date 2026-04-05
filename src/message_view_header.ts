@@ -1,3 +1,4 @@
+import * as colors from "./colors";
 import type { TopicRow } from "./topic_row";
 
 function render_topic_heading_count(count: number): HTMLElement {
@@ -24,7 +25,7 @@ export class MessageViewHeader {
     constructor(topic_row: TopicRow) {
         const div = document.createElement("div");
         div.style.display = "flex";
-        div.style.borderBottom = "1px solid black";
+        div.style.borderBottom = `1px solid ${colors.border}`;
         div.style.paddingBottom = "4px";
         div.style.marginBottom = "12px";
 

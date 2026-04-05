@@ -4,6 +4,7 @@ import { EventFlavor } from "../backend/event";
 import * as model from "../backend/model";
 import { adjuster } from "../batch_count";
 import { Button } from "../button";
+import * as colors from "../colors";
 import { render_unread_count } from "../dom/render";
 import * as table_widget from "../dom/table_widget";
 import { render_topic_name } from "../dom/topic_row_widget";
@@ -45,7 +46,7 @@ function build_message_cell(
         const message_row = new MessageRow(message);
         const block = document.createElement("div");
         if (to_show.length > 1) {
-            block.style.borderBottom = "1px dotted #ccc";
+            block.style.borderBottom = `1px dotted ${colors.border_subtle}`;
             block.style.marginBottom = "4px";
             block.style.paddingBottom = "4px";
         }

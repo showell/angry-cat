@@ -2,6 +2,7 @@ import { APP } from "../app";
 import type { PluginHelper, PluginMaker } from "../plugin_helper";
 
 import * as code_search from "./code_search";
+import * as color_scheme from "./color_scheme";
 import * as event_radio from "./event_radio";
 import * as github_search from "./github_search";
 
@@ -21,6 +22,7 @@ export function plugin(plugin_helper: PluginHelper) {
         div.append(button);
     }
 
+    add_plugin("Color Scheme", color_scheme.plugin);
     add_plugin("Event Radio", event_radio.plugin);
     add_plugin("Code Search", code_search.plugin);
     add_plugin("GitHub Search", github_search.plugin);

@@ -1,5 +1,6 @@
 import { APP } from "./app";
 import { Button } from "./button";
+import * as colors from "./colors";
 import type { Navigator } from "./navigator";
 import { StatusBar } from "./status_bar";
 
@@ -24,8 +25,8 @@ export class ButtonPanel {
             navigator.close();
         });
 
-        this.close.button.style.color = "white";
-        this.close.button.style.backgroundColor = "red";
+        this.close.button.style.color = colors.on_primary;
+        this.close.button.style.backgroundColor = colors.danger;
 
         this.fork = new Button("fork", 60, () => {
             navigator.fork();

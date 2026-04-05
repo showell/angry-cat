@@ -3,6 +3,7 @@ import { stream_filter } from "./backend/filter";
 import * as model from "./backend/model";
 import * as zulip_client from "./backend/zulip_client";
 import type { ChannelRow } from "./channel_row";
+import * as colors from "./colors";
 import { render_list_heading } from "./dom/render";
 import * as layout from "./layout";
 import { render_message_content } from "./message_content";
@@ -14,7 +15,7 @@ function render_section_label(text: string): HTMLDivElement {
     div.innerText = text;
     div.style.fontSize = "13px";
     div.style.fontWeight = "bold";
-    div.style.color = "#000080";
+    div.style.color = colors.text_heading;
     div.style.marginTop = "12px";
     div.style.marginBottom = "4px";
     div.style.textTransform = "uppercase";
@@ -26,9 +27,9 @@ function render_participant(user: User): HTMLDivElement {
     const div = document.createElement("div");
     div.innerText = user.full_name;
     div.style.padding = "3px 6px";
-    div.style.color = "#333";
+    div.style.color = colors.text_body;
     div.style.fontSize = "14px";
-    div.style.borderLeft = "3px solid #CCCCFF";
+    div.style.borderLeft = `3px solid ${colors.accent_border}`;
     div.style.marginBottom = "3px";
     return div;
 }
@@ -51,7 +52,7 @@ function render_description_header(on_edit: () => void): HTMLDivElement {
     const edit_button = document.createElement("button");
     edit_button.innerText = "edit";
     edit_button.style.fontSize = "11px";
-    edit_button.style.color = "#888";
+    edit_button.style.color = colors.text_muted;
     edit_button.style.background = "none";
     edit_button.style.border = "none";
     edit_button.style.cursor = "pointer";
@@ -66,7 +67,7 @@ function render_traffic(traffic: number): HTMLDivElement {
     const div = document.createElement("div");
     div.innerText = `~${traffic} messages/week`;
     div.style.fontSize = "14px";
-    div.style.color = "#333";
+    div.style.color = colors.text_body;
     return div;
 }
 
@@ -82,7 +83,7 @@ function build_edit_popup_content(
     const label = document.createElement("div");
     label.innerText = `Edit description for #${stream_name}`;
     label.style.fontWeight = "bold";
-    label.style.color = "#000080";
+    label.style.color = colors.text_heading;
     div.append(label);
 
     const textarea = document.createElement("textarea");

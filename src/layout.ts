@@ -1,3 +1,4 @@
+import * as colors from "./colors";
 import { render_list_heading } from "./dom/render";
 
 export function draw_page(
@@ -42,13 +43,13 @@ export function draw_navigator(
 }
 
 export function layout_pane_div(div: HTMLDivElement) {
-    div.style.backgroundColor = "white";
+    div.style.backgroundColor = colors.surface;
     div.style.paddingTop = "10px";
     div.style.paddingBottom = "10px";
     div.style.paddingLeft = "13px";
     div.style.paddingRight = "13px";
     div.style.borderRadius = "8px";
-    div.style.border = "1px #CCCCFF solid";
+    div.style.border = `1px ${colors.accent_border} solid`;
     div.style.marginRight = "12px";
     div.style.display = "flex";
     div.style.flexDirection = "column";

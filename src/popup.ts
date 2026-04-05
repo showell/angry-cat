@@ -1,4 +1,5 @@
 import { Button } from "./button";
+import * as colors from "./colors";
 
 class DialogShell {
     popup_element: HTMLDialogElement;
@@ -48,12 +49,12 @@ type PopupOptions = {
 };
 
 function style_as_cancel(button: Button): void {
-    button.button.style.backgroundColor = "#888";
+    button.button.style.backgroundColor = colors.cancel_bg;
     button.button.addEventListener("focus", () => {
-        button.button.style.backgroundColor = "#555";
+        button.button.style.backgroundColor = colors.cancel_focus_bg;
     });
     button.button.addEventListener("blur", () => {
-        button.button.style.backgroundColor = "#888";
+        button.button.style.backgroundColor = colors.cancel_bg;
     });
 }
 

@@ -1,4 +1,5 @@
 import type { Address } from "./address";
+import * as colors from "./colors";
 
 export type TodoItemData =
     | { kind: "text"; text: string }
@@ -155,7 +156,7 @@ export class TodoList {
     render_drop_line(): HTMLDivElement {
         const line = document.createElement("div");
         line.style.height = "3px";
-        line.style.backgroundColor = "#000080";
+        line.style.backgroundColor = colors.primary;
         line.style.borderRadius = "2px";
         return line;
     }

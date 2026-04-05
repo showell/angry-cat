@@ -1,8 +1,14 @@
 import * as config from "../config";
+import {
+    api_form_request,
+    api_get,
+    api_url,
+    get_headers,
+    slash_join,
+} from "./api_helpers";
 import type { Message } from "./db_types";
 import type { ZulipEvent } from "./event";
 import { EventFlavor } from "./event";
-import { api_form_request, api_get, api_url, get_headers, slash_join } from "./api_helpers";
 import { get_queue_id } from "./event_queue";
 
 let local_id_seq = 0;

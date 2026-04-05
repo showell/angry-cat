@@ -1,3 +1,5 @@
+import * as colors from "./colors";
+
 type AdjusterInfo = {
     min: number;
     max: number;
@@ -54,8 +56,8 @@ export function adjuster(info: AdjusterInfo) {
     function make_button(label: string): HTMLButtonElement {
         const button = document.createElement("button");
         button.innerText = label;
-        button.style.color = "white";
-        button.style.backgroundColor = "#000080";
+        button.style.color = colors.on_primary;
+        button.style.backgroundColor = colors.primary;
         button.style.fontSize = "16px";
         button.style.borderRadius = "5px";
         button.style.padding = "3px 8px";

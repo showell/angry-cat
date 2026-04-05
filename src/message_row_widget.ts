@@ -1,5 +1,6 @@
 import { APP } from "./app";
 import { Button } from "./button";
+import * as colors from "./colors";
 import { render_message_content } from "./message_content";
 import { MessagePopup } from "./message_popup";
 import type { MessageRow } from "./message_row";
@@ -12,7 +13,7 @@ function render_message_box() {
 
     div.style.paddingTop = "5px";
     div.style.marginBottom = "5px";
-    div.style.borderBottom = "1px dotted #000080";
+    div.style.borderBottom = `1px dotted ${colors.primary}`;
     div.style.fontSize = "16px";
     div.style.fontFamily = `"Source Sans 3 VF", sans-serif`;
     div.style.lineHeight = "22.4px";
@@ -26,7 +27,7 @@ export function render_sender_name(sender_name: string): HTMLElement {
     div.innerText = sender_name;
     div.style.fontWeight = "bold";
     div.style.fontSize = "16px";
-    div.style.color = "rgb(51, 51, 51)";
+    div.style.color = colors.text_body;
     return div;
 }
 
@@ -62,7 +63,7 @@ function address_line(message_row: MessageRow): HTMLDivElement {
     from_div.innerText = message_row.channel_topic();
     from_div.style.fontSize = "16px";
     from_div.style.fontWeight = "bold";
-    from_div.style.color = "rgb(51, 51, 51)";
+    from_div.style.color = colors.text_body;
 
     const button = new Button("view", 60, () => {
         APP.add_navigator(message_row.address());
@@ -99,11 +100,11 @@ export class MessageRowWidget {
         });
 
         if (message_row.unread()) {
-            div.style.backgroundColor = "lavender";
+            div.style.backgroundColor = colors.unread_bg;
         }
 
         if (message_row.is_super_new()) {
-            div.style.border = "1px violet solid";
+            div.style.border = `1px ${colors.new_message_border} solid`;
         }
 
         div.append(top_line(message_row));

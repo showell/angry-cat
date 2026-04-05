@@ -1,5 +1,6 @@
 import { APP } from "../app";
 import { DB } from "../backend/database";
+import * as colors from "../colors";
 import type { PluginHelper } from "../plugin_helper";
 import type { TodoItemData } from "../todo_list";
 import { TodoList } from "../todo_list";
@@ -28,7 +29,7 @@ function render_content(data: TodoItemData): HTMLElement {
 
     const button = document.createElement("button");
     button.innerText = label;
-    button.style.color = "darkgreen";
+    button.style.color = colors.link_text;
     button.style.fontWeight = "bold";
     button.style.background = "none";
     button.style.border = "none";
