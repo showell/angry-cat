@@ -5,7 +5,7 @@ import type { EventHandler, ZulipEvent } from "./event";
 import { EventFlavor } from "./event";
 
 let queue_id: string | undefined;
-let last_event_id: string | undefined;
+let last_event_id: number | undefined;
 let local_id_seq = 0;
 
 export type MessageCallback = (message: Message) => void;
@@ -83,6 +83,13 @@ async function api_form_request(
     return response.json();
 }
 
+function assert_event_id(value: unknown): number {
+    if (!Number.isInteger(value)) {
+        throw new Error(`Expected integer event id, got: ${JSON.stringify(value)}`);
+    }
+    return value as number;
+}
+
 export async function register_queue() {
     const url = api_url("register");
     url.searchParams.set("apply_markdown", "true");
@@ -91,25 +98,23 @@ export async function register_queue() {
     url.searchParams.set("all_public_streams", "false");
     url.searchParams.set("client", "Angry Cat (showell)");
 
-    const response = await fetch(url, {
-        method: "POST",
-        headers: get_headers(),
-    });
+    const response = await with_retry(() =>
+        fetch(url, {
+            method: "POST",
+            headers: get_headers(),
+        }),
+    );
     const data = await response.json();
     queue_id = data.queue_id;
-    last_event_id = data.last_event_id;
+    last_event_id = assert_event_id(data.last_event_id);
 }
 
 export async function start_polling(event_handler: EventHandler) {
-    if (queue_id === undefined || last_event_id === undefined) {
-        return;
-    }
-
     const url = api_url("events");
 
-    while (queue_id !== undefined && last_event_id !== undefined) {
+    while (queue_id !== undefined) {
         url.searchParams.set("queue_id", queue_id);
-        url.searchParams.set("last_event_id", last_event_id);
+        url.searchParams.set("last_event_id", last_event_id!.toString());
 
         const response = await fetch(url, { headers: get_headers() });
         const data = await response.json();
@@ -118,7 +123,7 @@ export async function start_polling(event_handler: EventHandler) {
             window.location.reload();
         }
         if (data.events?.length) {
-            last_event_id = data.events[data.events.length - 1].id;
+            last_event_id = assert_event_id(data.events[data.events.length - 1].id);
             event_handler.process_events(data.events);
         }
     }
