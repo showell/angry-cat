@@ -6,26 +6,36 @@ import { DB } from "../backend/database";
 import { TodoList } from "../todo_list";
 
 function render_content(data: TodoItemData): HTMLElement {
-    const span = document.createElement("span");
     if (data.kind === "text") {
+        const span = document.createElement("span");
         span.innerText = data.text;
-    } else {
-        const { channel_id, topic_id, message_id } = data.address;
-        const channel_name =
-            channel_id !== undefined
-                ? (DB.channel_map.get(channel_id)?.name ??
-                  `channel:${channel_id}`)
-                : "?";
-        const topic_name =
-            topic_id !== undefined
-                ? (DB.topic_map.get(topic_id)?.topic_name ??
-                  `topic:${topic_id}`)
-                : "?";
-        span.innerText = `#${channel_name} > ${topic_name} (msg ${message_id})`;
-        span.style.color = "darkgreen";
-        span.style.fontWeight = "bold";
+        return span;
     }
-    return span;
+
+    const { channel_id, topic_id, message_id } = data.address;
+    const channel_name =
+        channel_id !== undefined
+            ? (DB.channel_map.get(channel_id)?.name ?? `channel:${channel_id}`)
+            : "?";
+    const topic_name =
+        topic_id !== undefined
+            ? (DB.topic_map.get(topic_id)?.topic_name ?? `topic:${topic_id}`)
+            : "?";
+
+    const button = document.createElement("button");
+    button.innerText = `#${channel_name} > ${topic_name} (msg ${message_id})`;
+    button.style.color = "darkgreen";
+    button.style.fontWeight = "bold";
+    button.style.background = "none";
+    button.style.border = "none";
+    button.style.cursor = "pointer";
+    button.style.padding = "0";
+    button.style.textAlign = "left";
+    button.addEventListener("click", (e) => {
+        e.stopPropagation();
+        APP.add_search_widget(data.address);
+    });
+    return button;
 }
 
 function on_remove(_data: TodoItemData): void {
