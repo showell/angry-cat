@@ -9,7 +9,7 @@ import * as topic_row_widget from "./dom/topic_row_widget";
 import * as batch_count from "./batch_count";
 import { Button } from "./button";
 
-type SortMode = "alpha" | "recent";
+type SortMode = "alpha" | "recent" | "count";
 
 export class TopicList {
     div: HTMLDivElement;
@@ -52,7 +52,12 @@ export class TopicList {
         adjuster_div.innerHTML = "";
 
         const toggle_button = new Button("Toggle Sort", 100, () => {
-            this.sort_mode = this.sort_mode === "alpha" ? "recent" : "alpha";
+            const next: Record<SortMode, SortMode> = {
+                alpha: "recent",
+                recent: "count",
+                count: "alpha",
+            };
+            this.sort_mode = next[this.sort_mode];
             this.populate_topic_rows();
             this.redraw();
             this.populate_adjuster();
@@ -60,7 +65,12 @@ export class TopicList {
         adjuster_div.append(toggle_button.div);
 
         const sort_label = document.createElement("div");
-        sort_label.innerText = this.sort_mode === "alpha" ? "A-Z" : "Recent";
+        const sort_labels: Record<SortMode, string> = {
+            alpha: "A-Z",
+            recent: "Recent",
+            count: "Most Messages",
+        };
+        sort_label.innerText = sort_labels[this.sort_mode];
         adjuster_div.append(sort_label);
 
         if (this.sort_mode === "alpha") {
@@ -126,9 +136,20 @@ export class TopicList {
         });
     }
 
+    sort_by_count(topic_rows: TopicRow[]) {
+        topic_rows.sort((topic1, topic2) => {
+            return topic2.num_messages() - topic1.num_messages();
+        });
+    }
+
     get_display_rows(): TopicRow[] {
         if (this.sort_mode === "recent") {
             return [...this.all_topic_rows];
+        }
+        if (this.sort_mode === "count") {
+            const rows = [...this.all_topic_rows];
+            this.sort_by_count(rows);
+            return rows;
         }
         const rows = this.all_topic_rows.slice(0, this.batch_size);
         this.sort_alpha(rows);
