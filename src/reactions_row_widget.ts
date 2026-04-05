@@ -11,6 +11,14 @@ const THUMBS_UP_EMOJI_NAME = "thumbs_up";
 const THUMBS_UP_EMOJI_CODE = "1f44d";
 const THUMBS_UP_EMOJI = "👍";
 
+const REACTION_FONT_SIZE = "18px";
+
+function style_reaction_button(button: HTMLButtonElement): void {
+    button.style.fontSize = REACTION_FONT_SIZE;
+    button.style.padding = "2px 6px";
+    button.style.borderRadius = "4px";
+}
+
 export class ReactionsRowWidget {
     div: HTMLDivElement;
     message_id: number;
@@ -73,19 +81,19 @@ export class ReactionsRowWidget {
         const emoji = reaction_item.get_emoji();
         reaction_pill.innerText = `${emoji} ${count}`;
         reaction_pill.title = reaction_item.sender_names().join(", ");
-        if (!reaction_item.current_user_reacted()) {
-            reaction_pill.style.opacity = "0.8";
-        } else {
-            reaction_pill.style.opacity = "1";
-        }
+        reaction_pill.style.opacity = reaction_item.current_user_reacted()
+            ? "1"
+            : "0.8";
+        style_reaction_button(reaction_pill);
         return reaction_pill;
     }
 
     render_thumbs_up_button(): HTMLButtonElement {
         const button = document.createElement("button");
         button.innerText = THUMBS_UP_EMOJI;
-        button.style.opacity = "0.4";
+        button.style.opacity = "0.8";
         button.title = "React with thumbs up";
+        style_reaction_button(button);
         button.addEventListener("click", (e) => {
             e.stopPropagation();
             DB.reactions_map.process_add_event({
@@ -109,8 +117,9 @@ export class ReactionsRowWidget {
     render_add_reaction_button(): HTMLButtonElement {
         const button = document.createElement("button");
         button.innerText = "+";
-        button.style.opacity = "0.4";
+        button.style.opacity = "0.8";
         button.title = "Add reaction";
+        style_reaction_button(button);
         button.addEventListener("click", (e) => {
             e.stopPropagation();
             show_emoji_picker(({ name, code }) => {
