@@ -7,6 +7,7 @@ import * as table_widget from "./dom/table_widget";
 import * as topic_row_widget from "./dom/topic_row_widget";
 
 import * as batch_count from "./batch_count";
+import { Button } from "./button";
 
 type SortMode = "alpha" | "recent";
 
@@ -50,17 +51,14 @@ export class TopicList {
         const adjuster_div = this.adjuster_div;
         adjuster_div.innerHTML = "";
 
-        const toggle_button = document.createElement("button");
-        toggle_button.innerText =
-            this.sort_mode === "alpha" ? "Sort: A-Z" : "Sort: Recent";
-        toggle_button.style.cursor = "pointer";
-        toggle_button.addEventListener("click", () => {
+        const label = this.sort_mode === "alpha" ? "Sort: A-Z" : "Sort: Recent";
+        const toggle_button = new Button(label, 100, () => {
             this.sort_mode = this.sort_mode === "alpha" ? "recent" : "alpha";
             this.populate_topic_rows();
             this.redraw();
             this.populate_adjuster();
         });
-        adjuster_div.append(toggle_button);
+        adjuster_div.append(toggle_button.div);
 
         if (this.sort_mode === "alpha") {
             const slider = batch_count.adjuster({
