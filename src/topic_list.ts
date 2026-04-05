@@ -8,12 +8,15 @@ import * as topic_row_widget from "./dom/topic_row_widget";
 
 import * as batch_count from "./batch_count";
 
+type SortMode = "alpha" | "recent";
+
 export class TopicList {
     div: HTMLDivElement;
     all_topic_rows: TopicRow[];
     topic_rows: TopicRow[];
     adjuster_div: HTMLDivElement;
     batch_size: number;
+    sort_mode: SortMode;
     stream_id: number;
     topic_id?: number;
     search_widget: SearchWidget;
@@ -23,6 +26,7 @@ export class TopicList {
         this.stream_id = channel_row.stream_id();
 
         this.batch_size = 10;
+        this.sort_mode = "alpha";
 
         // these get re-assigned in populate_topic_rows
         this.all_topic_rows = [];
@@ -30,21 +34,47 @@ export class TopicList {
 
         this.populate_topic_rows();
 
-        this.adjuster_div = batch_count.adjuster({
-            min: 1,
-            max: this.all_topic_rows.length,
-            value: this.batch_size,
-            callback: (batch_size: number) => {
-                this.batch_size = batch_size;
-                this.topic_rows = this.get_display_rows(batch_size);
-                this.redraw();
-            },
-        });
+        this.adjuster_div = document.createElement("div");
+        this.adjuster_div.style.display = "flex";
+        this.adjuster_div.style.alignItems = "center";
+        this.adjuster_div.style.gap = "8px";
+        this.populate_adjuster();
 
         const div = document.createElement("div");
         div.append(this.make_table());
 
         this.div = div;
+    }
+
+    populate_adjuster(): void {
+        const adjuster_div = this.adjuster_div;
+        adjuster_div.innerHTML = "";
+
+        const toggle_button = document.createElement("button");
+        toggle_button.innerText =
+            this.sort_mode === "alpha" ? "Sort: A-Z" : "Sort: Recent";
+        toggle_button.style.cursor = "pointer";
+        toggle_button.addEventListener("click", () => {
+            this.sort_mode = this.sort_mode === "alpha" ? "recent" : "alpha";
+            this.populate_topic_rows();
+            this.redraw();
+            this.populate_adjuster();
+        });
+        adjuster_div.append(toggle_button);
+
+        if (this.sort_mode === "alpha") {
+            const slider = batch_count.adjuster({
+                min: 1,
+                max: this.all_topic_rows.length,
+                value: this.batch_size,
+                callback: (batch_size: number) => {
+                    this.batch_size = batch_size;
+                    this.topic_rows = this.get_display_rows();
+                    this.redraw();
+                },
+            });
+            adjuster_div.append(slider);
+        }
     }
 
     get_adjuster_div(): HTMLDivElement {
@@ -95,8 +125,11 @@ export class TopicList {
         });
     }
 
-    get_display_rows(batch_size: number): TopicRow[] {
-        const rows = this.all_topic_rows.slice(0, batch_size);
+    get_display_rows(): TopicRow[] {
+        if (this.sort_mode === "recent") {
+            return [...this.all_topic_rows];
+        }
+        const rows = this.all_topic_rows.slice(0, this.batch_size);
         this.sort_alpha(rows);
         return rows;
     }
@@ -104,7 +137,7 @@ export class TopicList {
     populate_topic_rows() {
         this.all_topic_rows = model.get_topic_rows(this.stream_id);
         this.sort_recent(this.all_topic_rows);
-        this.topic_rows = this.get_display_rows(this.batch_size);
+        this.topic_rows = this.get_display_rows();
     }
 
     make_table(): HTMLTableElement {
