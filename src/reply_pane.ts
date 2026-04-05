@@ -1,7 +1,7 @@
 import { ComposeBox } from "./compose";
 import * as layout from "./layout";
 import { render_list_heading } from "./render";
-import { TopicRow } from "./row_types";
+import type { TopicRow } from "./topic_row";
 
 function render_heading(stream_name: string): HTMLElement {
     const title = `Send message to channel: ${stream_name}`;

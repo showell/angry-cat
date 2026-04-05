@@ -1,10 +1,9 @@
+import type { ComposeBox } from "./compose";
 import type { MessageList } from "./message_list";
-import type { TopicRow } from "./row_types";
-
-import { ComposeBox } from "./compose";
 import { MessagePane } from "./message_pane";
-import { PaneManager } from "./pane_manager";
+import type { PaneManager } from "./pane_manager";
 import { ReplyPane } from "./reply_pane";
+import type { TopicRow } from "./topic_row";
 
 export class MessageView {
     message_pane: MessagePane;

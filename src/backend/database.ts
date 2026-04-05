@@ -1,11 +1,10 @@
-import type { User, Stream, Message } from "./db_types";
+import type { Message, Stream, User } from "./db_types";
 import type { ZulipEvent } from "./event";
-import type { MessageIndex } from "./message_index";
-
 import { EventFlavor } from "./event";
 import * as fetch from "./fetch";
-import { TopicMap } from "./topic_map";
-import { ReactionsMap } from "./reactions";
+import type { MessageIndex } from "./message_index";
+import type { ReactionsMap } from "./reactions";
+import type { TopicMap } from "./topic_map";
 
 export let DB: Database;
 

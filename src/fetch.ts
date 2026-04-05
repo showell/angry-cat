@@ -1,6 +1,6 @@
-import * as config from "./config";
 import * as database from "./backend/database";
 import * as model from "./backend/model";
+import * as config from "./config";
 import { TEST_CONFIG } from "./test_config";
 
 async function test(): Promise<void> {

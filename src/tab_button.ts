@@ -1,7 +1,6 @@
+import * as tab_button_widget from "./dom/tab_button_widget";
 import type { Page } from "./page";
 import type { PluginHelper } from "./plugin_helper";
-
-import * as tab_button_widget from "./dom/tab_button_widget";
 
 export class TabButton {
     plugin_helper: PluginHelper;

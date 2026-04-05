@@ -3,10 +3,10 @@ import { Card, OriginDeck, Suit, value_str } from "./card";
 import {
     BoardCard,
     BoardCardState,
+    type BoardLocation,
     CardStack,
     HandCard,
     HandCardState,
-    type BoardLocation,
 } from "./card_stack";
 import { find_playable_hand_cards } from "./hints";
 

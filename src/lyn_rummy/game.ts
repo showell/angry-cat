@@ -1,38 +1,42 @@
 import type { Update, UpdateListener, WebXdc } from "../backend/webxdc";
 import {
-    OriginDeck,
-    Suit,
-    CardColor,
-    type JsonCard,
-    Card,
-    value_str,
-    suit_emoji_str,
     all_suits,
     build_full_double_deck,
+    type Card,
+    CardColor,
+    type JsonCard,
+    OriginDeck,
+    Suit,
+    suit_emoji_str,
+    value_str,
 } from "./card";
+
 export type { JsonCard } from "./card";
-export { Card, build_full_double_deck } from "./card";
+export { build_full_double_deck, Card } from "./card";
+
 import {
-    HandCardState,
+    type BoardCard,
     BoardCardState,
-    type JsonHandCard,
-    type JsonBoardCard,
-    type JsonCardStack,
     type BoardLocation,
     CARD_WIDTH,
-    HandCard,
-    BoardCard,
     CardStack,
+    HandCard,
+    HandCardState,
+    type JsonBoardCard,
+    type JsonCardStack,
+    type JsonHandCard,
 } from "./card_stack";
+
 export type {
-    JsonHandCard,
     JsonBoardCard,
     JsonCardStack,
+    JsonHandCard,
 } from "./card_stack";
 export { CardStack } from "./card_stack";
-import { Score } from "./score";
-import { CompleteTurnResult, PlayerTurn } from "./player_turn";
+
 import { find_playable_hand_cards } from "./hints";
+import { CompleteTurnResult, PlayerTurn } from "./player_turn";
+import { Score } from "./score";
 
 enum GameEventType {
     ADVANCE_TURN,
@@ -1794,7 +1798,7 @@ class EventManagerSingleton {
                 break;
             }
 
-            case CompleteTurnResult.SUCCESS:
+            case CompleteTurnResult.SUCCESS: {
                 const turn_score = ActivePlayer.get_turn_score();
 
                 Popup.show({
@@ -1809,6 +1813,7 @@ class EventManagerSingleton {
                     },
                 });
                 break;
+            }
         }
     }
 
@@ -1921,7 +1926,6 @@ class EditableText {
     set_callback: (new_val: string) => void;
 
     constructor(val: string, set_callback: (new_val: string) => void) {
-        const self = this;
         this.val = val;
         this.set_callback = set_callback;
 
@@ -1937,7 +1941,7 @@ class EditableText {
         text_div.style.cursor = "pointer";
 
         text_div.addEventListener("click", () => {
-            self.edit_text();
+            this.edit_text();
         });
 
         div.append(text_div);
@@ -1948,19 +1952,16 @@ class EditableText {
     }
 
     make_edit_input(): HTMLInputElement {
-        const self = this;
         const input = document.createElement("input");
 
         input.type = "text";
-        input.value = self.val;
+        input.value = this.val;
         input.style.width = "100px";
 
         return input;
     }
 
     save_button(): HTMLElement {
-        const self = this;
-
         const button = document.createElement("button");
         button.style.cursor = "pointer";
         button.style.backgroundColor = "green";
@@ -1971,43 +1972,40 @@ class EditableText {
         button.innerText = "save";
 
         button.addEventListener("click", () => {
-            self.maybe_save();
+            this.maybe_save();
         });
 
         return button;
     }
 
     maybe_save(): void {
-        const self = this;
-
-        const div = self.div;
-        const edit_div = self.edit_div!;
-        const edit_input = self.edit_input!;
-        const text_div = self.text_div;
+        const div = this.div;
+        const edit_div = this.edit_div!;
+        const edit_input = this.edit_input!;
+        const text_div = this.text_div;
 
         const new_val = edit_input.value;
 
         if (new_val) {
-            self.set_callback(new_val);
-            self.val = new_val;
+            this.set_callback(new_val);
+            this.val = new_val;
         }
 
         edit_div.remove();
         div.innerHTML = "";
-        text_div.innerText = self.val;
+        text_div.innerText = this.val;
         div.append(text_div);
     }
 
     edit_text(): void {
-        const self = this;
         const div = this.div;
 
         const edit_div = document.createElement("document");
         edit_div.style.display = "flex";
 
-        const edit_input = self.make_edit_input();
+        const edit_input = this.make_edit_input();
 
-        const save_button = self.save_button();
+        const save_button = this.save_button();
 
         edit_div.append(edit_input);
         div.innerHTML = "";
@@ -2164,8 +2162,6 @@ class PopupSingleton {
     }
 
     show(info: PopupOptions) {
-        const self = this;
-
         // AVATAR in left
         const left = document.createElement("div");
         left.style.marginRight = "30px";
@@ -2181,7 +2177,7 @@ class PopupSingleton {
         right.append(content_div);
 
         const button = this.make_button(info.confirm_button_text);
-        button.addEventListener("click", () => self.finish(info));
+        button.addEventListener("click", () => this.finish(info));
         right.append(button);
 
         // PUT THEM ALL TOGETHER

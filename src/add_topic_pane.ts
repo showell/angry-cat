@@ -1,7 +1,6 @@
-import type { ChannelRow } from "./row_types";
-
-import * as layout from "./layout";
+import type { ChannelRow } from "./channel_row";
 import { ComposeBox } from "./compose";
+import * as layout from "./layout";
 import { render_list_heading } from "./render";
 import { StatusBar } from "./status_bar";
 

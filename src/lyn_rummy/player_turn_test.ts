@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { Score } from "./score";
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
+import { Score } from "./score";
 
 // play a card then undo — cards_played returns to 0, score = 0
 {

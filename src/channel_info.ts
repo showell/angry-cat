@@ -2,11 +2,11 @@ import type { User } from "./backend/db_types";
 import { stream_filter } from "./backend/filter";
 import * as model from "./backend/model";
 import * as zulip_client from "./backend/zulip_client";
+import type { ChannelRow } from "./channel_row";
 import { render_list_heading } from "./dom/render";
 import * as layout from "./layout";
 import { render_message_content } from "./message_content";
 import { pop } from "./popup";
-import type { ChannelRow } from "./row_types";
 import { StatusBar } from "./status_bar";
 
 function render_section_label(text: string): HTMLDivElement {

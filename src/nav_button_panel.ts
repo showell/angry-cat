@@ -83,7 +83,13 @@ export class ButtonPanel {
         show_read_later: boolean;
         show_mark_unread: boolean;
     }): void {
-        const { channel_selected, topic_selected, has_unreads, show_read_later, show_mark_unread } = info;
+        const {
+            channel_selected,
+            topic_selected,
+            has_unreads,
+            show_read_later,
+            show_mark_unread,
+        } = info;
 
         function show_if(button: Button, cond: boolean): void {
             if (cond) {

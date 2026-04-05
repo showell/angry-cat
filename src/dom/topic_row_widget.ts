@@ -1,5 +1,5 @@
-import type { TopicRow } from "../row_types";
 import type { Navigator } from "../navigator";
+import type { TopicRow } from "../topic_row";
 
 import { render_unread_count } from "./render";
 

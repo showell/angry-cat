@@ -41,7 +41,6 @@ export class SmartList {
     done: boolean;
 
     constructor(opts: Opts) {
-        const self = this;
         const div = document.createElement("div");
 
         this.opts = opts;
@@ -55,7 +54,7 @@ export class SmartList {
         }
 
         setTimeout(() => {
-            self.populate();
+            this.populate();
         }, 0);
 
         this.queue = [];

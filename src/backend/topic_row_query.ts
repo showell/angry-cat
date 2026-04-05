@@ -1,8 +1,7 @@
+import { TopicRow } from "../topic_row";
 import type { Message } from "./db_types";
-
 import { MessageList } from "./message_list";
-import { TopicMap } from "./topic_map";
-import { TopicRow } from "../row_types";
+import type { TopicMap } from "./topic_map";
 
 export function get_rows(topic_map: TopicMap, messages: Message[]): TopicRow[] {
     const message_list_map = new Map<number, MessageList>();

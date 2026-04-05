@@ -3,28 +3,25 @@
 // whenever the user opens a new navigation tab. Recent Conversations and
 // message links in the Reading List also open Navigator tabs via APP.add_navigator.
 
-import type { ZulipEvent } from "./backend/event";
-import type { Message } from "./backend/db_types";
-
-import { EventFlavor } from "./backend/event";
-
 import type { Address } from "./address";
-import type { ChannelChooser } from "./channel_chooser/types";
-import type { MessageList } from "./message_list";
-import type { MessageView } from "./message_view";
-import type { PluginHelper } from "./plugin_helper";
-import type { ChannelRow, TopicRow } from "./row_types";
-import type { TopicList } from "./topic_list";
-
-import * as layout from "./layout";
-
 import { AddressType, address_type } from "./address";
 import { APP } from "./app";
+import type { Message } from "./backend/db_types";
+import type { ZulipEvent } from "./backend/event";
+import { EventFlavor } from "./backend/event";
 import { make_channel_chooser } from "./channel_chooser/channel_chooser";
-import { ButtonPanel } from "./nav_button_panel";
+import type { ChannelChooser } from "./channel_chooser/types";
+import type { ChannelRow } from "./channel_row";
 import { ChannelView } from "./channel_view";
+import * as layout from "./layout";
+import type { MessageList } from "./message_list";
+import type { MessageView } from "./message_view";
+import { ButtonPanel } from "./nav_button_panel";
 import { PaneManager } from "./pane_manager";
+import type { PluginHelper } from "./plugin_helper";
 import { StatusBar } from "./status_bar";
+import type { TopicList } from "./topic_list";
+import type { TopicRow } from "./topic_row";
 
 function narrow_label(
     channel_name: string | undefined,
@@ -296,18 +293,13 @@ export class Navigator {
     }
 
     update_channel(): void {
-        const navigator = this;
         const pane_manager = this.pane_manager;
         const channel_row = this.get_channel_row();
 
         this.pane_manager.remove_after("channel_chooser");
 
         // ChannelView will add panes
-        this.channel_view = new ChannelView(
-            channel_row,
-            navigator,
-            pane_manager,
-        );
+        this.channel_view = new ChannelView(channel_row, this, pane_manager);
 
         this.update_button_panel();
         StatusBar.inform("You can click on a topic now.");

@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { Card, OriginDeck } from "./card";
-import { CardStackType } from "./stack_type";
 import {
     BoardCard,
     BoardCardState,
+    type BoardLocation,
     CardStack,
+    type DeckRef,
     HandCard,
     HandCardState,
-    type BoardLocation,
-    type DeckRef,
 } from "./card_stack";
+import { CardStackType } from "./stack_type";
 
 const D1 = OriginDeck.DECK_ONE;
 const loc: BoardLocation = { top: 0, left: 0 };

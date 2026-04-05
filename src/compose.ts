@@ -1,8 +1,6 @@
 import * as zulip_client from "./backend/zulip_client";
-
-import * as compose_widget from "./dom/compose_widget";
-
 import { Button } from "./button";
+import * as compose_widget from "./dom/compose_widget";
 import { StatusBar } from "./status_bar";
 
 class TopicInput {
@@ -109,7 +107,6 @@ export class ComposeBox {
     stream_id: number;
 
     constructor(stream_id: number, topic_name: string) {
-        const self = this;
         this.stream_id = stream_id;
 
         const div = document.createElement("div");
@@ -120,7 +117,7 @@ export class ComposeBox {
 
         div.append(topic_input.div);
         div.append(textarea.div);
-        div.append(self.button_row());
+        div.append(this.button_row());
 
         document.body.append(div);
 
@@ -134,8 +131,6 @@ export class ComposeBox {
     }
 
     button_row(): HTMLElement {
-        const self = this;
-
         const div = compose_widget.button_row_div();
 
         const file_input = document.createElement("input");
@@ -144,7 +139,7 @@ export class ComposeBox {
         file_input.addEventListener("change", () => {
             const file = file_input.files?.[0];
             if (file) {
-                self.textarea.upload_file(file);
+                this.textarea.upload_file(file);
                 file_input.value = "";
             }
         });
@@ -156,10 +151,10 @@ export class ComposeBox {
 
         const send_button = new Button("Send", 100, () => {
             // TODO: save draft
-            const content = self.get_content_to_send();
+            const content = this.get_content_to_send();
             this.textarea.clear();
             this.textarea.focus();
-            self.send(content);
+            this.send(content);
         });
 
         div.append(send_button.div);

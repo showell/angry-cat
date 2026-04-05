@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import {
+    all_suits,
+    build_full_double_deck,
     Card,
     CardColor,
     CardValue,
+    is_pair_of_dups,
     OriginDeck,
     Suit,
-    all_suits,
-    build_full_double_deck,
-    is_pair_of_dups,
     suit_emoji_str,
     value_str,
 } from "./card";

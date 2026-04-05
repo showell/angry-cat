@@ -1,9 +1,9 @@
-import type { User, Message, Stream } from "./db_types";
-import type { Filter } from "./filter";
-import type { ChannelRow, TopicRow } from "../row_types";
-
-import { DB } from "./database";
+import type { ChannelRow } from "../channel_row";
+import type { TopicRow } from "../topic_row";
 import * as channel_row_query from "./channel_row_query";
+import { DB } from "./database";
+import type { Message, Stream, User } from "./db_types";
+import type { Filter } from "./filter";
 import * as topic_row_query from "./topic_row_query";
 
 // USERS (mostly just pull directly from DB.user_map for now)

@@ -1,4 +1,4 @@
-import { ZulipEvent } from "./backend/event";
+import type { ZulipEvent } from "./backend/event";
 
 import type { Page } from "./page";
 

@@ -1,11 +1,9 @@
+import { DB } from "./backend/database";
 import type { Reaction } from "./backend/db_types";
 import { EventFlavor } from "./backend/event";
-
-import { DB } from "./backend/database";
 import * as zulip_client from "./backend/zulip_client";
-
-import { ReactionItem } from "./row_types";
 import { show_emoji_picker } from "./emoji_picker";
+import { ReactionItem } from "./reaction_item";
 
 const THUMBS_UP_EMOJI_NAME = "thumbs_up";
 const THUMBS_UP_EMOJI_CODE = "1f44d";

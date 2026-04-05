@@ -1,10 +1,7 @@
 import type { Message } from "../backend/db_types";
-
-import type { PluginHelper } from "../plugin_helper";
-
 import * as model from "../backend/model";
-
 import { MessageList } from "../message_list";
+import type { PluginHelper } from "../plugin_helper";
 
 export function plugin(plugin_helper: PluginHelper) {
     const div = document.createElement("div");

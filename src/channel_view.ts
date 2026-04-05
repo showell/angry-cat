@@ -1,19 +1,16 @@
+import { AddTopicPane } from "./add_topic_pane";
 import type { Message } from "./backend/db_types";
-import type { TopicRow } from "./row_types";
-import type { Navigator } from "./navigator";
-
 import * as model from "./backend/model";
-
-import type { MessageList } from "./message_list";
+import { ChannelInfo } from "./channel_info";
+import type { ChannelRow } from "./channel_row";
 
 import * as layout from "./layout";
-
-import { AddTopicPane } from "./add_topic_pane";
-import { ChannelInfo } from "./channel_info";
+import type { MessageList } from "./message_list";
 import { MessageView } from "./message_view";
-import { PaneManager } from "./pane_manager";
-import { ChannelRow } from "./row_types";
+import type { Navigator } from "./navigator";
+import type { PaneManager } from "./pane_manager";
 import { TopicList } from "./topic_list";
+import type { TopicRow } from "./topic_row";
 
 export class ChannelView {
     channel_row: ChannelRow;
@@ -167,7 +164,10 @@ export class ChannelView {
         this.add_topic_pane = undefined;
     }
 
-    handle_stream_update(stream_id: number, rendered_description: string): void {
+    handle_stream_update(
+        stream_id: number,
+        rendered_description: string,
+    ): void {
         if (stream_id === this.channel_row.stream_id()) {
             this.channel_info.handle_stream_update(rendered_description);
         }

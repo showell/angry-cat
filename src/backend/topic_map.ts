@@ -1,4 +1,4 @@
-import { Topic } from "./db_types";
+import type { Topic } from "./db_types";
 
 export class TopicMap {
     map: Map<number, Topic>; // topic id -> topic

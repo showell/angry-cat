@@ -1,12 +1,10 @@
-import type { Message } from "./db_types";
-import type { MessageCallback } from "./zulip_client";
-import type { ZulipEvent } from "./event";
-
 import { get_dom_parser } from "../parser";
-
 import { DB } from "./database";
+import type { Message } from "./db_types";
+import type { ZulipEvent } from "./event";
 import { EventFlavor } from "./event";
 import * as model from "./model";
+import type { MessageCallback } from "./zulip_client";
 import * as zulip_client from "./zulip_client";
 
 export type RowType = {

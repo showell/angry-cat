@@ -1,13 +1,13 @@
 import * as model from "./backend/model";
 
-import type { ChannelRow, TopicRow } from "./row_types";
-import type { Navigator } from "./navigator";
-
+import type { ChannelRow } from "./channel_row";
 import * as table_widget from "./dom/table_widget";
 import * as topic_row_widget from "./dom/topic_row_widget";
+import { get_display_rows, sort_recent } from "./grouping_sort";
+import type { Navigator } from "./navigator";
 
 import { SortControls } from "./sort_controls";
-import { sort_recent, get_display_rows } from "./grouping_sort";
+import type { TopicRow } from "./topic_row";
 
 export class TopicList {
     div: HTMLDivElement;

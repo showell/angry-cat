@@ -1,17 +1,13 @@
 import type { Message } from "../backend/db_types";
 import type { ZulipEvent } from "../backend/event";
-import type { PluginHelper } from "../plugin_helper";
-
-import type { JsonCard } from "./game";
-
 import * as model from "../backend/model";
 import { NetworkHelper } from "../backend/network";
-
 import { Button } from "../button";
-import { MessageRow } from "../row_types";
-
-import { GameHelper } from "./game_helper";
+import { MessageRow } from "../message_row";
+import type { PluginHelper } from "../plugin_helper";
+import type { JsonCard } from "./game";
 import * as lyn_rummy from "./game";
+import { GameHelper } from "./game_helper";
 
 export function plugin(plugin_helper: PluginHelper) {
     const div = document.createElement("div");

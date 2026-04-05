@@ -1,10 +1,8 @@
 import type { ZulipEvent } from "../backend/event";
-import type { PluginHelper } from "../plugin_helper";
-
 import { EventFlavor } from "../backend/event";
-import { MessageRow } from "../row_types";
-
+import { MessageRow } from "../message_row";
 import { MessageRowWidget } from "../message_row_widget";
+import type { PluginHelper } from "../plugin_helper";
 
 export function plugin(plugin_helper: PluginHelper): EventRadio {
     return new EventRadio(plugin_helper);
@@ -15,8 +13,6 @@ class EventRadio {
     plugin_helper: PluginHelper;
 
     constructor(plugin_helper: PluginHelper) {
-        const self = this;
-
         this.plugin_helper = plugin_helper;
         plugin_helper.update_label("Events");
 
@@ -31,7 +27,7 @@ class EventRadio {
         this.div = div;
 
         plugin_helper.set_zulip_event_listener((event) => {
-            self.handle_zulip_event(event);
+            this.handle_zulip_event(event);
         });
     }
 

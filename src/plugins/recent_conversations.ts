@@ -8,9 +8,9 @@ import { render_unread_count } from "../dom/render";
 import * as table_widget from "../dom/table_widget";
 import { render_topic_name } from "../dom/topic_row_widget";
 import { render_message_content } from "../message_content";
+import { MessageRow } from "../message_row";
 import { render_sender_name } from "../message_row_widget";
 import type { PluginHelper } from "../plugin_helper";
-import { MessageRow } from "../row_types";
 
 function build_topic_cell(message_row: MessageRow): HTMLDivElement {
     const topic_name = message_row.topic_name();

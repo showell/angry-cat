@@ -1,26 +1,21 @@
-import type { ZulipEvent } from "./backend/event";
-import type { PluginMaker } from "./plugin_helper";
-
 import type { Address } from "./address";
-
+import * as address from "./address";
 import { DB } from "./backend/database";
+import type { ZulipEvent } from "./backend/event";
 import { EventFlavor } from "./backend/event";
 import * as model from "./backend/model";
-
+import { get_current_realm_nickname } from "./config";
 import * as page_widget from "./dom/page_widget";
-
+import * as layout from "./layout";
 import * as lyn_rummy from "./lyn_rummy/plugin";
+import { MessageRow } from "./message_row";
+import * as navigator from "./navigator";
+import type { PluginMaker } from "./plugin_helper";
+import { PluginHelper } from "./plugin_helper";
 import * as plugin_chooser from "./plugins/plugin_chooser";
 import * as reading_list from "./plugins/reading_list";
 import * as recent_conversations from "./plugins/recent_conversations";
-import { PluginHelper } from "./plugin_helper";
-
-import * as address from "./address";
-import * as layout from "./layout";
-import { MessageRow } from "./row_types";
-import * as navigator from "./navigator";
-import { StatusBar, create_global_status_bar } from "./status_bar";
-import { get_current_realm_nickname } from "./config";
+import { create_global_status_bar, StatusBar } from "./status_bar";
 
 export class Page {
     div: HTMLDivElement;
@@ -65,10 +60,9 @@ export class Page {
     }
 
     add_plugin(plugin_maker: PluginMaker): void {
-        const page = this;
         const plugin_helpers = this.plugin_helpers;
 
-        const plugin_helper = new PluginHelper(plugin_maker, page);
+        const plugin_helper = new PluginHelper(plugin_maker, this);
         plugin_helpers.push(plugin_helper);
 
         this.make_plugin_active(plugin_helper);

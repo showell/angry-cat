@@ -1,4 +1,4 @@
-import { type JsonCard, Card, OriginDeck } from "./card";
+import { Card, type JsonCard, type OriginDeck } from "./card";
 import { CardStackType, get_stack_type } from "./stack_type";
 
 export enum HandCardState {
@@ -207,8 +207,7 @@ export class CardStack {
     }
 
     split(card_index: number): CardStack[] {
-        const card_stack = this;
-        const board_cards = card_stack.board_cards;
+        const board_cards = this.board_cards;
 
         // our caller already checks this
         if (board_cards.length === 1) {
@@ -223,8 +222,7 @@ export class CardStack {
     }
 
     left_split(left_count: number): CardStack[] {
-        const card_stack = this;
-        const board_cards = card_stack.board_cards;
+        const board_cards = this.board_cards;
 
         const left_board_cards = board_cards.slice(0, left_count);
         const right_right_board_cards = board_cards.slice(left_count);
@@ -233,13 +231,13 @@ export class CardStack {
         const right_side_offset = left_count * (CARD_WIDTH + 6) + 8;
 
         const left_loc = {
-            top: card_stack.loc.top - 4,
-            left: card_stack.loc.left + left_side_offset,
+            top: this.loc.top - 4,
+            left: this.loc.left + left_side_offset,
         };
 
         const right_loc = {
-            top: card_stack.loc.top,
-            left: card_stack.loc.left + right_side_offset,
+            top: this.loc.top,
+            left: this.loc.left + right_side_offset,
         };
 
         return [
@@ -249,8 +247,7 @@ export class CardStack {
     }
 
     right_split(left_count: number): CardStack[] {
-        const card_stack = this;
-        const board_cards = card_stack.board_cards;
+        const board_cards = this.board_cards;
 
         const left_board_cards = board_cards.slice(0, left_count);
         const right_right_board_cards = board_cards.slice(left_count);
@@ -259,13 +256,13 @@ export class CardStack {
         const right_side_offset = left_count * (CARD_WIDTH + 6) + 4;
 
         const left_loc = {
-            top: card_stack.loc.top,
-            left: card_stack.loc.left + left_side_offset,
+            top: this.loc.top,
+            left: this.loc.left + left_side_offset,
         };
 
         const right_loc = {
-            top: card_stack.loc.top - 4,
-            left: card_stack.loc.left + right_side_offset,
+            top: this.loc.top - 4,
+            left: this.loc.left + right_side_offset,
         };
 
         return [

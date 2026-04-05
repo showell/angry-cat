@@ -4,7 +4,9 @@ export type RealmConfig = {
     url: string;
     nickname: string;
 };
+
 import * as local_storage from "./localstorage";
+
 let current_realm_config: RealmConfig;
 
 // login_manager should be the only caller for this unless

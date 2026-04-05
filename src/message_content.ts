@@ -1,14 +1,12 @@
+import * as address from "./address";
+import { APP } from "./app";
 import * as zulip_client from "./backend/zulip_client";
-import * as config from "./config";
-
-import * as mouse_drag from "./util/mouse_drag";
 
 import { slash_join } from "./backend/zulip_client";
-
-import { APP } from "./app";
-import * as address from "./address";
+import * as config from "./config";
 import * as images from "./images";
 import * as popup from "./popup";
+import * as mouse_drag from "./util/mouse_drag";
 
 function fix_code_blocks(code_div: Element) {
     code_div.addEventListener("click", (e) => {

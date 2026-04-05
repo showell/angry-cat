@@ -1,7 +1,6 @@
-import type { Message, Stream, User } from "./db_types";
-
 import * as config from "../config";
-import { Database } from "./database";
+import type { Database } from "./database";
+import type { Message, Stream, User } from "./db_types";
 import * as message_fetch from "./message_fetch";
 import { MessageIndex } from "./message_index";
 import { ReactionsMap } from "./reactions";

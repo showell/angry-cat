@@ -1,9 +1,8 @@
-import type { Message } from "./db_types";
-
 import { DB } from "./database";
+import type { Message } from "./db_types";
 import * as parse from "./parse";
 
-export const enum EventFlavor {
+export enum EventFlavor {
     MESSAGE,
     MUTATE_MESSAGE_ADDRESS,
     MUTATE_MESSAGE_CONTENT,

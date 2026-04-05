@@ -1,4 +1,4 @@
-import { CardValue, Card, is_pair_of_dups } from "./card";
+import { type Card, CardValue, is_pair_of_dups } from "./card";
 
 export enum CardStackType {
     INCOMPLETE = "incomplete",

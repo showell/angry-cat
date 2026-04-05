@@ -1,9 +1,8 @@
-import type { EventRow, JsonGameEvent } from "./game";
-import type { RowType } from "../backend/network";
+import type { NetworkHelper, RowType } from "../backend/network";
 import type * as webxdc from "../backend/webxdc";
 
 import * as zulip_client from "../backend/zulip_client";
-import { NetworkHelper } from "../backend/network";
+import type { EventRow, JsonGameEvent } from "./game";
 
 export class GameHelper {
     game_id: number;

@@ -1,5 +1,5 @@
+import type { CardStack } from "./card_stack";
 import { CardStackType } from "./stack_type";
-import { CardStack } from "./card_stack";
 
 export class ScoreSingleton {
     stack_type_value(stack_type: CardStackType): number {

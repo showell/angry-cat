@@ -1,12 +1,11 @@
 import * as model from "../backend/model";
 
-import type { ChannelRow } from "../row_types";
-
-import * as channel_row_widget from "./channel_row_widget";
+import type { ChannelRow } from "../channel_row";
 import * as table_widget from "../dom/table_widget";
+import { get_display_rows, sort_recent } from "../grouping_sort";
 
 import { SortControls } from "../sort_controls";
-import { sort_recent, get_display_rows } from "../grouping_sort";
+import * as channel_row_widget from "./channel_row_widget";
 
 type Opts = {
     channel_id: number | undefined;

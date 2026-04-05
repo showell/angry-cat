@@ -1,6 +1,5 @@
-import type { PluginHelper, PluginMaker } from "../plugin_helper";
-
 import { APP } from "../app";
+import type { PluginHelper, PluginMaker } from "../plugin_helper";
 
 import * as code_search from "./code_search";
 import * as event_radio from "./event_radio";

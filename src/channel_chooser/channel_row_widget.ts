@@ -1,4 +1,4 @@
-import type { ChannelRow } from "../row_types";
+import type { ChannelRow } from "../channel_row";
 
 import { render_unread_count } from "../dom/render";
 

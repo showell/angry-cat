@@ -1,4 +1,4 @@
-import { Message } from "./db_types";
+import type { Message } from "./db_types";
 
 export type ListInfo = {
     last_msg_id: number;

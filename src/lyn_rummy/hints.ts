@@ -1,4 +1,4 @@
-import { HandCard, CardStack } from "./card_stack";
+import { CardStack, type HandCard } from "./card_stack";
 
 const DUMMY_LOC = { top: 0, left: 0 };
 

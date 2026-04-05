@@ -1,12 +1,11 @@
-import type { MessageRow } from "./row_types";
-import * as mouse_drag from "./util/mouse_drag";
-
 import { APP } from "./app";
 import { Button } from "./button";
 import { render_message_content } from "./message_content";
 import { MessagePopup } from "./message_popup";
+import type { MessageRow } from "./message_row";
 import { pop } from "./popup";
 import { ReactionsRowWidget } from "./reactions_row_widget";
+import * as mouse_drag from "./util/mouse_drag";
 
 function render_message_box() {
     const div = document.createElement("div");
