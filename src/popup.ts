@@ -42,7 +42,8 @@ class DialogShell {
 type PopupOptions = {
     div: HTMLDivElement;
     confirm_button_text: string;
-    // called when user finishes
+    cancel_button_text?: string;
+    // called when user confirms (not on cancel)
     callback: () => void;
 };
 
@@ -65,17 +66,35 @@ class Popup {
     }
 
     show(info: PopupOptions) {
-        const self = this;
-
         const button = new Button(info.confirm_button_text, 80, () => {
-            self.finish(info.callback);
+            this.finish(info.callback);
         });
         this.confirm_button = button;
 
         const button_div = document.createElement("div");
-        button_div.append(button.div);
         button_div.style.display = "flex";
         button_div.style.justifyContent = "end";
+        button_div.style.gap = "6px";
+
+        if (info.cancel_button_text) {
+            const cancel_button = new Button(
+                info.cancel_button_text,
+                80,
+                () => {
+                    this.finish();
+                },
+            );
+            cancel_button.button.style.backgroundColor = "#888";
+            cancel_button.button.addEventListener("focus", () => {
+                cancel_button.button.style.backgroundColor = "#555";
+            });
+            cancel_button.button.addEventListener("blur", () => {
+                cancel_button.button.style.backgroundColor = "#888";
+            });
+            button_div.append(cancel_button.div);
+        }
+
+        button_div.append(button.div);
 
         // PUT THEM ALL TOGETHER
         const flex_div = document.createElement("div");

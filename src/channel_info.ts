@@ -5,6 +5,7 @@ import * as zulip_client from "./backend/zulip_client";
 import { render_list_heading } from "./dom/render";
 import * as layout from "./layout";
 import { render_message_content } from "./message_content";
+import { pop } from "./popup";
 import type { ChannelRow } from "./row_types";
 import { StatusBar } from "./status_bar";
 
@@ -117,48 +118,39 @@ export class ChannelInfo {
 
     show_edit_form(): void {
         const stream = model.stream_for(this.stream_id);
-        const div = this.description_content_div;
-        div.innerHTML = "";
+
+        const popup_div = document.createElement("div");
+        popup_div.style.display = "flex";
+        popup_div.style.flexDirection = "column";
+        popup_div.style.gap = "8px";
+
+        const label = document.createElement("div");
+        label.innerText = `Edit description for #${stream.name}`;
+        label.style.fontWeight = "bold";
+        label.style.color = "#000080";
+        popup_div.append(label);
 
         const textarea = document.createElement("textarea");
         textarea.value = stream.description;
-        textarea.style.width = "100%";
-        textarea.style.minHeight = "80px";
+        textarea.style.width = "500px";
+        textarea.style.minHeight = "120px";
         textarea.style.fontSize = "14px";
-        textarea.style.padding = "4px";
+        textarea.style.padding = "6px";
         textarea.style.boxSizing = "border-box";
-        textarea.style.marginBottom = "6px";
+        popup_div.append(textarea);
 
-        const button_row = document.createElement("div");
-        button_row.style.display = "flex";
-        button_row.style.gap = "8px";
-
-        const save_button = document.createElement("button");
-        save_button.innerText = "Save";
-        save_button.style.fontSize = "13px";
-        save_button.style.padding = "3px 10px";
-
-        const cancel_button = document.createElement("button");
-        cancel_button.innerText = "Cancel";
-        cancel_button.style.fontSize = "13px";
-        cancel_button.style.padding = "3px 10px";
-
-        save_button.addEventListener("click", () => {
-            const new_description = textarea.value;
-            zulip_client.update_stream_description(
-                this.stream_id,
-                new_description,
-            );
-            this.show_description(stream.rendered_description);
-            StatusBar.inform("Saving description…");
+        pop({
+            div: popup_div,
+            confirm_button_text: "Save",
+            cancel_button_text: "Cancel",
+            callback: () => {
+                zulip_client.update_stream_description(
+                    this.stream_id,
+                    textarea.value,
+                );
+                StatusBar.inform("Saving description…");
+            },
         });
-
-        cancel_button.addEventListener("click", () => {
-            this.show_description(stream.rendered_description);
-        });
-
-        button_row.append(save_button, cancel_button);
-        div.append(textarea, button_row);
         textarea.focus();
     }
 
