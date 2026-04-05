@@ -133,6 +133,10 @@ export async function start_polling(event_handler: EventHandler) {
         if (data.result !== "success") {
             console.warn("Queue error, re-registering...", data.msg);
             await register_queue();
+            // TODO: After re-registering, the in-memory model may be stale
+            // due to missed events during the gap. We should trigger a full
+            // data refresh here (e.g. re-fetch messages, re-sync unread state)
+            // before resuming normal polling.
             continue;
         }
 
