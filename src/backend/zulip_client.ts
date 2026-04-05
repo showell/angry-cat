@@ -39,6 +39,22 @@ function form_headers(): Record<string, string> {
     };
 }
 
+const MAX_RETRIES = 3;
+
+async function with_retry(fn: () => Promise<Response>): Promise<Response> {
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        const response = await fn();
+        if (response.status !== 429) {
+            return response;
+        }
+        const retry_after = response.headers.get("Retry-After");
+        const wait_ms = retry_after ? parseFloat(retry_after) * 1000 : 1000;
+        console.warn(`Rate limited (429). Retrying in ${wait_ms}ms…`);
+        await new Promise<void>((resolve) => setTimeout(resolve, wait_ms));
+    }
+    return fn();
+}
+
 async function api_get(path: string, params?: Record<string, string>) {
     const url = api_url(path);
     if (params) {
@@ -46,20 +62,24 @@ async function api_get(path: string, params?: Record<string, string>) {
             url.searchParams.set(key, value);
         }
     }
-    const response = await fetch(url, { headers: get_headers() });
+    const response = await with_retry(() =>
+        fetch(url, { headers: get_headers() }),
+    );
     return response.json();
 }
 
-function api_form_request(
+async function api_form_request(
     method: string,
     path: string,
     params: Record<string, string>,
-): void {
-    fetch(api_url(path), {
-        method,
-        headers: form_headers(),
-        body: new URLSearchParams(params).toString(),
-    });
+): Promise<void> {
+    await with_retry(() =>
+        fetch(api_url(path), {
+            method,
+            headers: form_headers(),
+            body: new URLSearchParams(params).toString(),
+        }),
+    );
     // TODO: actually look at response
 }
 
