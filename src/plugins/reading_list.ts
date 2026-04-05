@@ -2,6 +2,7 @@ import type { PluginHelper } from "../plugin_helper";
 import type { TodoItemData } from "../todo_list";
 
 import { APP } from "../app";
+import { DB } from "../backend/database";
 import { TodoList } from "../todo_list";
 
 function render_content(data: TodoItemData): HTMLElement {
@@ -9,8 +10,19 @@ function render_content(data: TodoItemData): HTMLElement {
     if (data.kind === "text") {
         span.innerText = data.text;
     } else {
-        span.innerText = data.link_text;
-        span.style.color = "#000080";
+        const { channel_id, topic_id, message_id } = data.address;
+        const channel_name =
+            channel_id !== undefined
+                ? (DB.channel_map.get(channel_id)?.name ??
+                  `channel:${channel_id}`)
+                : "?";
+        const topic_name =
+            topic_id !== undefined
+                ? (DB.topic_map.get(topic_id)?.topic_name ??
+                  `topic:${topic_id}`)
+                : "?";
+        span.innerText = `#${channel_name} > ${topic_name} (msg ${message_id})`;
+        span.style.color = "darkgreen";
         span.style.fontWeight = "bold";
     }
     return span;

@@ -26,11 +26,8 @@ class Application {
         this.reading_list_todo = todo_list;
     }
 
-    add_message_link_to_reading_list(
-        message_id: number,
-        link_text: string,
-    ): void {
-        this.reading_list_todo?.add_message_link_item(message_id, link_text);
+    add_message_link_to_reading_list(address: Address): void {
+        this.reading_list_todo?.add_message_link_item(address);
     }
 }
 
