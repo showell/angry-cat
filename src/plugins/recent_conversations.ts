@@ -1,16 +1,14 @@
-import type { PluginHelper } from "../plugin_helper";
 import { APP } from "../app";
-import * as model from "../backend/model";
-
-import { EventFlavor } from "../backend/event";
 import type { ZulipEvent } from "../backend/event";
-
+import { EventFlavor } from "../backend/event";
+import * as model from "../backend/model";
+import { Button } from "../button";
+import { render_unread_count } from "../dom/render";
 import * as table_widget from "../dom/table_widget";
 import { render_topic_name } from "../dom/topic_row_widget";
-
-import { Button } from "../button";
 import { render_message_content } from "../message_content";
 import { render_sender_name } from "../message_row_widget";
+import type { PluginHelper } from "../plugin_helper";
 import { MessageRow } from "../row_types";
 
 function build_topic_cell(message_row: MessageRow): HTMLDivElement {
@@ -54,13 +52,20 @@ function build_table(): HTMLElement {
         const topic_messages = grouped.get(topic_id) ?? [];
         const participants = model.participants_for_messages(topic_messages);
 
+        const unread_count = topic_messages.filter((msg) => msg.unread).length;
         const count_cell = document.createElement("div");
+        const total_div = document.createElement("div");
+        total_div.innerText = String(topic_messages.length);
+        total_div.style.textAlign = "right";
+        count_cell.append(total_div);
+        if (unread_count > 0) {
+            count_cell.append(render_unread_count(unread_count));
+        }
+
         const channel_cell = document.createElement("div");
         const topic_cell = build_topic_cell(message_row);
         const senders_cell = document.createElement("div");
         const message_cell = document.createElement("div");
-
-        count_cell.innerText = String(topic_messages.length);
         message_cell.style.maxWidth = "400px";
         channel_cell.innerText = channel_name;
         senders_cell.innerText = participants
