@@ -3,6 +3,7 @@
 
 import { DB } from "./backend/database";
 import type { User } from "./backend/db_types";
+import * as dm_model from "./dm/model";
 import * as local_storage from "./localstorage";
 
 const STORAGE_KEY = "buddy_list";
@@ -29,6 +30,17 @@ export function get_all_users(): User[] {
     const users = [...DB.user_map.values()];
     users.sort((a, b) => a.full_name.localeCompare(b.full_name));
     return users;
+}
+
+export function get_message_sender_ids(): Set<number> {
+    const ids = new Set<number>();
+    for (const msg of DB.message_map.values()) {
+        ids.add(msg.sender_id);
+    }
+    for (const msg of dm_model.get_messages()) {
+        ids.add(msg.sender_id);
+    }
+    return ids;
 }
 
 export function get_buddies(): User[] {
