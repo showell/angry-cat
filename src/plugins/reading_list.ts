@@ -97,7 +97,7 @@ function maybe_show_import_banner(
     const no_thanks = new Button("No thanks", 100, () => {
         banner.remove();
     });
-    const import_button = new Button("Import Starred Messages", 220, () => {
+    const import_button = new Button("Import", 100, () => {
         import_starred_messages(todo_list);
         banner.remove();
     });
@@ -107,7 +107,10 @@ function maybe_show_import_banner(
 
     // Insert the banner before the todo list content.
     container.prepend(banner);
-    import_button.focus();
+
+    // Defer focus until the container is in the DOM (Page appends it
+    // after the plugin factory returns).
+    requestAnimationFrame(() => import_button.focus());
 }
 
 export function plugin(context: PluginContext): Plugin {
