@@ -16,6 +16,11 @@ export type ActionEntry = {
 };
 
 const entries: ActionEntry[] = [];
+let listener: (() => void) | undefined;
+
+export function on_change(callback: () => void): void {
+    listener = callback;
+}
 
 export function record(
     action: ActionType,
@@ -23,6 +28,7 @@ export function record(
     topic_name: string,
 ): void {
     entries.push({ timestamp: Date.now(), action, channel_name, topic_name });
+    listener?.();
 }
 
 export function get_entries(): readonly ActionEntry[] {

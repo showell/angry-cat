@@ -1,6 +1,5 @@
 import * as action_log from "../action_log";
 import type { ActionEntry } from "../action_log";
-import { Button } from "../button";
 import * as colors from "../colors";
 import * as table_widget from "../dom/table_widget";
 import type { Plugin, PluginContext } from "../plugin_helper";
@@ -38,6 +37,14 @@ function build_table(entries: readonly ActionEntry[]): HTMLElement {
     return table_widget.table(["Time", "Action", "Location"], rows);
 }
 
+function build_empty_message(): HTMLDivElement {
+    const div = document.createElement("div");
+    div.innerText = "No actions recorded yet. Browse some topics!";
+    div.style.color = colors.text_muted;
+    div.style.padding = "20px";
+    return div;
+}
+
 export function plugin(context: PluginContext): Plugin {
     context.update_label("Activity");
 
@@ -46,26 +53,17 @@ export function plugin(context: PluginContext): Plugin {
     div.style.maxHeight = "90vh";
     div.style.overflow = "auto";
 
-    const inner_div = document.createElement("div");
-
     function refresh(): void {
-        inner_div.innerHTML = "";
+        div.innerHTML = "";
         const entries = action_log.get_entries();
         if (entries.length === 0) {
-            const empty = document.createElement("div");
-            empty.innerText = "No actions recorded yet. Browse some topics!";
-            empty.style.color = colors.text_muted;
-            empty.style.padding = "20px";
-            inner_div.append(empty);
+            div.append(build_empty_message());
         } else {
-            inner_div.append(build_table(entries));
+            div.append(build_table(entries));
         }
     }
 
-    const refresh_button = new Button("Refresh", 100, refresh);
-    div.append(refresh_button.div);
-    div.append(inner_div);
-
+    action_log.on_change(refresh);
     refresh();
 
     return { div };
