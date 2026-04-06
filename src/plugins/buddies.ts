@@ -93,8 +93,10 @@ export function plugin(context: PluginContext): Plugin {
     div.append(self_div, count_div, list_div);
 
     function update_count(): void {
-        const buddy_count = buddy_list.get_buddies().length;
-        count_div.innerText = `${buddy_count} buddy${buddy_count === 1 ? "" : "s"} selected`;
+        const other_buddy_count = buddy_list.get_buddies().filter(
+            (u) => u.id !== DB.current_user_id,
+        ).length;
+        count_div.innerText = `${other_buddy_count} other buddy${other_buddy_count === 1 ? "" : "s"} selected`;
     }
 
     function rebuild_list(): void {
