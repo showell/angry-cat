@@ -6,6 +6,7 @@
 
 import { APP } from "./app";
 import * as model from "./backend/model";
+import { Button } from "./button";
 import type { PluginFactory } from "./plugin_helper";
 import * as popup from "./popup";
 
@@ -51,19 +52,14 @@ export function handle_p_key(): boolean {
     heading.style.marginBottom = "4px";
     div.append(heading);
 
-    let first_button: HTMLButtonElement | undefined;
+    let first_button: Button | undefined;
 
     for (const entry of get_plugins()) {
-        const button = document.createElement("button");
-        button.innerText = entry.name;
-        button.style.textAlign = "left";
-        button.style.padding = "6px 10px";
-        button.style.cursor = "pointer";
-        button.addEventListener("click", () => {
+        const button = new Button(entry.name, 250, () => {
             APP.add_plugin(entry.factory);
             chooser_popup.finish();
         });
-        div.append(button);
+        div.append(button.div);
         if (first_button === undefined) {
             first_button = button;
         }
@@ -92,6 +88,7 @@ export function handle_p_key(): boolean {
     );
 
     first_button?.focus();
+
 
     return true;
 }
