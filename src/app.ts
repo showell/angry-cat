@@ -33,6 +33,14 @@ class Application {
     is_topic_in_reading_list(topic_id: number): boolean {
         return this.reading_list_todo?.is_topic_in_list(topic_id) ?? false;
     }
+
+    dispatch_keyboard_shortcut(key: string): boolean {
+        return (
+            this.page.get_active_plugin_helper()?.dispatch_keyboard_shortcut(
+                key,
+            ) ?? false
+        );
+    }
 }
 
 export let APP: Application;

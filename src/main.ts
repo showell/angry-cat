@@ -67,6 +67,13 @@ export async function run() {
 
     app.init(page);
 
+    document.addEventListener("keydown", (e) => {
+        const tag = (document.activeElement?.tagName ?? "").toLowerCase();
+        if (tag === "input" || tag === "textarea") return;
+        const handled = app.APP.dispatch_keyboard_shortcut(e.key);
+        if (handled) e.preventDefault();
+    });
+
     page.start();
 
     message_fetch.backfill(DB);
