@@ -41,16 +41,12 @@ function dump_item_data(data: ItemData): DumpedItemData {
     return { kind: "address_link", address: dump_address(data.address) };
 }
 
-// Returns undefined if the address can't be recovered (e.g. the
-// message was not in the current backfill window).
-function load_item_data(data: DumpedItemData): ItemData | undefined {
+function load_item_data(data: DumpedItemData): ItemData {
     if (data.kind === "text") return data;
+    // load_address recovers topic_id from the message cache. If the
+    // message isn't in our cache, topic_id will be undefined — the
+    // item is kept but marked as a broken link at click time.
     const address = load_address(data.address);
-    // If we couldn't recover a topic_id, the message wasn't in our
-    // cache — skip this item rather than showing a broken link.
-    if (address.topic_id === undefined && data.address.message_id !== undefined) {
-        return undefined;
-    }
     return { kind: "address_link", address };
 }
 
@@ -98,6 +94,16 @@ function render_remove_button(on_click: () => void): HTMLButtonElement {
     return button;
 }
 
+function can_navigate(address: Address): boolean {
+    // We need at least a channel to navigate. If a message_id was
+    // stored but we couldn't recover the topic, the link is broken.
+    if (address.channel_id === undefined) return false;
+    if (address.message_id !== undefined && address.topic_id === undefined) {
+        return false;
+    }
+    return true;
+}
+
 function render_item_content(data: ItemData): HTMLElement {
     if (data.kind === "text") {
         const span = document.createElement("span");
@@ -105,10 +111,13 @@ function render_item_content(data: ItemData): HTMLElement {
         return span;
     }
 
-    const label = label_for_address(data.address);
+    const address = data.address;
+    const label = label_for_address(address);
+    const broken = !can_navigate(address);
+
     const button = document.createElement("button");
-    button.innerText = label;
-    button.style.color = colors.primary;
+    button.innerText = broken ? `${label} (not in cache)` : label;
+    button.style.color = broken ? colors.text_muted : colors.primary;
     button.style.fontWeight = "bold";
     button.style.background = "none";
     button.style.border = "none";
@@ -117,7 +126,13 @@ function render_item_content(data: ItemData): HTMLElement {
     button.style.textAlign = "left";
     button.addEventListener("click", (e) => {
         e.stopPropagation();
-        APP.add_navigator(data.address);
+        if (broken) {
+            StatusBar.scold(
+                "This message is not in the current cache. Try again after a full reload.",
+            );
+        } else {
+            APP.add_navigator(address);
+        }
     });
     return button;
 }
@@ -160,14 +175,13 @@ export class ReadingList {
         if (raw === null) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed.items)) return [];
-        const result: InternalItem[] = [];
-        for (const entry of parsed.items) {
-            const data = load_item_data(entry.data);
-            if (data !== undefined) {
-                result.push({ id: next_id++, done: entry.done, data });
-            }
-        }
-        return result;
+        return parsed.items.map(
+            (entry: { done: boolean; data: DumpedItemData }) => ({
+                id: next_id++,
+                done: entry.done,
+                data: load_item_data(entry.data),
+            }),
+        );
     }
 
     add_text_item(text: string): void {
