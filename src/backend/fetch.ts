@@ -65,6 +65,7 @@ export async function fetch_model_data(): Promise<Database> {
     const message_map = new Map<number, Message>();
     const message_index = new MessageIndex();
     const reactions_map = new ReactionsMap();
+    const unread_ids = new Set<number>();
 
     const db = {
         current_user_id,
@@ -74,6 +75,7 @@ export async function fetch_model_data(): Promise<Database> {
         message_map,
         message_index,
         reactions_map,
+        unread_ids,
     };
 
     await message_fetch.fetch_initial_messages(db);

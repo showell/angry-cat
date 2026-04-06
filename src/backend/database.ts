@@ -20,7 +20,12 @@ export type Database = {
     message_map: MessageMap;
     message_index: MessageIndex;
     reactions_map: ReactionsMap;
+    unread_ids: Set<number>;
 };
+
+export function is_unread(message_id: number): boolean {
+    return DB.unread_ids.has(message_id);
+}
 
 export function label_for_address(address: Address): string {
     const { channel_id, topic_id, message_id } = address;
@@ -63,9 +68,13 @@ export function handle_event(event: ZulipEvent): void {
     }
 
     if (event.flavor === EventFlavor.MUTATE_UNREAD) {
-        mutate_messages(event.message_ids, (message) => {
-            message.unread = event.unread;
-        });
+        for (const id of event.message_ids) {
+            if (event.unread) {
+                DB.unread_ids.add(id);
+            } else {
+                DB.unread_ids.delete(id);
+            }
+        }
     }
 
     if (event.flavor === EventFlavor.MUTATE_STREAM) {

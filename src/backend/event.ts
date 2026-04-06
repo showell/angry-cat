@@ -106,6 +106,10 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     raw_event.flags.find((flag: string) => flag === "read") ===
                     undefined;
 
+                if (unread) {
+                    DB.unread_ids.add(raw_message.id);
+                }
+
                 const message: Message = {
                     code_snippets: [],
                     content: raw_message.content,
@@ -119,7 +123,6 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     timestamp: raw_message.timestamp,
                     topic_id: topic.topic_id,
                     type: "stream",
-                    unread,
                 };
                 parse.parse_content(message);
 

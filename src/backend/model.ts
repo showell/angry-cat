@@ -143,13 +143,7 @@ export function recent_filtered_messages(
 }
 
 export function get_total_unread_count(): number {
-    let count = 0;
-    for (const message of DB.message_map.values()) {
-        if (message.unread) {
-            ++count;
-        }
-    }
-    return count;
+    return DB.unread_ids.size;
 }
 
 // MISC

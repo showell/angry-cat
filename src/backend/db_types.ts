@@ -13,7 +13,6 @@ export type Message = {
     timestamp: number;
     topic_id: number;
     type: "stream";
-    unread: boolean;
 };
 
 // We only support unicode emoji right now,

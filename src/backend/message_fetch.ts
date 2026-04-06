@@ -104,11 +104,15 @@ async function process_message_rows_from_server(
 
             const message_id = row.id;
 
+            if (unread) {
+                db.unread_ids.add(message_id);
+            }
+
             const message: Message = {
                 code_snippets: [],
                 content: row.content,
                 github_refs: [],
-                    has_images: false,
+                has_images: false,
                 id: message_id,
                 is_super_new: false,
                 local_message_id,
@@ -117,7 +121,6 @@ async function process_message_rows_from_server(
                 timestamp: row.timestamp,
                 topic_id: topic.topic_id,
                 type: row.type,
-                unread,
             };
 
             parse.parse_content(message);

@@ -1,3 +1,4 @@
+import { is_unread } from "./database";
 import type { Message } from "./db_types";
 
 export type ListInfo = {
@@ -33,7 +34,7 @@ export class MessageList {
         messages.sort((m1, m2) => m2.id - m1.id);
         const last_msg_id = messages[0].id;
         const count = messages.length;
-        const unread_count = messages.filter((msg) => msg.unread).length;
+        const unread_count = messages.filter((msg) => is_unread(msg.id)).length;
         const num_topics = this.num_topics();
 
         return { last_msg_id, count, unread_count, num_topics };

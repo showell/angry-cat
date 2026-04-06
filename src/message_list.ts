@@ -1,3 +1,4 @@
+import { is_unread } from "./backend/database";
 import type { Message } from "./backend/db_types";
 import type { Filter } from "./backend/filter";
 
@@ -78,7 +79,7 @@ export class MessageList {
         const rows = this.rows;
         const smart_list = this.smart_list;
 
-        const unread_index = rows.findIndex((row) => row.unread);
+        const unread_index = rows.findIndex((row) => is_unread(row.id));
         if (unread_index >= 0) {
             smart_list.scroll_index_to_top(unread_index);
         }
@@ -112,7 +113,7 @@ export class MessageList {
 
     mark_topic_read() {
         const unread_message_ids = this.rows
-            .filter((message) => message.unread)
+            .filter((message) => is_unread(message.id))
             .map((message) => message.id);
 
         if (unread_message_ids) {

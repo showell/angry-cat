@@ -1,5 +1,5 @@
 import type { Address } from "../address";
-import { DB } from "./database";
+import { DB, is_unread } from "./database";
 import type { Message } from "./db_types";
 import * as model from "./model";
 
@@ -91,7 +91,7 @@ export class MessageRow {
     }
 
     unread(): boolean {
-        return this._message.unread;
+        return is_unread(this._message.id);
     }
 
     is_super_new(): boolean {

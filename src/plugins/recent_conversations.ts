@@ -1,6 +1,6 @@
 import { APP } from "../app";
 import * as buddy_list from "../buddy_list";
-import { DB } from "../backend/database";
+import { DB, is_unread } from "../backend/database";
 import type { User } from "../backend/db_types";
 import type { ZulipEvent } from "../backend/event";
 import { EventFlavor } from "../backend/event";
@@ -177,7 +177,7 @@ function build_table(
         const topic_messages = grouped.get(topic_id) ?? [];
         const participants = model.participants_for_messages(topic_messages);
 
-        const unread_count = topic_messages.filter((msg) => msg.unread).length;
+        const unread_count = topic_messages.filter((msg) => is_unread(msg.id)).length;
         const count_cell = render_count_cell(topic_messages.length, unread_count);
 
         const channel_cell = document.createElement("div");
