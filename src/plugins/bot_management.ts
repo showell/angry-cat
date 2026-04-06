@@ -6,11 +6,9 @@ import * as colors from "../colors";
 import type { Plugin, PluginContext } from "../plugin_helper";
 
 type Bot = {
-    bot_type: number;
-    email: string;
+    username: string;
     full_name: string;
-    is_active: boolean;
-    user_id: number;
+    api_key: string;
 };
 
 function render_bot_row(bot: Bot): HTMLDivElement {
@@ -26,22 +24,16 @@ function render_bot_row(bot: Bot): HTMLDivElement {
     name_div.style.color = colors.primary;
     name_div.innerText = bot.full_name;
 
-    const email_div = document.createElement("div");
-    email_div.style.color = colors.text_muted;
-    email_div.style.fontSize = "14px";
-    email_div.innerText = bot.email;
-
-    const status_div = document.createElement("div");
-    status_div.style.fontSize = "13px";
-    status_div.style.marginLeft = "auto";
-    status_div.innerText = bot.is_active ? "Active" : "Inactive";
-    status_div.style.color = bot.is_active ? colors.success : colors.text_muted;
+    const username_div = document.createElement("div");
+    username_div.style.color = colors.text_muted;
+    username_div.style.fontSize = "14px";
+    username_div.innerText = bot.username;
 
     const info = document.createElement("div");
-    info.append(name_div, email_div);
+    info.append(name_div, username_div);
     info.style.flex = "1";
 
-    div.append(info, status_div);
+    div.append(info);
     return div;
 }
 
