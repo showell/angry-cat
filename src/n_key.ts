@@ -1,6 +1,7 @@
 // All logic for the 'n' (next unread) hotkey lives here so it can be
 // understood and tested in isolation. Navigator implements NKeyContext.
 
+import * as popup from "./popup";
 import { StatusBar } from "./status_bar";
 
 export const enum NextTopicResult {
@@ -9,6 +10,7 @@ export const enum NextTopicResult {
 }
 
 export interface NKeyContext {
+    total_unread_count(): number;
     channel_selected(): boolean;
     get_first_unread_channel_id(): number | undefined;
     select_channel(channel_id: number): void;
@@ -19,7 +21,19 @@ export interface NKeyContext {
     go_to_next_topic(): NextTopicResult;
 }
 
+function show_inbox_zero_popup(): void {
+    const div = document.createElement("div");
+    div.innerText = "Congratulations! You have no unread messages.";
+    div.style.padding = "8px 4px";
+    popup.pop({ div, confirm_button_text: "Awesome!", callback: () => {} });
+}
+
 export function handle_n_key(ctx: NKeyContext): boolean {
+    if (ctx.total_unread_count() === 0) {
+        show_inbox_zero_popup();
+        return true;
+    }
+
     if (!ctx.channel_selected()) {
         const channel_id = ctx.get_first_unread_channel_id();
         if (channel_id === undefined) return false;
