@@ -19,6 +19,7 @@ import { TabButton } from "./tab_button";
 
 type PluginEntry = {
     plugin: Plugin;
+    factory: PluginFactory;
     label: string;
     open: boolean;
     deleted: boolean;
@@ -79,6 +80,7 @@ export class Page {
 
         const entry: PluginEntry = {
             plugin: undefined!,
+            factory,
             label: "plugin",
             open: false,
             deleted: false,
@@ -196,6 +198,12 @@ export class Page {
 
     add_navigator(address: Address): void {
         this.add_plugin(navigator.plugin_maker_for_address(address));
+    }
+
+    is_plugin_active(factory: PluginFactory): boolean {
+        return this.plugin_entries.some(
+            (e) => !e.deleted && e.factory === factory,
+        );
     }
 
     dispatch_keyboard_shortcut(key: string): boolean {

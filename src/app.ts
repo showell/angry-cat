@@ -22,6 +22,10 @@ class Application {
         this.page!.add_plugin(factory);
     }
 
+    is_plugin_active(factory: PluginFactory): boolean {
+        return this.page!.is_plugin_active(factory);
+    }
+
     set_reading_list(todo_list: TodoList): void {
         this.reading_list_todo = todo_list;
     }

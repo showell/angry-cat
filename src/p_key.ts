@@ -7,22 +7,23 @@
 import { APP } from "./app";
 import * as model from "./backend/model";
 import { Button } from "./button";
+import * as dm from "./dm/plugin";
+import * as lyn_rummy from "./lyn_rummy/plugin";
 import type { PluginFactory } from "./plugin_helper";
-import * as popup from "./popup";
-
 import * as activity from "./plugins/activity";
 import * as admin from "./plugins/admin";
 import * as buddies from "./plugins/buddies";
 import * as code_search from "./plugins/code_search";
 import * as color_scheme from "./plugins/color_scheme";
-import * as dm from "./dm/plugin";
 import * as github_search from "./plugins/github_search";
 import * as image_search from "./plugins/image_search";
 import * as reading_list from "./plugins/reading_list";
+import * as recent_conversations from "./plugins/recent_conversations";
+import * as popup from "./popup";
 
 type PluginEntry = { name: string; factory: PluginFactory };
 
-function get_plugins(): PluginEntry[] {
+function get_all_plugins(): PluginEntry[] {
     const plugins: PluginEntry[] = [
         { name: "Activity", factory: activity.plugin },
         { name: "Buddies", factory: buddies.plugin },
@@ -31,7 +32,9 @@ function get_plugins(): PluginEntry[] {
         { name: "DMs", factory: dm.plugin },
         { name: "GitHub Search", factory: github_search.plugin },
         { name: "Image Search", factory: image_search.plugin },
+        { name: "Lyn Rummy", factory: lyn_rummy.plugin },
         { name: "Reading List", factory: reading_list.plugin },
+        { name: "Recent Conversations", factory: recent_conversations.plugin },
     ];
     if (model.current_user_is_admin()) {
         plugins.push({ name: "Admin", factory: admin.plugin });
@@ -39,7 +42,15 @@ function get_plugins(): PluginEntry[] {
     return plugins;
 }
 
+function get_available_plugins(): PluginEntry[] {
+    return get_all_plugins().filter(
+        (entry) => !APP.is_plugin_active(entry.factory),
+    );
+}
+
 export function handle_p_key(): boolean {
+    const available = get_available_plugins();
+
     const div = document.createElement("div");
     div.style.display = "flex";
     div.style.flexDirection = "column";
@@ -47,14 +58,19 @@ export function handle_p_key(): boolean {
     div.style.padding = "8px 4px";
 
     const heading = document.createElement("div");
-    heading.innerText = "Launch a plugin";
     heading.style.fontWeight = "bold";
     heading.style.marginBottom = "4px";
+
+    if (available.length === 0) {
+        heading.innerText = "All plugins are already open.";
+    } else {
+        heading.innerText = "Launch a plugin";
+    }
     div.append(heading);
 
     const buttons: Button[] = [];
 
-    for (const entry of get_plugins()) {
+    for (const entry of available) {
         const button = new Button(entry.name, 250, () => {
             APP.add_plugin(entry.factory);
             chooser_popup.finish();
@@ -102,7 +118,6 @@ export function handle_p_key(): boolean {
     if (buttons.length > 0) {
         buttons[0].focus();
     }
-
 
     return true;
 }
