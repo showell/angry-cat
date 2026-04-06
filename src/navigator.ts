@@ -268,10 +268,6 @@ export class Navigator implements NKeyContext {
         return topic_list.has_selection();
     }
 
-    total_unread_count(): number {
-        return this.channel_chooser.total_unread_count();
-    }
-
     channel_selected(): boolean {
         return this.channel_id !== undefined;
     }

@@ -10,7 +10,6 @@ export const enum NextTopicResult {
 }
 
 export interface NKeyContext {
-    total_unread_count(): number;
     channel_selected(): boolean;
     get_channel_name(): string | undefined;
     get_first_unread_channel_id(): number | undefined;
@@ -27,14 +26,6 @@ function show_inbox_zero_popup(): void {
     div.innerText = "Congratulations! You have no unread messages.";
     div.style.padding = "8px 4px";
     popup.pop({ div, confirm_button_text: "Awesome!", callback: () => {} });
-}
-
-function show_channel_done_popup(ctx: NKeyContext): void {
-    if (ctx.total_unread_count() === 0) {
-        show_inbox_zero_popup();
-    } else {
-        show_channel_done_popup(ctx);
-    }
 }
 
 function show_channel_cleared_popup(
@@ -57,15 +48,22 @@ function show_channel_cleared_popup(
     });
 }
 
-export function handle_n_key(ctx: NKeyContext): boolean {
-    if (ctx.total_unread_count() === 0) {
+function show_channel_done_popup(ctx: NKeyContext): void {
+    const next_channel_id = ctx.get_first_unread_channel_id();
+    if (next_channel_id === undefined) {
         show_inbox_zero_popup();
-        return true;
+    } else {
+        show_channel_cleared_popup(ctx.get_channel_name() ?? "this channel", ctx);
     }
+}
 
+export function handle_n_key(ctx: NKeyContext): boolean {
     if (!ctx.channel_selected()) {
         const channel_id = ctx.get_first_unread_channel_id();
-        if (channel_id === undefined) return false;
+        if (channel_id === undefined) {
+            show_inbox_zero_popup();
+            return true;
+        }
         ctx.select_channel(channel_id);
         StatusBar.inform(
             "You hit 'n', so we jumped to the first channel with unread topics.",
