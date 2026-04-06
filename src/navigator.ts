@@ -26,6 +26,8 @@ import { handle_esc_key } from "./esc_key";
 import type { EscKeyContext } from "./esc_key";
 import { handle_n_key, NextTopicResult } from "./n_key";
 import type { NKeyContext } from "./n_key";
+import { handle_r_key } from "./r_key";
+import type { RKeyContext } from "./r_key";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
 import { StatusBar } from "./status_bar";
 import type { TopicList } from "./topic_list";
@@ -63,7 +65,12 @@ export function plugin_maker_for_address(start_address: Address): PluginFactory 
 }
 
 export class Navigator
-    implements NKeyContext, EscKeyContext, ArrowKeyContext, EnterKeyContext
+    implements
+        NKeyContext,
+        EscKeyContext,
+        ArrowKeyContext,
+        EnterKeyContext,
+        RKeyContext
 {
     div: HTMLDivElement;
     button_panel: ButtonPanel;
@@ -173,11 +180,7 @@ export class Navigator
 
     handle_keyboard_shortcut(key: string): boolean {
         if (key === "r") {
-            // TODO: if the add-topic pane is open, this silently no-ops
-            // because get_message_view() returns undefined. Consider whether
-            // "r" should close add-topic and open reply instead.
-            this.reply();
-            return true;
+            return handle_r_key(this);
         }
         if (key === "n") {
             return handle_n_key(this);
