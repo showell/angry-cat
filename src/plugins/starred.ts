@@ -22,6 +22,7 @@ import { Button } from "../button";
 import * as colors from "../colors";
 import { render_message_content } from "../message_content";
 import type { Plugin, PluginContext } from "../plugin_helper";
+import * as reading_list from "./reading_list";
 
 // Messages the user has explicitly dismissed (unstarred + hidden).
 const dismissed_ids = new Set<number>();
@@ -163,6 +164,53 @@ type StarredMessageDiv = HTMLDivElement & {
     handle_star_change: () => void;
 };
 
+function build_cat_tip(): HTMLDivElement {
+    const div = document.createElement("div");
+    div.style.marginTop = "20px";
+    div.style.padding = "12px";
+    div.style.border = `1px solid ${colors.accent_border}`;
+    div.style.borderRadius = "8px";
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.gap = "10px";
+    header.style.marginBottom = "8px";
+
+    const avatar = document.createElement("img");
+    avatar.src = "images/angry_cat.png";
+    avatar.style.width = "40px";
+    avatar.style.height = "40px";
+    avatar.style.borderRadius = "50%";
+    avatar.style.objectFit = "cover";
+
+    const name = document.createElement("span");
+    name.innerText = "Angry Cat says:";
+    name.style.fontWeight = "bold";
+    name.style.color = colors.primary;
+
+    header.append(avatar, name);
+    div.append(header);
+
+    const tip = document.createElement("div");
+    tip.style.fontSize = "14px";
+    tip.style.color = colors.text_body;
+    tip.style.lineHeight = "1.5";
+    tip.style.marginBottom = "10px";
+    tip.innerText =
+        "Starred messages are great for quick bookmarks, but for " +
+        "organizing your reading queue, try the Reading List! You " +
+        "can drag items to reorder them and check them off as you go.";
+    div.append(tip);
+
+    const launch_button = new Button("Open Reading List", 160, () => {
+        APP.add_plugin(reading_list.plugin);
+    });
+    div.append(launch_button.div);
+
+    return div;
+}
+
 function build_stats(messages: Message[]): HTMLDivElement {
     const div = document.createElement("div");
     div.style.fontSize = "15px";
@@ -242,6 +290,7 @@ export function plugin(context: PluginContext): Plugin {
     function refresh_stats(): void {
         right_pane.innerHTML = "";
         right_pane.append(build_stats(current_messages));
+        right_pane.append(build_cat_tip());
     }
 
     function rebuild(): void {
