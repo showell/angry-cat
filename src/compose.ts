@@ -1,3 +1,6 @@
+import * as action_log from "./action_log";
+import { ActionType } from "./action_log";
+import * as model from "./backend/model";
 import * as zulip_client from "./backend/zulip_client";
 import { Button } from "./button";
 import * as compose_widget from "./dom/compose_widget";
@@ -240,6 +243,8 @@ export class ComposeBox {
                 this.edit_button.show();
                 this.enable();
                 this.textarea.focus();
+                const channel_name = model.stream_name_for(channel_id);
+                action_log.record(ActionType.MESSAGE_SENT, channel_name, topic_name);
             },
             (error_msg) => {
                 this.enable();

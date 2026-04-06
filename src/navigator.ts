@@ -3,6 +3,8 @@
 // whenever the user opens a new navigation tab. Recent Conversations and
 // message links in the Reading List also open Navigator tabs via APP.add_navigator.
 
+import * as action_log from "./action_log";
+import { ActionType } from "./action_log";
 import type { Address } from "./address";
 import { AddressType, address_type } from "./address";
 import { APP } from "./app";
@@ -504,6 +506,7 @@ export class Navigator
             return;
         }
         message_list.mark_last_message_unread();
+        this.record_action(ActionType.TOPIC_MARKED_UNREAD);
     }
 
     mark_topic_read(): void {
@@ -514,6 +517,7 @@ export class Navigator
             return;
         }
         message_list.mark_topic_read();
+        this.record_action(ActionType.TOPIC_MARKED_READ);
     }
 
     update_topic(): void {
@@ -526,6 +530,7 @@ export class Navigator
         this._topic_mode = true;
         this.channel_view!.select_topic_id(topic_id);
         this.update_topic();
+        this.record_action(ActionType.TOPIC_VIEWED);
     }
 
     clear_message_view(): void {
@@ -547,6 +552,12 @@ export class Navigator
         if (message_view) {
             message_view.reply();
         }
+    }
+
+    private record_action(action_type: ActionType): void {
+        const channel_name = this.get_channel_name() ?? "unknown";
+        const topic_name = this.get_topic_name() ?? "unknown";
+        action_log.record(action_type, channel_name, topic_name);
     }
 
     close(): void {
