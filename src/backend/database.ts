@@ -23,6 +23,7 @@ export type Database = {
     unread_ids: Set<number>;
     image_message_ids: Set<number>;
     code_message_ids: Set<number>;
+    starred_ids: Set<number>;
 };
 
 export function is_unread(message_id: number): boolean {
@@ -35,6 +36,10 @@ export function has_images(message_id: number): boolean {
 
 export function has_code(message_id: number): boolean {
     return DB.code_message_ids.has(message_id);
+}
+
+export function is_starred(message_id: number): boolean {
+    return DB.starred_ids.has(message_id);
 }
 
 export function label_for_address(address: Address): string {
@@ -83,6 +88,16 @@ export function handle_event(event: ZulipEvent): void {
                 DB.unread_ids.add(id);
             } else {
                 DB.unread_ids.delete(id);
+            }
+        }
+    }
+
+    if (event.flavor === EventFlavor.MUTATE_STARRED) {
+        for (const id of event.message_ids) {
+            if (event.starred) {
+                DB.starred_ids.add(id);
+            } else {
+                DB.starred_ids.delete(id);
             }
         }
     }

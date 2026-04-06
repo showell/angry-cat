@@ -121,6 +121,9 @@ async function process_message_rows_from_server(
             if (unread) {
                 db.unread_ids.add(message_id);
             }
+            if (row.flags.includes("starred")) {
+                db.starred_ids.add(message_id);
+            }
 
             const message: Message = {
                 content: row.content,

@@ -8,6 +8,7 @@ export enum EventFlavor {
     MUTATE_MESSAGE_ADDRESS,
     MUTATE_MESSAGE_CONTENT,
     MUTATE_UNREAD,
+    MUTATE_STARRED,
     MUTATE_STREAM,
     SUBSCRIPTION_ADD,
     UNKNOWN,
@@ -33,6 +34,12 @@ type MutateUnreadEvent = {
     flavor: EventFlavor.MUTATE_UNREAD;
     message_ids: number[];
     unread: boolean;
+};
+
+type MutateStarredEvent = {
+    flavor: EventFlavor.MUTATE_STARRED;
+    message_ids: number[];
+    starred: boolean;
 };
 
 type MutateMessageAddressEvent = {
@@ -80,6 +87,7 @@ export type ZulipEvent =
     | MutateMessageAddressEvent
     | MutateMessageContentEvent
     | MutateUnreadEvent
+    | MutateStarredEvent
     | MutateStreamEvent
     | SubscriptionAddEvent
     | ReactionEvent
@@ -108,6 +116,9 @@ function build_event(raw_event: any): ZulipEvent | undefined {
 
                 if (unread) {
                     DB.unread_ids.add(raw_message.id);
+                }
+                if (raw_event.flags.includes("starred")) {
+                    DB.starred_ids.add(raw_message.id);
                 }
 
                 const message: Message = {
@@ -160,6 +171,13 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     flavor: EventFlavor.MUTATE_UNREAD,
                     message_ids: raw_event.messages,
                     unread: raw_event.op === "remove",
+                };
+            }
+            if (raw_event.flag === "starred") {
+                return {
+                    flavor: EventFlavor.MUTATE_STARRED,
+                    message_ids: raw_event.messages,
+                    starred: raw_event.op === "add",
                 };
             }
 
