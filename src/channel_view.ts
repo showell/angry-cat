@@ -82,9 +82,16 @@ export class ChannelView {
         return this.topic_list;
     }
 
-    get_topic_row(): TopicRow | undefined {
-        const topic_list = this.topic_list;
-        return topic_list.get_topic_row()!;
+    get_topic_id(): number | undefined {
+        return this.topic_list.get_topic_id();
+    }
+
+    get_topic_name(): string | undefined {
+        return this.topic_list.get_topic_name();
+    }
+
+    private get_topic_row(): TopicRow | undefined {
+        return this.topic_list.get_topic_row();
     }
 
     refresh(message: Message): void {

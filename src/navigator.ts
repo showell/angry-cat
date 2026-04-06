@@ -21,7 +21,6 @@ import { PaneManager } from "./pane_manager";
 import type { PluginHelper } from "./plugin_helper";
 import { StatusBar } from "./status_bar";
 import type { TopicList } from "./topic_list";
-import type { TopicRow } from "./topic_row";
 
 function narrow_label(
     channel_name: string | undefined,
@@ -217,19 +216,8 @@ export class Navigator {
         return this.channel_view.get_topic_list();
     }
 
-    get_topic_row(): TopicRow | undefined {
-        const topic_list = this.get_topic_list();
-
-        if (topic_list === undefined) {
-            return undefined;
-        }
-
-        return topic_list.get_topic_row();
-    }
-
     get_topic_name(): string | undefined {
-        const topic_row = this.get_topic_row();
-        return topic_row?.name();
+        return this.channel_view?.get_topic_name();
     }
 
     get_message_list(): MessageList | undefined {
@@ -279,7 +267,7 @@ export class Navigator {
     }
 
     get_topic_id(): number | undefined {
-        return this.get_topic_list()?.get_topic_id();
+        return this.channel_view?.get_topic_id();
     }
 
     unread_count(): number {
