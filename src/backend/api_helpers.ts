@@ -1,4 +1,4 @@
-import * as config from "../config";
+import * as config from "./config";
 
 export function slash_join(s1: string, s2: string): string {
     return `${s1.replace(/\/+$/, "")}/${s2.replace(/^\/+/, "")}`;

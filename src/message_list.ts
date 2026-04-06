@@ -2,7 +2,7 @@ import type { Message } from "./backend/db_types";
 import type { Filter } from "./backend/filter";
 
 import * as zulip_client from "./backend/zulip_client";
-import { MessageRow } from "./message_row";
+import { MessageRow } from "./backend/message_row";
 import { MessageRowWidget } from "./message_row_widget";
 import { SmartList } from "./smart_list";
 

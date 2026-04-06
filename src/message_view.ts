@@ -2,7 +2,7 @@ import type { MessageList } from "./message_list";
 import { MessagePane } from "./message_pane";
 import type { PaneManager } from "./pane_manager";
 import { ReplyPane } from "./reply_pane";
-import type { TopicRow } from "./topic_row";
+import type { TopicRow } from "./backend/topic_row";
 
 export class MessageView {
     message_pane: MessagePane;

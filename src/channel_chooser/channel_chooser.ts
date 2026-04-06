@@ -1,4 +1,4 @@
-import type { ChannelRow } from "../channel_row";
+import type { ChannelRow } from "../backend/channel_row";
 import * as layout from "../layout";
 
 import { ChannelList } from "./channel_list";

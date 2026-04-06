@@ -1,6 +1,6 @@
 import * as model from "../backend/model";
 
-import type { ChannelRow } from "../channel_row";
+import type { ChannelRow } from "../backend/channel_row";
 import * as table_widget from "../dom/table_widget";
 import { get_display_rows, sort_recent } from "../grouping_sort";
 

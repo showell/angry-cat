@@ -1,4 +1,4 @@
-import { ChannelRow } from "../channel_row";
+import { ChannelRow } from "./channel_row";
 import type { Message, Stream } from "./db_types";
 import { MessageList } from "./message_list";
 

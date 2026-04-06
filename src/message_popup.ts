@@ -1,7 +1,7 @@
 import { APP } from "./app";
 import { Button } from "./button";
 import * as table_widget from "./dom/table_widget";
-import type { MessageRow } from "./message_row";
+import type { MessageRow } from "./backend/message_row";
 
 function text(s: string): HTMLDivElement {
     const div = document.createElement("div");

@@ -3,7 +3,7 @@ import type { ZulipEvent } from "../backend/event";
 import * as model from "../backend/model";
 import { NetworkHelper } from "../backend/network";
 import { Button } from "../button";
-import { MessageRow } from "../message_row";
+import { MessageRow } from "../backend/message_row";
 import type { Plugin, PluginContext } from "../plugin_helper";
 import type { JsonCard } from "./game";
 import * as lyn_rummy from "./game";

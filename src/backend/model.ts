@@ -1,5 +1,5 @@
-import type { ChannelRow } from "../channel_row";
-import type { TopicRow } from "../topic_row";
+import type { ChannelRow } from "./channel_row";
+import type { TopicRow } from "./topic_row";
 import * as channel_row_query from "./channel_row_query";
 import { DB } from "./database";
 import type { Message, Stream, User } from "./db_types";

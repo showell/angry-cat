@@ -5,7 +5,7 @@ import { EventHandler, type ZulipEvent } from "./backend/event";
 import * as event_queue from "./backend/event_queue";
 import * as message_fetch from "./backend/message_fetch";
 import * as zulip_client from "./backend/zulip_client";
-import * as config from "./config";
+import * as config from "./backend/config";
 import * as login_manager from "./login_manager";
 import * as game from "./lyn_rummy/game";
 import { Page } from "./page";

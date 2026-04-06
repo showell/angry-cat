@@ -1,4 +1,4 @@
-import * as config from "../config";
+import * as config from "./config";
 import type { Database } from "./database";
 import type { Message, Stream, User } from "./db_types";
 import * as message_fetch from "./message_fetch";

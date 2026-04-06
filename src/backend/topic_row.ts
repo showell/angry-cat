@@ -1,6 +1,6 @@
-import { DB } from "./backend/database";
-import type { Topic } from "./backend/db_types";
-import type { ListInfo } from "./backend/message_list";
+import { DB } from "./database";
+import type { Topic } from "./db_types";
+import type { ListInfo } from "./message_list";
 
 export class TopicRow {
     _topic: Topic;

@@ -13,7 +13,7 @@ import type { ZulipEvent } from "./backend/event";
 import { EventFlavor } from "./backend/event";
 import { make_channel_chooser } from "./channel_chooser/channel_chooser";
 import type { ChannelChooser } from "./channel_chooser/types";
-import type { ChannelRow } from "./channel_row";
+import type { ChannelRow } from "./backend/channel_row";
 import { ChannelView } from "./channel_view";
 import * as layout from "./layout";
 import type { MessageList } from "./message_list";

@@ -1,4 +1,4 @@
-import * as config from "./config";
+import * as config from "./backend/config";
 
 class LoginManager {
     div: HTMLDivElement;

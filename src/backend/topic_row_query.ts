@@ -1,4 +1,4 @@
-import { TopicRow } from "../topic_row";
+import { TopicRow } from "./topic_row";
 import type { Message } from "./db_types";
 import { MessageList } from "./message_list";
 import type { TopicMap } from "./topic_map";

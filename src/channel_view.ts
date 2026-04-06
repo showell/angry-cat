@@ -2,7 +2,7 @@ import { AddTopicPane } from "./add_topic_pane";
 import type { Message } from "./backend/db_types";
 import * as model from "./backend/model";
 import { ChannelInfo } from "./channel_info";
-import type { ChannelRow } from "./channel_row";
+import type { ChannelRow } from "./backend/channel_row";
 
 import * as layout from "./layout";
 import type { MessageList } from "./message_list";
@@ -10,7 +10,7 @@ import { MessageView } from "./message_view";
 import type { Navigator } from "./navigator";
 import type { PaneManager } from "./pane_manager";
 import { TopicList } from "./topic_list";
-import type { TopicRow } from "./topic_row";
+import type { TopicRow } from "./backend/topic_row";
 
 export class ChannelView {
     channel_row: ChannelRow;

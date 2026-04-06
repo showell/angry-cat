@@ -3,7 +3,7 @@ import * as model from "./backend/model";
 import * as layout from "./layout";
 import { MessageList } from "./message_list";
 import { MessageViewHeader } from "./message_view_header";
-import type { TopicRow } from "./topic_row";
+import type { TopicRow } from "./backend/topic_row";
 
 export class MessagePane {
     div: HTMLDivElement;

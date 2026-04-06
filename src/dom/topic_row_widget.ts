@@ -1,6 +1,6 @@
 import * as colors from "../colors";
 import type { Navigator } from "../navigator";
-import type { TopicRow } from "../topic_row";
+import type { TopicRow } from "../backend/topic_row";
 import { render_unread_count } from "./render";
 
 function render_topic_count(count: number): HTMLDivElement {

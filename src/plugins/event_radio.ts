@@ -1,6 +1,6 @@
 import type { ZulipEvent } from "../backend/event";
 import { EventFlavor } from "../backend/event";
-import { MessageRow } from "../message_row";
+import { MessageRow } from "../backend/message_row";
 import { MessageRowWidget } from "../message_row_widget";
 import type { Plugin, PluginContext } from "../plugin_helper";
 

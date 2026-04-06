@@ -1,5 +1,5 @@
 import * as colors from "./colors";
-import type { TopicRow } from "./topic_row";
+import type { TopicRow } from "./backend/topic_row";
 
 function render_topic_heading_count(count: number): HTMLElement {
     const div = document.createElement("div");

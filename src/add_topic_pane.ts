@@ -1,4 +1,4 @@
-import type { ChannelRow } from "./channel_row";
+import type { ChannelRow } from "./backend/channel_row";
 import * as colors from "./colors";
 import { ComposeBox } from "./compose";
 import * as layout from "./layout";

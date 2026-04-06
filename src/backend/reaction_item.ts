@@ -1,5 +1,5 @@
-import { DB } from "./backend/database";
-import type { Reaction } from "./backend/db_types";
+import { DB } from "./database";
+import type { Reaction } from "./db_types";
 
 export class ReactionItem {
     _reaction: Reaction;

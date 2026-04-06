@@ -9,7 +9,7 @@ import { render_unread_count } from "../dom/render";
 import * as table_widget from "../dom/table_widget";
 import { render_topic_name } from "../dom/topic_row_widget";
 import { render_message_content } from "../message_content";
-import { MessageRow } from "../message_row";
+import { MessageRow } from "../backend/message_row";
 import { render_sender_name } from "../message_row_widget";
 import type { Plugin, PluginContext } from "../plugin_helper";
 

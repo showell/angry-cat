@@ -2,7 +2,7 @@ import type { User } from "./backend/db_types";
 import { stream_filter } from "./backend/filter";
 import * as model from "./backend/model";
 import * as zulip_client from "./backend/zulip_client";
-import type { ChannelRow } from "./channel_row";
+import type { ChannelRow } from "./backend/channel_row";
 import * as colors from "./colors";
 import { render_list_heading } from "./dom/render";
 import * as layout from "./layout";

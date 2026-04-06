@@ -5,7 +5,7 @@ export type RealmConfig = {
     nickname: string;
 };
 
-import * as local_storage from "./localstorage";
+import * as local_storage from "../localstorage";
 
 let current_realm_config: RealmConfig;
 

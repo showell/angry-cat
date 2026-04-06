@@ -3,7 +3,7 @@ import type { Reaction } from "./backend/db_types";
 import { EventFlavor } from "./backend/event";
 import * as zulip_client from "./backend/zulip_client";
 import { show_emoji_picker } from "./emoji_picker";
-import { ReactionItem } from "./reaction_item";
+import { ReactionItem } from "./backend/reaction_item";
 
 const THUMBS_UP_EMOJI_NAME = "thumbs_up";
 const THUMBS_UP_EMOJI_CODE = "1f44d";

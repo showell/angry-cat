@@ -1,7 +1,7 @@
-import type { Address } from "./address";
-import { DB } from "./backend/database";
-import type { Message } from "./backend/db_types";
-import * as model from "./backend/model";
+import type { Address } from "../address";
+import { DB } from "./database";
+import type { Message } from "./db_types";
+import * as model from "./model";
 
 export class MessageRow {
     _message: Message;

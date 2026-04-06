@@ -1,4 +1,4 @@
-import * as config from "../config";
+import * as config from "./config";
 import {
     api_form_request,
     api_get,

@@ -1,5 +1,5 @@
-import type { Stream } from "./backend/db_types";
-import type { ListInfo } from "./backend/message_list";
+import type { Stream } from "./db_types";
+import type { ListInfo } from "./message_list";
 
 export class ChannelRow {
     _channel: Stream;
