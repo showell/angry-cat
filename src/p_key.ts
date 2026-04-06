@@ -15,7 +15,6 @@ import * as admin from "./plugins/admin";
 import * as buddies from "./plugins/buddies";
 import * as code_search from "./plugins/code_search";
 import * as color_scheme from "./plugins/color_scheme";
-import * as github_search from "./plugins/github_search";
 import * as image_search from "./plugins/image_search";
 import * as reading_list from "./plugins/reading_list";
 import * as recent_conversations from "./plugins/recent_conversations";
@@ -30,7 +29,6 @@ function get_all_plugins(): PluginEntry[] {
         { name: "Code Search", factory: code_search.plugin },
         { name: "Color Scheme", factory: color_scheme.plugin },
         { name: "DMs", factory: dm.plugin },
-        { name: "GitHub Search", factory: github_search.plugin },
         { name: "Image Search", factory: image_search.plugin },
         { name: "Lyn Rummy", factory: lyn_rummy.plugin },
         { name: "Reading List", factory: reading_list.plugin },

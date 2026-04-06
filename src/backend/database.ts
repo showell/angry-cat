@@ -22,6 +22,7 @@ export type Database = {
     reactions_map: ReactionsMap;
     unread_ids: Set<number>;
     image_message_ids: Set<number>;
+    code_message_ids: Set<number>;
 };
 
 export function is_unread(message_id: number): boolean {
@@ -30,6 +31,10 @@ export function is_unread(message_id: number): boolean {
 
 export function has_images(message_id: number): boolean {
     return DB.image_message_ids.has(message_id);
+}
+
+export function has_code(message_id: number): boolean {
+    return DB.code_message_ids.has(message_id);
 }
 
 export function label_for_address(address: Address): string {

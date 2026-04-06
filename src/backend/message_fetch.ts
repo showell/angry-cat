@@ -109,9 +109,7 @@ async function process_message_rows_from_server(
             }
 
             const message: Message = {
-                code_snippets: [],
                 content: row.content,
-                github_refs: [],
                 id: message_id,
                 local_message_id,
                 sender_id: row.sender_id,
@@ -121,7 +119,7 @@ async function process_message_rows_from_server(
                 type: row.type,
             };
 
-            parse.parse_content(message, db.image_message_ids);
+            parse.parse_content(message, db);
             db.reactions_map.add_server_reactions(row.reactions, message_id);
 
             return message;

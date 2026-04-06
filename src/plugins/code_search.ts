@@ -1,3 +1,4 @@
+import { has_code } from "../backend/database";
 import type { Message } from "../backend/db_types";
 import * as model from "../backend/model";
 import { MessageList } from "../message_list";
@@ -14,7 +15,7 @@ export function plugin(context: PluginContext): Plugin {
 
     const filter = {
         predicate(message: Message) {
-            return message.code_snippets.length > 0;
+            return has_code(message.id);
         },
     };
 

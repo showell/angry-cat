@@ -111,9 +111,7 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                 }
 
                 const message: Message = {
-                    code_snippets: [],
                     content: raw_message.content,
-                    github_refs: [],
                     id: raw_message.id,
                     local_message_id,
                     sender_id: raw_message.sender_id,
@@ -122,7 +120,7 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     topic_id: topic.topic_id,
                     type: "stream",
                 };
-                parse.parse_content(message, DB.image_message_ids);
+                parse.parse_content(message, DB);
 
                 return {
                     flavor: EventFlavor.MESSAGE,

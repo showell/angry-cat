@@ -1,9 +1,7 @@
 export type StreamType = "stream";
 
 export type Message = {
-    code_snippets: string[];
     content: string;
-    github_refs: string[];
     id: number;
     local_message_id: string | undefined;
     sender_id: number;
