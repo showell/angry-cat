@@ -68,6 +68,9 @@ export async function run() {
     app.init(page);
 
     document.addEventListener("keydown", (e) => {
+        // When a modal dialog is open, let the browser handle all keys
+        // (Enter to activate buttons, Tab to move focus, etc.).
+        if (document.querySelector("dialog[open]")) return;
         const tag = (document.activeElement?.tagName ?? "").toLowerCase();
         const in_text_field = tag === "input" || tag === "textarea";
         if (in_text_field && e.key !== "Escape") return;
