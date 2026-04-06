@@ -179,9 +179,8 @@ export function plugin(context: PluginContext): Plugin {
         if (is_private) {
             params.invite_only = "true";
         }
-        if (subscriber_ids.length > 0) {
-            params.principals = JSON.stringify(subscriber_ids);
-        }
+        const all_subscribers = [DB.current_user_id, ...subscriber_ids];
+        params.principals = JSON.stringify(all_subscribers);
         const data = await api_form_request(
             "POST",
             "users/me/subscriptions",
