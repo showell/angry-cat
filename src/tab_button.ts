@@ -36,11 +36,23 @@ export class TabButton {
         div.addEventListener("pointerdown", (e) => {
             const start_x = e.clientX;
             let dragging = false;
+            let ghost: HTMLElement | undefined;
 
             const on_move = (me: PointerEvent) => {
                 if (!dragging && Math.abs(me.clientX - start_x) > 5) {
                     dragging = true;
                     div.style.opacity = "0.4";
+                    ghost = div.cloneNode(true) as HTMLElement;
+                    ghost.style.position = "fixed";
+                    ghost.style.opacity = "0.8";
+                    ghost.style.pointerEvents = "none";
+                    ghost.style.zIndex = "9999";
+                    ghost.style.top = `${div.getBoundingClientRect().top}px`;
+                    ghost.style.left = `${me.clientX}px`;
+                    document.body.append(ghost);
+                }
+                if (ghost) {
+                    ghost.style.left = `${me.clientX}px`;
                 }
             };
 
@@ -48,6 +60,7 @@ export class TabButton {
                 document.removeEventListener("pointermove", on_move);
                 document.removeEventListener("pointerup", on_up);
                 div.style.opacity = "1";
+                ghost?.remove();
 
                 if (dragging) {
                     suppress_click = true;
