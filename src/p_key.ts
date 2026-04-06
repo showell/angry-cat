@@ -52,7 +52,7 @@ export function handle_p_key(): boolean {
     heading.style.marginBottom = "4px";
     div.append(heading);
 
-    let first_button: Button | undefined;
+    const buttons: Button[] = [];
 
     for (const entry of get_plugins()) {
         const button = new Button(entry.name, 250, () => {
@@ -60,9 +60,7 @@ export function handle_p_key(): boolean {
             chooser_popup.finish();
         });
         div.append(button.div);
-        if (first_button === undefined) {
-            first_button = button;
-        }
+        buttons.push(button);
     }
 
     const chooser_popup = popup.pop({
@@ -72,22 +70,38 @@ export function handle_p_key(): boolean {
     });
 
     const cancel_button = chooser_popup.confirm_button;
+    buttons.push(cancel_button);
 
     chooser_popup.dialog_shell.popup_element.addEventListener(
         "keydown",
         (e) => {
-            if (e.key !== "Escape") return;
-            e.preventDefault();
-            e.stopPropagation();
-            if (document.activeElement === cancel_button.button) {
-                chooser_popup.finish();
-            } else {
-                cancel_button.focus();
+            if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                if (document.activeElement === cancel_button.button) {
+                    chooser_popup.finish();
+                } else {
+                    cancel_button.focus();
+                }
+                return;
+            }
+
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                const current = buttons.findIndex(
+                    (b) => b.button === document.activeElement,
+                );
+                const direction = e.key === "ArrowDown" ? 1 : -1;
+                const next =
+                    (current + direction + buttons.length) % buttons.length;
+                buttons[next].focus();
             }
         },
     );
 
-    first_button?.focus();
+    if (buttons.length > 0) {
+        buttons[0].focus();
+    }
 
 
     return true;
