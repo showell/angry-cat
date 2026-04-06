@@ -52,6 +52,10 @@ export class TopicList {
         return this.topic_id !== undefined;
     }
 
+    is_selected_topic(topic_id: number): boolean {
+        return this.topic_id === topic_id;
+    }
+
     get_topic_id(): number | undefined {
         return this.topic_id;
     }

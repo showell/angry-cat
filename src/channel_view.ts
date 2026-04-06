@@ -92,8 +92,6 @@ export class ChannelView {
             return;
         }
 
-        const topic_list = this.topic_list;
-        const topic_row = topic_list.get_topic_row();
         const sent_by_me = model.is_me(message.sender_id);
 
         /*
@@ -111,24 +109,21 @@ export class ChannelView {
 
         const can_change_topic = sent_by_me && this.add_topic_pane;
 
-        if (!topic_row) {
-            if (can_change_topic) {
-                this.select_topic_and_append(message);
-            } else {
-                topic_list.refresh(); // for counts
-            }
-        } else {
-            if (topic_row.topic_id() === message.topic_id) {
-                topic_list.refresh(); // for counts
+        if (
+            can_change_topic &&
+            !this.topic_list.is_selected_topic(message.topic_id)
+        ) {
+            this.select_topic_and_append(message);
+            return;
+        }
 
-                if (this.message_view) {
-                    this.get_message_list()!.append_message(message);
-                }
-            } else if (can_change_topic) {
-                this.select_topic_and_append(message);
-            } else {
-                topic_list.refresh();
-            }
+        this.topic_list.refresh();
+
+        if (
+            this.message_view &&
+            this.topic_list.is_selected_topic(message.topic_id)
+        ) {
+            this.get_message_list()!.append_message(message);
         }
     }
 
