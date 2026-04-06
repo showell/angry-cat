@@ -411,16 +411,6 @@ export class Navigator
         this.get_message_list()?.focus();
     }
 
-    // --- Tab management ---
-
-    tab_count(): number {
-        return this.context.tab_count();
-    }
-
-    close_tab(): void {
-        this.close();
-    }
-
     // --- Updates ---
 
     update_button_panel(): void {

@@ -12,6 +12,7 @@ import { MessageRow } from "./backend/message_row";
 import * as navigator from "./navigator";
 import { handle_p_key } from "./p_key";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
+import * as popup from "./popup";
 import * as recent_conversations from "./plugins/recent_conversations";
 import { create_global_status_bar, StatusBar } from "./status_bar";
 import { TabButton } from "./tab_button";
@@ -202,7 +203,39 @@ export class Page {
             return handle_p_key();
         }
         const active = this.plugin_entries.find((e) => e.open);
-        return active?.plugin.handle_keyboard_shortcut?.(key) ?? false;
+        if (!active) return false;
+        const handled = active.plugin.handle_keyboard_shortcut?.(key) ?? false;
+        if (handled) return true;
+        if (key === "Escape") {
+            this.show_close_tab_popup(active);
+            return true;
+        }
+        return false;
+    }
+
+    private show_close_tab_popup(entry: PluginEntry): void {
+        const div = document.createElement("div");
+        div.style.padding = "8px 4px";
+
+        const is_sole_navigator =
+            entry.plugin.is_navigator &&
+            this.plugin_entries.filter(
+                (e) => !e.deleted && e.plugin.is_navigator,
+            ).length <= 1;
+
+        if (is_sole_navigator) {
+            div.innerText =
+                "This is your only navigator tab, so we'll keep it open for you.";
+            popup.pop({ div, confirm_button_text: "OK", callback: () => {} });
+        } else {
+            div.innerText = "Close this tab?";
+            popup.pop({
+                div,
+                confirm_button_text: "Close",
+                cancel_button_text: "Cancel",
+                callback: () => this.close_plugin(entry),
+            });
+        }
     }
 
     handle_zulip_event(event: ZulipEvent): void {
