@@ -33,7 +33,7 @@ export class ReplyPane {
         this.compose_box = compose_box;
     }
 
-    get_compose_box(): ComposeBox {
-        return this.compose_box;
+    focus(): void {
+        this.compose_box.focus_textarea();
     }
 }

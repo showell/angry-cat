@@ -1,4 +1,3 @@
-import type { ComposeBox } from "./compose";
 import type { MessageList } from "./message_list";
 import { MessagePane } from "./message_pane";
 import type { PaneManager } from "./pane_manager";
@@ -37,8 +36,7 @@ export class MessageView {
             this.reply_pane = reply_pane;
         }
 
-        const compose_box: ComposeBox = this.reply_pane.get_compose_box();
-        compose_box.focus_textarea();
+        this.reply_pane.focus();
     }
 
     get_message_list(): MessageList {
