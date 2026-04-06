@@ -17,3 +17,7 @@ export function stream_filter(stream_id: number): Filter {
 
     return { predicate };
 }
+
+export function topic_filter(topic_id: number): Filter {
+    return { predicate: (message) => message.topic_id === topic_id };
+}
