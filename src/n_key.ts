@@ -29,6 +29,14 @@ function show_inbox_zero_popup(): void {
     popup.pop({ div, confirm_button_text: "Awesome!", callback: () => {} });
 }
 
+function show_channel_done_popup(ctx: NKeyContext): void {
+    if (ctx.total_unread_count() === 0) {
+        show_inbox_zero_popup();
+    } else {
+        show_channel_done_popup(ctx);
+    }
+}
+
 function show_channel_cleared_popup(
     channel_name: string,
     ctx: NKeyContext,
@@ -68,7 +76,7 @@ export function handle_n_key(ctx: NKeyContext): boolean {
     if (!ctx.topic_selected()) {
         const topic_id = ctx.get_first_unread_topic_id();
         if (topic_id === undefined) {
-            show_channel_cleared_popup(ctx.get_channel_name() ?? "this channel", ctx);
+            show_channel_done_popup(ctx);
             return true;
         }
         ctx.set_topic_id(topic_id);
@@ -83,7 +91,7 @@ export function handle_n_key(ctx: NKeyContext): boolean {
             "You hit 'n', so we marked the topic as read and moved to the next unread topic.",
         );
     } else {
-        show_channel_cleared_popup(ctx.get_channel_name() ?? "this channel", ctx);
+        show_channel_done_popup(ctx);
     }
     return true;
 }
