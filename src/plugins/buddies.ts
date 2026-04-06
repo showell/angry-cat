@@ -1,4 +1,6 @@
+import { DB } from "../backend/database";
 import type { User } from "../backend/db_types";
+import * as model from "../backend/model";
 import * as buddy_list from "../buddy_list";
 import * as colors from "../colors";
 import type { Plugin, PluginContext } from "../plugin_helper";
@@ -75,6 +77,12 @@ export function plugin(context: PluginContext): Plugin {
     div.style.overflow = "auto";
     div.style.maxWidth = "400px";
 
+    const self_div = document.createElement("div");
+    self_div.style.color = colors.primary;
+    self_div.style.fontWeight = "bold";
+    self_div.style.marginBottom = "8px";
+    self_div.innerText = `${model.current_user_name()} -- you are your own buddy.`;
+
     const count_div = document.createElement("div");
     count_div.style.fontWeight = "bold";
     count_div.style.color = colors.primary;
@@ -82,7 +90,7 @@ export function plugin(context: PluginContext): Plugin {
 
     const list_div = document.createElement("div");
 
-    div.append(count_div, list_div);
+    div.append(self_div, count_div, list_div);
 
     function update_count(): void {
         const buddy_count = buddy_list.get_buddies().length;
@@ -90,7 +98,8 @@ export function plugin(context: PluginContext): Plugin {
     }
 
     function rebuild_list(): void {
-        const users = buddy_list.get_all_users();
+        const me = DB.current_user_id;
+        const users = buddy_list.get_all_users().filter((u) => u.id !== me);
         const sender_ids = buddy_list.get_message_sender_ids();
 
         const current_users = users.filter((u) => sender_ids.has(u.id));
