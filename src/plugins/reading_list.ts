@@ -21,6 +21,7 @@ export type ItemData =
 type InternalItem = {
     id: number;
     data: ItemData;
+    annotation: string;
 };
 
 let next_id = 1;
@@ -147,6 +148,7 @@ export class ReadingList {
     private save(): void {
         const data = this.items.map((item) => ({
             data: dump_item_data(item.data),
+            annotation: item.annotation,
         }));
         local_storage.set(STORAGE_KEY, { items: data });
     }
@@ -157,9 +159,10 @@ export class ReadingList {
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed.items)) return [];
         return parsed.items.map(
-            (entry: { data: DumpedItemData }) => ({
+            (entry: { data: DumpedItemData; annotation?: string }) => ({
                 id: next_id++,
                 data: load_item_data(entry.data),
+                annotation: entry.annotation ?? "",
             }),
         );
     }
@@ -168,6 +171,7 @@ export class ReadingList {
         this.items.push({
             id: next_id++,
             data: { kind: "text", text },
+            annotation: "",
         });
         this.save();
         this.notify();
@@ -178,6 +182,7 @@ export class ReadingList {
         this.items.push({
             id: next_id++,
             data: { kind: "address_link", address },
+            annotation: "",
         });
         this.save();
         this.notify();
@@ -317,15 +322,18 @@ export class ReadingList {
     private render_row(item: InternalItem): HTMLDivElement {
         const row = document.createElement("div");
         row.dataset.itemId = String(item.id);
-        row.style.display = "flex";
-        row.style.alignItems = "center";
-        row.style.gap = "8px";
         row.style.padding = "4px 2px";
-        row.style.fontSize = "18px";
 
         if (this.drag_id === item.id) {
             row.style.opacity = "0.3";
         }
+
+        // Top line: drag handle, link, remove button.
+        const top_line = document.createElement("div");
+        top_line.style.display = "flex";
+        top_line.style.alignItems = "center";
+        top_line.style.gap = "8px";
+        top_line.style.fontSize = "18px";
 
         const drag_handle = render_drag_handle();
         this.wire_drag(drag_handle, row, item.id);
@@ -334,11 +342,31 @@ export class ReadingList {
         content.style.flex = "1";
         content.style.fontSize = "18px";
 
-        row.append(
+        top_line.append(
             drag_handle,
             content,
             render_remove_button(() => this.remove_item(item.id)),
         );
+
+        // Annotation: editable input that saves on every keystroke.
+        const annotation_input = document.createElement("input");
+        annotation_input.type = "text";
+        annotation_input.value = item.annotation;
+        annotation_input.placeholder = "Add a note...";
+        annotation_input.style.fontSize = "14px";
+        annotation_input.style.color = colors.text_muted;
+        annotation_input.style.border = "none";
+        annotation_input.style.borderBottom = `1px solid ${colors.border_subtle}`;
+        annotation_input.style.outline = "none";
+        annotation_input.style.width = "100%";
+        annotation_input.style.padding = "2px 0";
+        annotation_input.style.marginLeft = "28px";
+        annotation_input.addEventListener("input", () => {
+            item.annotation = annotation_input.value;
+            this.save();
+        });
+
+        row.append(top_line, annotation_input);
         return row;
     }
 
