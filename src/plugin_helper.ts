@@ -4,6 +4,7 @@ export type Plugin = {
     div: HTMLDivElement;
     handle_zulip_event?: (event: ZulipEvent) => void;
     handle_keyboard_shortcut?: (key: string) => boolean;
+    is_navigator?: boolean;
 };
 
 export type PluginContext = {

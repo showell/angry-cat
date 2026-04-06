@@ -104,7 +104,9 @@ export class Page {
                 tab_button.refresh(entry.label, entry.open, entry.highlighted);
             },
             tab_count: () =>
-                this.plugin_entries.filter((e) => !e.deleted).length,
+                this.plugin_entries.filter(
+                    (e) => !e.deleted && e.plugin.is_navigator,
+                ).length,
         };
 
         tab_button.refresh(entry.label, entry.open, entry.highlighted);
