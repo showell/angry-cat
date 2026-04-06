@@ -20,7 +20,6 @@ export type ItemData =
 
 type InternalItem = {
     id: number;
-    done: boolean;
     data: ItemData;
 };
 
@@ -60,28 +59,6 @@ function render_drag_handle(): HTMLSpanElement {
     handle.style.fontSize = "20px";
     handle.style.userSelect = "none";
     return handle;
-}
-
-function render_done_button(
-    done: boolean,
-    on_click: () => void,
-): HTMLButtonElement {
-    const button = document.createElement("button");
-    button.innerText = done ? "✓" : "○";
-    button.style.minWidth = "32px";
-    button.style.fontSize = "18px";
-    button.style.padding = "2px 6px";
-    button.addEventListener("click", on_click);
-    return button;
-}
-
-function apply_done_style(elem: HTMLElement, done: boolean): void {
-    elem.style.flex = "1";
-    elem.style.fontSize = "18px";
-    if (done) {
-        elem.style.textDecoration = "line-through";
-        elem.style.opacity = "0.5";
-    }
 }
 
 function render_remove_button(on_click: () => void): HTMLButtonElement {
@@ -169,7 +146,6 @@ export class ReadingList {
 
     private save(): void {
         const data = this.items.map((item) => ({
-            done: item.done,
             data: dump_item_data(item.data),
         }));
         local_storage.set(STORAGE_KEY, { items: data });
@@ -181,9 +157,8 @@ export class ReadingList {
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed.items)) return [];
         return parsed.items.map(
-            (entry: { done: boolean; data: DumpedItemData }) => ({
+            (entry: { data: DumpedItemData }) => ({
                 id: next_id++,
-                done: entry.done,
                 data: load_item_data(entry.data),
             }),
         );
@@ -192,7 +167,6 @@ export class ReadingList {
     add_text_item(text: string): void {
         this.items.push({
             id: next_id++,
-            done: false,
             data: { kind: "text", text },
         });
         this.save();
@@ -203,7 +177,6 @@ export class ReadingList {
     add_address_link_item(address: Address): void {
         this.items.push({
             id: next_id++,
-            done: false,
             data: { kind: "address_link", address },
         });
         this.save();
@@ -228,15 +201,6 @@ export class ReadingList {
         this.save();
         this.notify();
         this.render();
-    }
-
-    private toggle_done(id: number): void {
-        const item = this.items.find((item) => item.id === id);
-        if (item) {
-            item.done = !item.done;
-            this.save();
-            this.render();
-        }
     }
 
     private move_item(from_id: number, to_index: number): void {
@@ -367,11 +331,11 @@ export class ReadingList {
         this.wire_drag(drag_handle, row, item.id);
 
         const content = render_item_content(item.data);
-        apply_done_style(content, item.done);
+        content.style.flex = "1";
+        content.style.fontSize = "18px";
 
         row.append(
             drag_handle,
-            render_done_button(item.done, () => this.toggle_done(item.id)),
             content,
             render_remove_button(() => this.remove_item(item.id)),
         );
