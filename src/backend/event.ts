@@ -122,7 +122,7 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     topic_id: topic.topic_id,
                     type: "stream",
                 };
-                parse.parse_content(message);
+                parse.parse_content(message, DB.image_message_ids);
 
                 return {
                     flavor: EventFlavor.MESSAGE,

@@ -1,8 +1,10 @@
-import { DB } from "./database";
 import { get_dom_parser } from "../parser";
 import type { Message } from "./db_types";
 
-export function parse_content(message: Message): void {
+export function parse_content(
+    message: Message,
+    image_message_ids: Set<number>,
+): void {
     if (typeof window === "undefined") {
         return;
     }
@@ -19,6 +21,6 @@ export function parse_content(message: Message): void {
         message.code_snippets.push(code_div.textContent);
     });
     if (doc.querySelector("img")) {
-        DB.image_message_ids.add(message.id);
+        image_message_ids.add(message.id);
     }
 }

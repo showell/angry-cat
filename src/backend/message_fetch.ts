@@ -121,7 +121,7 @@ async function process_message_rows_from_server(
                 type: row.type,
             };
 
-            parse.parse_content(message);
+            parse.parse_content(message, db.image_message_ids);
             db.reactions_map.add_server_reactions(row.reactions, message_id);
 
             return message;
