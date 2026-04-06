@@ -1,4 +1,7 @@
 import { api_form_request } from "../backend/api_helpers";
+import { DB } from "../backend/database";
+import type { User } from "../backend/db_types";
+import * as buddy_list from "../buddy_list";
 import { Button } from "../button";
 import * as colors from "../colors";
 import type { Plugin, PluginContext } from "../plugin_helper";
@@ -36,6 +39,7 @@ async function create_channel(
     name: string,
     description: string,
     is_private: boolean,
+    subscriber_ids: number[],
 ): Promise<void> {
     const subscription = {
         name,
@@ -47,6 +51,9 @@ async function create_channel(
     if (is_private) {
         params.invite_only = "true";
     }
+    if (subscriber_ids.length > 0) {
+        params.principals = JSON.stringify(subscriber_ids);
+    }
     const data = await api_form_request(
         "POST",
         "users/me/subscriptions",
@@ -57,6 +64,52 @@ async function create_channel(
     } else {
         StatusBar.scold(`Failed to create channel: ${data.msg ?? "unknown error"}`);
     }
+}
+
+function build_subscriber_picker(): {
+    div: HTMLDivElement;
+    get_selected_ids: () => number[];
+} {
+    const div = document.createElement("div");
+    const me = DB.current_user_id;
+    const other_buddies = buddy_list
+        .get_buddies()
+        .filter((u) => u.id !== me);
+
+    const checkboxes: { user: User; checkbox: HTMLInputElement }[] = [];
+
+    for (const user of other_buddies) {
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.gap = "8px";
+        row.style.padding = "2px 0";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+
+        const name = document.createElement("span");
+        name.innerText = user.full_name;
+
+        row.append(checkbox, name);
+        div.append(row);
+        checkboxes.push({ user, checkbox });
+    }
+
+    if (other_buddies.length === 0) {
+        const empty = document.createElement("div");
+        empty.innerText = "No buddies to add. Select some in the Buddies tab.";
+        empty.style.color = colors.text_muted;
+        div.append(empty);
+    }
+
+    function get_selected_ids(): number[] {
+        return checkboxes
+            .filter((c) => c.checkbox.checked)
+            .map((c) => c.user.id);
+    }
+
+    return { div, get_selected_ids };
 }
 
 function build_create_channel_form(): HTMLDivElement {
@@ -89,6 +142,10 @@ function build_create_channel_form(): HTMLDivElement {
     visibility_select.append(public_option, private_option);
     form.append(visibility_select);
 
+    form.append(render_label("Subscribe buddies"));
+    const subscriber_picker = build_subscriber_picker();
+    form.append(subscriber_picker.div);
+
     const button_div = document.createElement("div");
     button_div.style.marginTop = "16px";
     const create_button = new Button("Create", 100, () => {
@@ -101,6 +158,7 @@ function build_create_channel_form(): HTMLDivElement {
             name,
             desc_input.value.trim(),
             visibility_select.value === "private",
+            subscriber_picker.get_selected_ids(),
         );
     });
     button_div.append(create_button.div);
