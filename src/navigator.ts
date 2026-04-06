@@ -585,6 +585,9 @@ export class Navigator
                     event.rendered_description,
                 );
                 break;
+            case EventFlavor.SUBSCRIPTION_ADD:
+                this.channel_chooser.refresh_completely();
+                break;
         }
 
         this.update_button_panel();

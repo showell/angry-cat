@@ -56,9 +56,18 @@ type MutateStreamEvent = {
     rendered_description: string;
 };
 
+export type SubscriptionInfo = {
+    stream_id: number;
+    name: string;
+    description: string;
+    rendered_description: string;
+    stream_weekly_traffic: number;
+};
+
 type SubscriptionAddEvent = {
     flavor: EventFlavor.SUBSCRIPTION_ADD;
     stream_names: string[];
+    subscriptions: SubscriptionInfo[];
 };
 
 type UnknownEvent = {
@@ -207,12 +216,19 @@ function build_event(raw_event: any): ZulipEvent | undefined {
 
         case "subscription": {
             if (raw_event.op === "add") {
-                const stream_names: string[] = raw_event.subscriptions.map(
-                    (s: { name: string }) => s.name,
-                );
+                const subscriptions: SubscriptionInfo[] =
+                    raw_event.subscriptions.map((s: any) => ({
+                        stream_id: s.stream_id,
+                        name: s.name,
+                        description: s.description ?? "",
+                        rendered_description: s.rendered_description ?? "",
+                        stream_weekly_traffic: s.stream_weekly_traffic ?? 0,
+                    }));
+                const stream_names = subscriptions.map((s) => s.name);
                 return {
                     flavor: EventFlavor.SUBSCRIPTION_ADD,
                     stream_names,
+                    subscriptions,
                 };
             }
             return undefined;

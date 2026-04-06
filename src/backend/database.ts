@@ -78,6 +78,20 @@ export function handle_event(event: ZulipEvent): void {
         }
     }
 
+    if (event.flavor === EventFlavor.SUBSCRIPTION_ADD) {
+        for (const sub of event.subscriptions) {
+            if (!DB.channel_map.has(sub.stream_id)) {
+                DB.channel_map.set(sub.stream_id, {
+                    stream_id: sub.stream_id,
+                    name: sub.name,
+                    description: sub.description,
+                    rendered_description: sub.rendered_description,
+                    stream_weekly_traffic: sub.stream_weekly_traffic,
+                });
+            }
+        }
+    }
+
     if (event.flavor === EventFlavor.REACTION_ADD_EVENT) {
         DB.reactions_map.process_add_event(event);
     }
