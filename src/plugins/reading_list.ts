@@ -1,5 +1,6 @@
 import { APP } from "../app";
 import { DB, is_starred, label_for_address } from "../backend/database";
+import { StatusBar } from "../status_bar";
 import { MessageRow } from "../backend/message_row";
 import { Button } from "../button";
 import * as colors from "../colors";
@@ -98,8 +99,10 @@ function maybe_show_import_banner(
         banner.remove();
     });
     const import_button = new Button("Import", 100, () => {
+        const count = DB.starred_ids.size;
         import_starred_messages(todo_list);
         banner.remove();
+        StatusBar.celebrate(`Imported ${count} starred message${count === 1 ? "" : "s"} into your reading list!`);
     });
 
     button_row.append(import_button.div, no_thanks.div);
