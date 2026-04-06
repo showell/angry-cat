@@ -102,7 +102,7 @@ function maybe_show_import_banner(
         banner.remove();
     });
 
-    button_row.append(no_thanks.div, import_button.div);
+    button_row.append(import_button.div, no_thanks.div);
     banner.append(button_row);
 
     // Insert the banner before the todo list content.
