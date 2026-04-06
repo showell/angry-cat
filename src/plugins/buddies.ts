@@ -84,15 +84,17 @@ export function plugin(context: PluginContext): Plugin {
 
     div.append(count_div, list_div);
 
-    function refresh(): void {
-        const users = buddy_list.get_all_users();
+    function update_count(): void {
         const buddy_count = buddy_list.get_buddies().length;
+        count_div.innerText = `${buddy_count} buddy${buddy_count === 1 ? "" : "s"} selected`;
+    }
+
+    function rebuild_list(): void {
+        const users = buddy_list.get_all_users();
         const sender_ids = buddy_list.get_message_sender_ids();
 
         const current_users = users.filter((u) => sender_ids.has(u.id));
         const other_users = users.filter((u) => !sender_ids.has(u.id));
-
-        count_div.innerText = `${buddy_count} buddy${buddy_count === 1 ? "" : "s"} selected`;
 
         list_div.innerHTML = "";
         if (users.length === 0) {
@@ -102,8 +104,9 @@ export function plugin(context: PluginContext): Plugin {
         }
     }
 
-    buddy_list.on_change(refresh);
-    refresh();
+    buddy_list.on_change(update_count);
+    update_count();
+    rebuild_list();
 
     return { div };
 }
