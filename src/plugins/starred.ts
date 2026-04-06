@@ -276,9 +276,10 @@ export function plugin(context: PluginContext): Plugin {
     left_pane.style.maxWidth = "700px";
 
     const right_pane = document.createElement("div");
-    right_pane.style.width = "250px";
+    right_pane.style.width = "350px";
     right_pane.style.flexShrink = "0";
     right_pane.style.paddingTop = "4px";
+    right_pane.style.overflow = "auto";
 
     div.append(left_pane, right_pane);
 
@@ -289,8 +290,8 @@ export function plugin(context: PluginContext): Plugin {
 
     function refresh_stats(): void {
         right_pane.innerHTML = "";
-        right_pane.append(build_stats(current_messages));
         right_pane.append(build_cat_tip());
+        right_pane.append(build_stats(current_messages));
     }
 
     function rebuild(): void {
