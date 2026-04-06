@@ -16,6 +16,48 @@ export type TodoListParams = {
     on_remove: (data: TodoItemData) => void;
 };
 
+function render_drag_handle(): HTMLSpanElement {
+    const handle = document.createElement("span");
+    handle.innerText = "☰";
+    handle.style.cursor = "grab";
+    handle.style.opacity = "0.4";
+    handle.style.fontSize = "20px";
+    handle.style.userSelect = "none";
+    return handle;
+}
+
+function render_done_button(
+    done: boolean,
+    on_click: () => void,
+): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.innerText = done ? "✓" : "○";
+    button.style.minWidth = "32px";
+    button.style.fontSize = "18px";
+    button.style.padding = "2px 6px";
+    button.addEventListener("click", on_click);
+    return button;
+}
+
+function apply_done_style(elem: HTMLElement, done: boolean): void {
+    elem.style.flex = "1";
+    elem.style.fontSize = "18px";
+    if (done) {
+        elem.style.textDecoration = "line-through";
+        elem.style.opacity = "0.5";
+    }
+}
+
+function render_remove_button(on_click: () => void): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.innerText = "✕";
+    button.style.opacity = "0.5";
+    button.style.fontSize = "16px";
+    button.style.padding = "2px 6px";
+    button.addEventListener("click", on_click);
+    return button;
+}
+
 let next_id = 1;
 
 export class TodoList {
@@ -174,39 +216,18 @@ export class TodoList {
             row.style.opacity = "0.3";
         }
 
-        const drag_handle = document.createElement("span");
-        drag_handle.innerText = "☰";
-        drag_handle.style.cursor = "grab";
-        drag_handle.style.opacity = "0.4";
-        drag_handle.style.fontSize = "20px";
-        drag_handle.style.userSelect = "none";
+        const drag_handle = render_drag_handle();
         this.wire_drag(drag_handle, item.id);
 
-        const done_button = document.createElement("button");
-        done_button.innerText = item.done ? "✓" : "○";
-        done_button.style.minWidth = "32px";
-        done_button.style.fontSize = "18px";
-        done_button.style.padding = "2px 6px";
-        done_button.addEventListener("click", () => this.toggle_done(item.id));
-
         const content = this.params.render_content(item.data);
-        content.style.flex = "1";
-        content.style.fontSize = "18px";
-        if (item.done) {
-            content.style.textDecoration = "line-through";
-            content.style.opacity = "0.5";
-        }
+        apply_done_style(content, item.done);
 
-        const remove_button = document.createElement("button");
-        remove_button.innerText = "✕";
-        remove_button.style.opacity = "0.5";
-        remove_button.style.fontSize = "16px";
-        remove_button.style.padding = "2px 6px";
-        remove_button.addEventListener("click", () =>
-            this.remove_item(item.id),
+        row.append(
+            drag_handle,
+            render_done_button(item.done, () => this.toggle_done(item.id)),
+            content,
+            render_remove_button(() => this.remove_item(item.id)),
         );
-
-        row.append(drag_handle, done_button, content, remove_button);
         return row;
     }
 
