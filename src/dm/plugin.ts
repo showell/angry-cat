@@ -53,7 +53,7 @@ export function plugin(context: PluginContext): Plugin {
         const sorted = [...messages].sort(
             (a, b) => b.timestamp - a.timestamp,
         );
-        for (const msg of sorted) {
+        for (const msg of sorted.slice(0, 30)) {
             div.append(render_dm(msg));
         }
     }
