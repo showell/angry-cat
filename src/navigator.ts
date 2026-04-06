@@ -178,6 +178,7 @@ export class Navigator {
             return true;
         }
         if (key === "n") {
+            if (!this.topic_selected()) return false;
             this.mark_topic_read();
             const result = this.go_to_next_topic();
             if (result === NextTopicResult.ADVANCED) {
