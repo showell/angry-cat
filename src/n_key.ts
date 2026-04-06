@@ -12,6 +12,7 @@ export const enum NextTopicResult {
 export interface NKeyContext {
     total_unread_count(): number;
     channel_selected(): boolean;
+    get_channel_name(): string | undefined;
     get_first_unread_channel_id(): number | undefined;
     select_channel(channel_id: number): void;
     topic_selected(): boolean;
@@ -26,6 +27,26 @@ function show_inbox_zero_popup(): void {
     div.innerText = "Congratulations! You have no unread messages.";
     div.style.padding = "8px 4px";
     popup.pop({ div, confirm_button_text: "Awesome!", callback: () => {} });
+}
+
+function show_channel_cleared_popup(
+    channel_name: string,
+    ctx: NKeyContext,
+): void {
+    const div = document.createElement("div");
+    div.innerText = `Congratulations! No more unread topics in #${channel_name}. We'll take you to the next channel with unreads.`;
+    div.style.padding = "8px 4px";
+    div.style.maxWidth = "320px";
+    popup.pop({
+        div,
+        confirm_button_text: "Awesome!",
+        callback: () => {
+            const next_channel_id = ctx.get_first_unread_channel_id();
+            if (next_channel_id !== undefined) {
+                ctx.select_channel(next_channel_id);
+            }
+        },
+    });
 }
 
 export function handle_n_key(ctx: NKeyContext): boolean {
@@ -46,7 +67,10 @@ export function handle_n_key(ctx: NKeyContext): boolean {
 
     if (!ctx.topic_selected()) {
         const topic_id = ctx.get_first_unread_topic_id();
-        if (topic_id === undefined) return false;
+        if (topic_id === undefined) {
+            show_channel_cleared_popup(ctx.get_channel_name() ?? "this channel", ctx);
+            return true;
+        }
         ctx.set_topic_id(topic_id);
         StatusBar.inform("You hit 'n', so we jumped to the first unread topic.");
         return true;
@@ -59,9 +83,7 @@ export function handle_n_key(ctx: NKeyContext): boolean {
             "You hit 'n', so we marked the topic as read and moved to the next unread topic.",
         );
     } else {
-        StatusBar.inform(
-            "You hit 'n', so we marked the topic as read. No more unread topics in this channel.",
-        );
+        show_channel_cleared_popup(ctx.get_channel_name() ?? "this channel", ctx);
     }
     return true;
 }
