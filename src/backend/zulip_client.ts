@@ -29,7 +29,7 @@ export type ServerMessage = {
     stream_id: number;
     subject: string;
     timestamp: number;
-    type: "stream";
+    type: "stream" | "private";
 };
 
 export async function get_messages(anchor: string, num_before: number) {

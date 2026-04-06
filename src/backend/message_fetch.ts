@@ -1,3 +1,4 @@
+import * as dm_model from "../dm/model";
 import type { Database } from "./database";
 import type { Message } from "./db_types";
 import * as parse from "./parse";
@@ -65,6 +66,20 @@ async function process_message_rows_from_server(
     db: Database,
     rows: ServerMessage[],
 ): Promise<void> {
+    for (const row of rows) {
+        if (row.type === "private") {
+            const unread =
+                row.flags.find((flag: string) => flag === "read") === undefined;
+            dm_model.add_message({
+                id: row.id,
+                sender_id: row.sender_id,
+                content: row.content,
+                timestamp: row.timestamp,
+                unread,
+            });
+        }
+    }
+
     const messages: Message[] = rows
         .filter((row) => row.type === "stream")
         .map((row) => {

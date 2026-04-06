@@ -1,3 +1,4 @@
+import * as dm_model from "../dm/model";
 import { DB } from "./database";
 import type { Message } from "./db_types";
 import * as parse from "./parse";
@@ -110,6 +111,20 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     message,
                     info: `stream message id ${message.id}`,
                 };
+            }
+
+            if (raw_message.type === "private") {
+                const unread =
+                    raw_event.flags.find(
+                        (flag: string) => flag === "read",
+                    ) === undefined;
+                dm_model.add_message({
+                    id: raw_message.id,
+                    sender_id: raw_message.sender_id,
+                    content: raw_message.content,
+                    timestamp: raw_message.timestamp,
+                    unread,
+                });
             }
 
             return undefined;

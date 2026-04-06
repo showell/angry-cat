@@ -7,6 +7,7 @@ import * as model from "./backend/model";
 import { get_current_realm_nickname } from "./config";
 import * as page_widget from "./dom/page_widget";
 import * as layout from "./layout";
+import * as dm from "./dm/plugin";
 import * as lyn_rummy from "./lyn_rummy/plugin";
 import * as activity from "./plugins/activity";
 import { MessageRow } from "./message_row";
@@ -61,6 +62,7 @@ export class Page {
         this.add_plugin(recent_conversations.plugin);
         this.add_plugin(reading_list.plugin);
         this.add_plugin(activity.plugin);
+        this.add_plugin(dm.plugin);
         this.add_navigator(address.nada());
         this.update_title();
     }
