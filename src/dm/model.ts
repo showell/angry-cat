@@ -23,6 +23,13 @@ export function add_message(msg: DirectMessage): void {
     listener?.();
 }
 
+export function add_messages(msgs: DirectMessage[]): void {
+    for (const msg of msgs) {
+        messages.push(msg);
+    }
+    listener?.();
+}
+
 export function get_messages(): readonly DirectMessage[] {
     return messages;
 }

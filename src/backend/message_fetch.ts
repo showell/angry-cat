@@ -66,11 +66,12 @@ async function process_message_rows_from_server(
     db: Database,
     rows: ServerMessage[],
 ): Promise<void> {
+    const dm_messages: dm_model.DirectMessage[] = [];
     for (const row of rows) {
         if (row.type === "private") {
             const unread =
                 row.flags.find((flag: string) => flag === "read") === undefined;
-            dm_model.add_message({
+            dm_messages.push({
                 id: row.id,
                 sender_id: row.sender_id,
                 content: row.content,
@@ -78,6 +79,9 @@ async function process_message_rows_from_server(
                 unread,
             });
         }
+    }
+    if (dm_messages.length > 0) {
+        dm_model.add_messages(dm_messages);
     }
 
     const messages: Message[] = rows
