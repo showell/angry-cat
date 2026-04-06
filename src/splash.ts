@@ -55,31 +55,34 @@ class Splash {
         this.log.append(line);
     }
 
-    async run_backfill(db: Database): Promise<void> {
+    run_backfill(db: Database): { threshold: Promise<void>; complete: Promise<void> } {
         let backfill_line: HTMLDivElement | undefined;
+        let threshold_resolved = false;
+        let threshold_resolve: () => void;
 
-        return new Promise<void>((resolve) => {
-            let resolved = false;
-
-            const done = () => {
-                if (!resolved) {
-                    resolved = true;
-                    resolve();
-                }
-            };
-
-            message_fetch.backfill(db, (count) => {
-                if (!backfill_line) {
-                    backfill_line = document.createElement("div");
-                    this.log.append(backfill_line);
-                }
-                backfill_line.innerText =
-                    `Backfilling... ${count.toLocaleString()} messages cached.`;
-                if (count >= BACKFILL_THRESHOLD) {
-                    done();
-                }
-            }).then(done);
+        const threshold = new Promise<void>((resolve) => {
+            threshold_resolve = resolve;
         });
+
+        const complete = message_fetch.backfill(db, (count) => {
+            if (!backfill_line) {
+                backfill_line = document.createElement("div");
+                this.log.append(backfill_line);
+            }
+            backfill_line.innerText =
+                `Backfilling... ${count.toLocaleString()} messages cached.`;
+            if (!threshold_resolved && count >= BACKFILL_THRESHOLD) {
+                threshold_resolved = true;
+                threshold_resolve();
+            }
+        }).then(() => {
+            if (!threshold_resolved) {
+                threshold_resolved = true;
+                threshold_resolve();
+            }
+        });
+
+        return { threshold, complete };
     }
 
     remove(): void {

@@ -5,6 +5,7 @@ export type Plugin = {
     handle_zulip_event?: (event: ZulipEvent) => void;
     handle_keyboard_shortcut?: (key: string) => boolean;
     is_navigator?: boolean;
+    refresh?: () => void;
 };
 
 export type PluginContext = {

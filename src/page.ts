@@ -215,6 +215,12 @@ export class Page {
         return this.entries.some((e) => e.factory === factory);
     }
 
+    refresh_navigators(): void {
+        for (const entry of this.entries) {
+            entry.plugin.refresh?.();
+        }
+    }
+
     private toggle_zen(): void {
         if (zen.is_active()) {
             zen.exit();

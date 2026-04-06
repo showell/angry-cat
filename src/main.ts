@@ -63,7 +63,8 @@ async function run() {
     screen.add_line(`${DB.message_map.size} recent messages loaded.`);
     screen.add_line(`${DB.user_map.size} users found.`);
 
-    await screen.run_backfill(DB);
+    const backfill = screen.run_backfill(DB);
+    await backfill.threshold;
     screen.remove();
 
     // --- App phase: build the UI and start event processing ---
@@ -84,6 +85,12 @@ async function run() {
     StatusBar.inform(
         "Welcome! Use arrow keys to browse channels, Enter to open topics, or press 'h' for help.",
     );
+
+    // When backfill fully completes, refresh all navigators so channel
+    // choosers reflect the complete data without waiting for the next event.
+    backfill.complete.then(() => {
+        page.refresh_navigators();
+    });
 }
 
 run();

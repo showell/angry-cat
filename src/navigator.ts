@@ -62,6 +62,7 @@ export function plugin_maker_for_address(start_address: Address): PluginFactory 
             handle_zulip_event: (event) => nav.handle_zulip_event(event),
             handle_keyboard_shortcut: (key) => nav.handle_keyboard_shortcut(key),
             is_navigator: true,
+            refresh: () => nav.channel_chooser.refresh_completely(),
         };
     };
 }
