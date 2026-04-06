@@ -99,6 +99,10 @@ export class TodoList {
         this.render();
     }
 
+    item_count(): number {
+        return this.items.length;
+    }
+
     is_topic_in_list(topic_id: number): boolean {
         return this.items.some(
             (item) =>
