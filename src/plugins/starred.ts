@@ -1,6 +1,15 @@
-// Starred Messages plugin — shows all starred messages with options
-// to unstar (soft: keeps message visible) or dismiss (hard: unstars
-// and removes from the list).
+// Starred Messages plugin — shows all starred messages with per-message
+// actions:
+//
+//   Unstar (soft): dims the message to 50% opacity and waits for the
+//     server event to confirm. Shows a spinner while waiting. Once
+//     confirmed, replaces Unstar with Restar. The message stays visible
+//     so the user can review their full list without losing context.
+//
+//   Restar: re-stars a previously unstarred message (same wait pattern).
+//
+//   Dismiss (hard): unstars AND immediately hides the message from the
+//     list. For messages the user is done with entirely.
 
 import { DB, is_starred } from "../backend/database";
 import type { Message } from "../backend/db_types";
@@ -27,9 +36,11 @@ function get_starred_messages(): Message[] {
     return result;
 }
 
+// Each rendered message manages its own button state so that unstar/restar
+// can update in place without a full list rebuild.
 function render_starred_message(
     message: Message,
-    on_change: () => void,
+    on_dismiss: () => void,
 ): HTMLDivElement {
     const message_row = new MessageRow(message);
 
@@ -37,6 +48,7 @@ function render_starred_message(
     div.style.borderBottom = `1px solid ${colors.border_subtle}`;
     div.style.paddingBottom = "8px";
     div.style.marginBottom = "8px";
+    div.style.transition = "opacity 0.3s ease";
 
     // Header: sender, topic, time
     const header = document.createElement("div");
@@ -54,38 +66,88 @@ function render_starred_message(
     // Message content
     div.append(render_message_content(message_row.content()));
 
-    // Action buttons
+    // Action buttons — managed as a row that swaps between states.
     const button_row = document.createElement("div");
     button_row.style.display = "flex";
     button_row.style.gap = "6px";
     button_row.style.marginTop = "4px";
-
-    // Soft unstar: removes the star but keeps the message visible
-    // until the next refresh (or until the event arrives and rebuilds).
-    const unstar_button = new Button("Unstar", 80, () => {
-        zulip_client.set_message_starred(message.id, false);
-    });
-
-    // Hard dismiss: unstars AND immediately hides the message.
-    const dismiss_button = new Button("Dismiss", 80, () => {
-        zulip_client.set_message_starred(message.id, false);
-        dismissed_ids.add(message.id);
-        on_change();
-    });
-
-    button_row.append(unstar_button.div, dismiss_button.div);
+    button_row.style.alignItems = "center";
     div.append(button_row);
 
-    return div;
+    const spinner = document.createElement("span");
+    spinner.innerText = "waiting...";
+    spinner.style.fontSize = "13px";
+    spinner.style.color = colors.text_muted;
+
+    // pending_event_id tracks which message_id we're waiting on for
+    // a MUTATE_STARRED confirmation. null means not waiting.
+    let pending_starred: boolean | null = null;
+
+    function show_starred_buttons(): void {
+        button_row.innerHTML = "";
+        const unstar_button = new Button("Unstar", 80, () => {
+            pending_starred = false;
+            zulip_client.set_message_starred(message.id, false);
+            show_pending();
+        });
+        const dismiss_button = new Button("Dismiss", 80, () => {
+            zulip_client.set_message_starred(message.id, false);
+            dismissed_ids.add(message.id);
+            on_dismiss();
+        });
+        button_row.append(unstar_button.div, dismiss_button.div);
+    }
+
+    function show_unstarred_buttons(): void {
+        button_row.innerHTML = "";
+        div.style.opacity = "0.5";
+        const restar_button = new Button("Restar", 80, () => {
+            pending_starred = true;
+            zulip_client.set_message_starred(message.id, true);
+            show_pending();
+        });
+        button_row.append(restar_button.div);
+    }
+
+    function show_pending(): void {
+        button_row.innerHTML = "";
+        button_row.append(spinner);
+    }
+
+    // Called by the plugin when a MUTATE_STARRED event arrives.
+    function handle_star_change(): void {
+        const starred = is_starred(message.id);
+
+        // Only react if we were waiting for this confirmation.
+        if (pending_starred === null) return;
+        if (starred !== pending_starred) return;
+
+        pending_starred = null;
+        if (starred) {
+            div.style.opacity = "1";
+            show_starred_buttons();
+        } else {
+            show_unstarred_buttons();
+        }
+    }
+
+    // Initial state.
+    show_starred_buttons();
+
+    return Object.assign(div, { handle_star_change });
 }
 
 function build_empty_message(): HTMLDivElement {
     const div = document.createElement("div");
-    div.innerText = "No starred messages. Star messages in the official Zulip client, or use this as a future feature.";
+    div.innerText = "No starred messages.";
     div.style.color = colors.text_muted;
     div.style.padding = "20px";
     return div;
 }
+
+type StarredMessageDiv = HTMLDivElement & {
+    handle_star_change: () => void;
+};
 
 export function plugin(context: PluginContext): Plugin {
     context.update_label("Starred");
@@ -105,25 +167,45 @@ export function plugin(context: PluginContext): Plugin {
 
     div.append(count_div, list_div);
 
+    // Track rendered message divs so we can notify them of star changes
+    // without rebuilding the entire list.
+    let message_divs: StarredMessageDiv[] = [];
+
     function rebuild(): void {
         const messages = get_starred_messages();
         count_div.innerText = `${messages.length} starred message${messages.length === 1 ? "" : "s"}`;
 
         list_div.innerHTML = "";
+        message_divs = [];
         if (messages.length === 0) {
             list_div.append(build_empty_message());
         } else {
             for (const message of messages) {
-                list_div.append(render_starred_message(message, rebuild));
+                const msg_div = render_starred_message(
+                    message,
+                    rebuild,
+                ) as StarredMessageDiv;
+                list_div.append(msg_div);
+                message_divs.push(msg_div);
             }
         }
     }
 
     rebuild();
 
-    // Rebuild when star state changes via server events.
+    // When star state changes, notify each rendered message so it can
+    // update its buttons in place. Only rebuild for new stars (messages
+    // that weren't in our list before).
     function handle_zulip_event(event: ZulipEvent): void {
-        if (event.flavor === EventFlavor.MUTATE_STARRED) {
+        if (event.flavor !== EventFlavor.MUTATE_STARRED) return;
+
+        // Notify existing message rows about the change.
+        for (const msg_div of message_divs) {
+            msg_div.handle_star_change();
+        }
+
+        // If new messages were starred (not by us), rebuild to include them.
+        if (event.starred) {
             rebuild();
         }
     }
