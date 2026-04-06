@@ -18,8 +18,14 @@ function render_dm(msg: dm_model.DirectMessage): HTMLDivElement {
         hour: "2-digit",
         minute: "2-digit",
     });
-    header.innerText = `${dm_model.sender_name(msg.sender_id)} — ${time}`;
+    header.innerText = `${dm_model.user_name(msg.sender_id)} — ${time}`;
     div.append(header);
+
+    const recipients = document.createElement("div");
+    recipients.style.fontSize = "12px";
+    recipients.style.color = colors.text_muted;
+    recipients.innerText = `To: ${dm_model.recipient_names(msg)}`;
+    div.append(recipients);
 
     div.append(render_message_content(msg.content));
 

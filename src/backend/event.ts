@@ -118,9 +118,17 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     raw_event.flags.find(
                         (flag: string) => flag === "read",
                     ) === undefined;
+                const recipient_ids: number[] = Array.isArray(
+                    raw_message.display_recipient,
+                )
+                    ? raw_message.display_recipient.map(
+                          (r: { id: number }) => r.id,
+                      )
+                    : [];
                 dm_model.add_message({
                     id: raw_message.id,
                     sender_id: raw_message.sender_id,
+                    recipient_ids,
                     content: raw_message.content,
                     timestamp: raw_message.timestamp,
                     unread,

@@ -18,8 +18,15 @@ type LocalIdType = string;
 
 const SENT_MESSAGE_CALLBACKS = new Map<LocalIdType, MessageCallback>();
 
+export type ServerRecipient = {
+    id: number;
+    email: string;
+    full_name: string;
+};
+
 export type ServerMessage = {
     content: string;
+    display_recipient: string | ServerRecipient[];
     flags: string[];
     id: number;
     reactions: unknown[];

@@ -2,8 +2,13 @@ import * as dm_model from "../dm/model";
 import type { Database } from "./database";
 import type { Message } from "./db_types";
 import * as parse from "./parse";
-import type { ServerMessage } from "./zulip_client";
+import type { ServerMessage, ServerRecipient } from "./zulip_client";
 import * as zulip_client from "./zulip_client";
+
+function extract_recipient_ids(display_recipient: string | ServerRecipient[]): number[] {
+    if (typeof display_recipient === "string") return [];
+    return display_recipient.map((r) => r.id);
+}
 
 const INITIAL_BATCH_SIZE = 1000;
 const BACKFILL_BATCH_SIZE = 5000;
@@ -74,6 +79,7 @@ async function process_message_rows_from_server(
             dm_messages.push({
                 id: row.id,
                 sender_id: row.sender_id,
+                recipient_ids: extract_recipient_ids(row.display_recipient),
                 content: row.content,
                 timestamp: row.timestamp,
                 unread,
