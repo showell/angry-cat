@@ -7,7 +7,7 @@ export function plugin(context: PluginContext): Plugin {
     const div = document.createElement("div");
     div.style.display = "flex";
     div.style.justifyContent = "center";
-    div.style.maxHeight = "90vh";
+    div.style.height = "100%";
     div.style.overflow = "auto";
     context.update_label("GitHub Search");
 
