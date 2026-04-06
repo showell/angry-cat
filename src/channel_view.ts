@@ -127,6 +127,14 @@ export class ChannelView {
         }
     }
 
+    current_unread_count(): number {
+        const topic_row = this.topic_list.get_topic_row();
+        if (topic_row) {
+            return topic_row.unread_count();
+        }
+        return this.channel_row.unread_count();
+    }
+
     get_message_view(): MessageView | undefined {
         return this.message_view;
     }

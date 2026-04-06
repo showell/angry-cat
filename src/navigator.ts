@@ -283,18 +283,9 @@ export class Navigator {
     }
 
     unread_count(): number {
-        const topic_row = this.get_topic_row();
-
-        if (topic_row) {
-            return topic_row.unread_count();
+        if (this.channel_view) {
+            return this.channel_view.current_unread_count();
         }
-
-        const channel_row = this.get_channel_row();
-
-        if (channel_row) {
-            return channel_row.unread_count();
-        }
-
         return this.channel_chooser.total_unread_count();
     }
 
