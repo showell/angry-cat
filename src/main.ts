@@ -91,7 +91,7 @@ async function run() {
     page.start();
 
     StatusBar.inform(
-        "Welcome! Use arrow keys to browse channels, Enter to open topics, or press 'h' for help.",
+        "Welcome! Use arrow keys to browse channels, Enter to open topics, or press 'h' for help. Press 'p' to peruse plugins.",
     );
 
     // Backfill continues in the background after the splash dismisses.
