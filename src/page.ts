@@ -10,6 +10,7 @@ import * as layout from "./layout";
 import * as dm from "./dm/plugin";
 import * as lyn_rummy from "./lyn_rummy/plugin";
 import * as activity from "./plugins/activity";
+import * as buddies from "./plugins/buddies";
 import { MessageRow } from "./backend/message_row";
 import * as navigator from "./navigator";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
@@ -63,6 +64,7 @@ export class Page {
         this.add_plugin(reading_list.plugin);
         this.add_plugin(activity.plugin);
         this.add_plugin(dm.plugin);
+        this.add_plugin(buddies.plugin);
         this.add_navigator(address.nada());
         this.update_title();
     }
