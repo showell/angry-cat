@@ -65,6 +65,7 @@ export class MessageList {
         div.style.minWidth = "350px";
         div.style.maxWidth = `${max_width}px`;
         div.tabIndex = 0;
+        div.classList.add("keyboard-scroll");
         div.append(smart_list.div);
 
         this.div = div;

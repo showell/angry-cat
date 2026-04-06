@@ -71,6 +71,12 @@ export async function run() {
         const tag = (document.activeElement?.tagName ?? "").toLowerCase();
         const in_text_field = tag === "input" || tag === "textarea";
         if (in_text_field && e.key !== "Escape") return;
+        const in_scroll_area =
+            document.activeElement?.classList.contains("keyboard-scroll") ??
+            false;
+        if (in_scroll_area && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+            return;
+        }
         const handled = app.APP.dispatch_keyboard_shortcut(e.key);
         if (handled) e.preventDefault();
     });
