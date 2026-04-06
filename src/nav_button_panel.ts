@@ -1,8 +1,6 @@
-import { APP } from "./app";
 import { Button } from "./button";
 import * as colors from "./colors";
 import type { Navigator } from "./navigator";
-import { StatusBar } from "./status_bar";
 
 export class ButtonPanel {
     div: HTMLDivElement;
@@ -46,18 +44,7 @@ export class ButtonPanel {
         });
 
         this.read_later = new Button("Read later", 120, () => {
-            const channel_id = navigator.channel_id;
-            const topic_id = navigator.get_topic_id();
-            const topic_name = navigator.get_topic_name();
-            APP.add_address_link_to_reading_list({
-                channel_id,
-                topic_id,
-                message_id: undefined,
-            });
-            this.read_later.hide();
-            StatusBar.celebrate(
-                `Topic "${topic_name}" was added to your reading list!`,
-            );
+            navigator.read_later();
         });
 
         this.reply = new Button("Reply", 150, () => {

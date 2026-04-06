@@ -169,6 +169,21 @@ export class Navigator {
         APP.add_plugin(plugin_maker_for_address(address));
     }
 
+    read_later(): void {
+        const channel_id = this.channel_id;
+        const topic_id = this.get_topic_id();
+        const topic_name = this.get_topic_name();
+        APP.add_address_link_to_reading_list({
+            channel_id,
+            topic_id,
+            message_id: undefined,
+        });
+        StatusBar.celebrate(
+            `Topic "${topic_name}" was added to your reading list!`,
+        );
+        this.update_button_panel();
+    }
+
     // --- Event handling ---
 
     refresh_message_ids(message_ids: number[]): void {
