@@ -37,6 +37,7 @@ export class ButtonPanel {
 
         this.mark_topic_read = new Button("Mark topic read", 150, () => {
             navigator.mark_topic_read();
+            navigator.go_to_next_topic();
         });
 
         this.mark_topic_unread = new Button("Mark topic unread", 165, () => {
@@ -45,6 +46,7 @@ export class ButtonPanel {
 
         this.read_later = new Button("Read later", 120, () => {
             navigator.read_later();
+            navigator.go_to_next_topic();
         });
 
         this.reply = new Button("Reply", 150, () => {

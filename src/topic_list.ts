@@ -132,6 +132,13 @@ export class TopicList {
         this.refresh();
     }
 
+    get_next_unread_topic_id(current_topic_id: number): number | undefined {
+        return this.all_topic_rows.find(
+            (row) =>
+                row.topic_id() !== current_topic_id && row.unread_count() > 0,
+        )?.topic_id();
+    }
+
     clear_selection(): void {
         this.topic_id = undefined;
         this.refresh();

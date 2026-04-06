@@ -186,6 +186,19 @@ export class Navigator {
         APP.add_plugin(plugin_maker_for_address(address));
     }
 
+    go_to_next_topic(): void {
+        const topic_id = this.get_topic_id();
+        if (topic_id === undefined) return;
+        const topic_list = this.get_topic_list();
+        if (topic_list === undefined) return;
+        const next_id = topic_list.get_next_unread_topic_id(topic_id);
+        if (next_id !== undefined) {
+            this.set_topic_id(next_id);
+        } else {
+            this.clear_message_view();
+        }
+    }
+
     read_later(): void {
         const channel_id = this.channel_id;
         const topic_id = this.get_topic_id();
