@@ -11,6 +11,7 @@
 //   Dismiss (hard): unstars AND immediately hides the message from the
 //     list. For messages the user is done with entirely.
 
+import { APP } from "../app";
 import { DB, is_starred } from "../backend/database";
 import type { Message } from "../backend/db_types";
 import type { ZulipEvent } from "../backend/event";
@@ -84,6 +85,10 @@ function render_starred_message(
     spinner.style.fontSize = "13px";
     spinner.style.color = colors.text_muted;
 
+    const view_topic_button = new Button("View Topic", 100, () => {
+        APP.add_navigator(message_row.address());
+    });
+
     // pending_event_id tracks which message_id we're waiting on for
     // a MUTATE_STARRED confirmation. null means not waiting.
     let pending_starred: boolean | null = null;
@@ -100,7 +105,7 @@ function render_starred_message(
             dismissed_ids.add(message.id);
             on_dismiss();
         });
-        button_row.append(unstar_button.div, dismiss_button.div);
+        button_row.append(unstar_button.div, dismiss_button.div, view_topic_button.div);
     }
 
     function show_unstarred_buttons(): void {
@@ -115,7 +120,7 @@ function render_starred_message(
             dismissed_ids.add(message.id);
             on_dismiss();
         });
-        button_row.append(restar_button.div, dismiss_button.div);
+        button_row.append(restar_button.div, dismiss_button.div, view_topic_button.div);
     }
 
     function show_pending(): void {
