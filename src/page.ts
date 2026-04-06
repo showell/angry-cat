@@ -78,6 +78,10 @@ export class Page {
             this.make_active(entry);
         });
 
+        tab_button.on_reorder = (source, target) => {
+            this.handle_tab_reorder(source, target);
+        };
+
         const entry: PluginEntry = {
             plugin: undefined!,
             factory,
@@ -162,6 +166,27 @@ export class Page {
             this.button_bar_div,
         );
         layout.draw_page(this.div, navbar_div, this.container_div);
+    }
+
+    private handle_tab_reorder(
+        source: TabButton,
+        target: TabButton,
+    ): void {
+        const source_entry = this.entries.find(
+            (e) => e.tab_button === source,
+        );
+        const target_entry = this.entries.find(
+            (e) => e.tab_button === target,
+        );
+        if (!source_entry || !target_entry) return;
+
+        const source_index = this.entries.indexOf(source_entry);
+        this.entries.splice(source_index, 1);
+
+        const target_index = this.entries.indexOf(target_entry);
+        this.entries.splice(target_index, 0, source_entry);
+
+        this.rebuild_button_bar();
     }
 
     rebuild_button_bar(): void {
