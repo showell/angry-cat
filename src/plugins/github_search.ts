@@ -17,8 +17,7 @@ export function plugin(context: PluginContext): Plugin {
         },
     };
 
-    const messages = model.filtered_messages(filter);
-    messages.reverse();
+    const messages = model.recent_filtered_messages(filter, 100);
 
     const message_list = new MessageList({
         messages,

@@ -134,6 +134,14 @@ export function filtered_messages(filter: Filter): Message[] {
     return result;
 }
 
+export function recent_filtered_messages(
+    filter: Filter,
+    limit: number,
+): Message[] {
+    const all = filtered_messages(filter);
+    return all.slice(-limit);
+}
+
 export function get_total_unread_count(): number {
     let count = 0;
     for (const message of DB.message_map.values()) {
