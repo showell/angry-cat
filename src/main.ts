@@ -24,8 +24,9 @@ function show_splash(): HTMLDivElement {
     splash.style.display = "flex";
     splash.style.flexDirection = "column";
     splash.style.alignItems = "center";
-    splash.style.justifyContent = "center";
+    splash.style.paddingTop = "40px";
     splash.style.height = "100vh";
+    splash.style.boxSizing = "border-box";
     splash.style.fontFamily = "sans-serif";
 
     const title = document.createElement("div");
@@ -38,7 +39,7 @@ function show_splash(): HTMLDivElement {
 
     const img = document.createElement("img");
     img.src = "images/angry_cat.png";
-    img.style.width = "240px";
+    img.style.width = "312px";
     img.style.height = "auto";
     img.style.marginBottom = "20px";
     splash.append(img);
@@ -87,15 +88,36 @@ export async function run() {
 
     add_log("Connecting to Zulip...");
 
-    const data_ready = (async () => {
-        await event_queue.register_queue();
-        add_log("Connected!");
-        await database.fetch_original_data();
-        add_log(`${DB.message_map.size} recent messages loaded.`);
-        add_log(`${DB.user_map.size} users found.`);
-    })();
+    await event_queue.register_queue();
+    add_log("Connected!");
 
-    await Promise.all([data_ready, sleep(4000)]);
+    await database.fetch_original_data();
+    add_log(`${DB.message_map.size} recent messages loaded.`);
+    add_log(`${DB.user_map.size} users found.`);
+
+    let backfill_line: HTMLDivElement | undefined;
+
+    const backfill_ready = new Promise<void>((resolve) => {
+        let resolved = false;
+        message_fetch.backfill(DB, (count) => {
+            if (!backfill_line) {
+                backfill_line = document.createElement("div");
+                log.append(backfill_line);
+            }
+            backfill_line.innerText = `Backfilling... ${count.toLocaleString()} messages cached.`;
+            if (!resolved && count >= 40_000) {
+                resolved = true;
+                resolve();
+            }
+        }).then(() => {
+            if (!resolved) {
+                resolved = true;
+                resolve();
+            }
+        });
+    });
+
+    await backfill_ready;
 
     // Remove splash and build the real UI.
     splash.remove();
@@ -130,8 +152,6 @@ export async function run() {
     });
 
     page.start();
-
-    message_fetch.backfill(DB);
 }
 
 run();

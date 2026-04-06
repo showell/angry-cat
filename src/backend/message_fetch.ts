@@ -35,7 +35,10 @@ export async function fetch_initial_messages(db: Database): Promise<void> {
     console.log(STATE);
 }
 
-export async function backfill(db: Database): Promise<void> {
+export async function backfill(
+    db: Database,
+    on_progress?: (count: number) => void,
+): Promise<void> {
     while (!STATE.found_oldest) {
         const num_before = Math.min(
             MAX_SIZE - db.message_map.size,
@@ -59,6 +62,7 @@ export async function backfill(db: Database): Promise<void> {
         };
 
         await process_message_rows_from_server(db, data.messages);
+        on_progress?.(db.message_map.size);
 
         console.log(`${db.message_map.size} messages in cache! (backfill)`);
         console.log(STATE);
