@@ -74,8 +74,6 @@ export class ChannelView {
             });
         }
 
-        const message_list = this.get_message_list()!;
-        message_list.focus();
     }
 
     get_topic_list(): TopicList {

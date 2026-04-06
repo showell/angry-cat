@@ -29,6 +29,7 @@ export function handle_enter_key(ctx: EnterKeyContext): boolean {
             return true;
         }
         ctx.set_topic_id(topic_id);
+        ctx.focus_message_list();
         return true;
     }
 

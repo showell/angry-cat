@@ -17,6 +17,7 @@ export interface NKeyContext {
     topic_selected(): boolean;
     get_first_unread_topic_id(): number | undefined;
     set_topic_id(topic_id: number): void;
+    focus_message_list(): void;
     mark_topic_read(): void;
     go_to_next_topic(): NextTopicResult;
 }
@@ -78,6 +79,7 @@ export function handle_n_key(ctx: NKeyContext): boolean {
             return true;
         }
         ctx.set_topic_id(topic_id);
+        ctx.focus_message_list();
         StatusBar.inform("You hit 'n', so we jumped to the first unread topic.");
         return true;
     }
@@ -85,6 +87,7 @@ export function handle_n_key(ctx: NKeyContext): boolean {
     ctx.mark_topic_read();
     const result = ctx.go_to_next_topic();
     if (result === NextTopicResult.ADVANCED) {
+        ctx.focus_message_list();
         StatusBar.inform(
             "You hit 'n', so we marked the topic as read and moved to the next unread topic.",
         );

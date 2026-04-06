@@ -159,6 +159,7 @@ export class Navigator
                 );
 
                 this.channel_view!.select_topic_id(start_address.topic_id!);
+                this.focus_message_list();
 
                 if (start_address.message_id) {
                     const message_list = this.get_message_list()!;
@@ -392,6 +393,19 @@ export class Navigator
 
     tab_count(): number {
         return this.context.tab_count();
+    }
+
+    message_list_focused(): boolean {
+        return (
+            document.activeElement?.classList.contains("keyboard-scroll") ??
+            false
+        );
+    }
+
+    blur_message_list(): void {
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
     }
 
     close_tab(): void {
