@@ -11,6 +11,7 @@ import * as colors from "../colors";
 import * as local_storage from "../localstorage";
 import type { Plugin, PluginContext } from "../plugin_helper";
 import { StatusBar } from "../status_bar";
+import { debounce } from "../util/debounce";
 
 // --- Item types ---
 
@@ -361,9 +362,14 @@ export class ReadingList {
         annotation_input.style.width = "100%";
         annotation_input.style.padding = "2px 0";
         annotation_input.style.marginLeft = "28px";
+        const notify_saved = debounce(() => {
+            StatusBar.inform("Note saved.");
+        }, 400);
+
         annotation_input.addEventListener("input", () => {
             item.annotation = annotation_input.value;
             this.save();
+            notify_saved();
         });
 
         row.append(top_line, annotation_input);
