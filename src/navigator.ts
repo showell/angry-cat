@@ -18,6 +18,8 @@ import type { MessageList } from "./message_list";
 import type { MessageView } from "./message_view";
 import { ButtonPanel } from "./nav_button_panel";
 import { PaneManager } from "./pane_manager";
+import { handle_esc_key } from "./esc_key";
+import type { EscKeyContext } from "./esc_key";
 import { handle_n_key, NextTopicResult } from "./n_key";
 import type { NKeyContext } from "./n_key";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
@@ -55,7 +57,7 @@ export function plugin_maker_for_address(start_address: Address): PluginFactory 
     };
 }
 
-export class Navigator implements NKeyContext {
+export class Navigator implements NKeyContext, EscKeyContext {
     div: HTMLDivElement;
     button_panel: ButtonPanel;
     pane_manager: PaneManager;
@@ -173,7 +175,7 @@ export class Navigator implements NKeyContext {
             return handle_n_key(this);
         }
         if (key === "Escape") {
-            return this.get_message_view()?.handle_escape() ?? false;
+            return handle_esc_key(this);
         }
         return false;
     }
@@ -282,6 +284,53 @@ export class Navigator implements NKeyContext {
 
     get_first_unread_topic_id(): number | undefined {
         return this.get_topic_list()?.get_next_unread_topic_id(undefined);
+    }
+
+    // --- EscKeyContext ---
+
+    is_composing(): boolean {
+        const reply_pane = this.get_message_view()?.reply_pane;
+        if (reply_pane?.is_textarea_focused() && reply_pane.has_text()) {
+            return true;
+        }
+        const add_topic_pane = this.channel_view?.add_topic_pane;
+        if (add_topic_pane?.is_textarea_focused() && add_topic_pane.has_text()) {
+            return true;
+        }
+        return false;
+    }
+
+    blur_compose(): void {
+        const reply_pane = this.get_message_view()?.reply_pane;
+        if (reply_pane?.is_textarea_focused()) {
+            reply_pane.blur();
+            return;
+        }
+        this.channel_view?.add_topic_pane?.blur();
+    }
+
+    reply_pane_open(): boolean {
+        return this.get_message_view()?.reply_pane !== undefined;
+    }
+
+    close_reply_pane(): void {
+        this.get_message_view()?.close_reply_pane();
+    }
+
+    add_topic_pane_open(): boolean {
+        return this.channel_view?.add_topic_pane !== undefined;
+    }
+
+    close_add_topic_pane(): void {
+        this.channel_view?.close_add_topic_pane();
+    }
+
+    close_channel(): void {
+        this.channel_chooser.deselect();
+    }
+
+    close_tab(): void {
+        this.context.request_close();
     }
 
     // --- Updates ---

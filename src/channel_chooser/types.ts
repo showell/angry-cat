@@ -13,4 +13,5 @@ export type ChannelChooser = {
     total_unread_count: () => number;
     get_first_unread_channel_id: () => number | undefined;
     select_channel: (channel_id: number) => void;
+    deselect: () => void;
 };

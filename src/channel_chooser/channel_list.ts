@@ -131,6 +131,12 @@ export class ChannelList {
         this.handle_channel_chosen(channel_id);
     }
 
+    deselect(): void {
+        this.channel_id = undefined;
+        this.refresh_completely();
+        this.handle_channel_cleared();
+    }
+
     refresh_completely() {
         this.populate_channel_rows();
         this.redraw();

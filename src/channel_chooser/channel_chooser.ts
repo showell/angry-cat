@@ -46,7 +46,11 @@ export function make_channel_chooser(opts: ChannelChooserOpts) {
         channel_list.select_channel(channel_id);
     }
 
+    function deselect(): void {
+        channel_list.deselect();
+    }
+
     const div = pane_div();
 
-    return { div, refresh_completely, get_channel_row, total_unread_count, get_first_unread_channel_id, select_channel };
+    return { div, refresh_completely, get_channel_row, total_unread_count, get_first_unread_channel_id, select_channel, deselect };
 }

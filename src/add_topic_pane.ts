@@ -44,4 +44,16 @@ export class AddTopicPane {
     focus_compose_box(): void {
         this.compose_box.focus_topic_input();
     }
+
+    has_text(): boolean {
+        return this.compose_box.has_text();
+    }
+
+    is_textarea_focused(): boolean {
+        return this.compose_box.is_textarea_focused();
+    }
+
+    blur(): void {
+        this.compose_box.blur_textarea();
+    }
 }

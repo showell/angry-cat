@@ -183,6 +183,19 @@ export class ChannelView {
         }
     }
 
+    close_add_topic_pane(): void {
+        if (!this.add_topic_pane) return;
+        if (this.message_view) {
+            this.pane_manager.remove_after("message_pane");
+        } else {
+            this.pane_manager.replace_after("topic_pane", {
+                key: "channel_info",
+                pane_widget: this.channel_info,
+            });
+        }
+        this.add_topic_pane = undefined;
+    }
+
     add_topic(): void {
         const pane_manager = this.pane_manager;
         const topic_list = this.topic_list;
