@@ -68,11 +68,6 @@ const GROUPS: SwatchGroup[] = [
         heading: "Cancel / secondary buttons",
         entries: [
             {
-                name: "cancel_bg",
-                value: colors.cancel_bg,
-                description: "Cancel button background (popup dialogs)",
-            },
-            {
                 name: "cancel_focus_bg",
                 value: colors.cancel_focus_bg,
                 description: "Cancel button background when focused",
@@ -107,12 +102,6 @@ const GROUPS: SwatchGroup[] = [
         heading: "Text hierarchy",
         entries: [
             {
-                name: "text_heading",
-                value: colors.text_heading,
-                description: "Section labels, table column headers",
-                is_text_color: true,
-            },
-            {
                 name: "text_body",
                 value: colors.text_body,
                 description: "Standard body text",
@@ -121,13 +110,7 @@ const GROUPS: SwatchGroup[] = [
             {
                 name: "text_muted",
                 value: colors.text_muted,
-                description: "De-emphasized text (edit buttons, etc.)",
-                is_text_color: true,
-            },
-            {
-                name: "link_text",
-                value: colors.link_text,
-                description: "Link-styled text buttons (reading list items)",
+                description: "De-emphasized text (edit buttons, etc.) and cancel button bg",
                 is_text_color: true,
             },
         ],
@@ -225,7 +208,7 @@ function render_group(group: SwatchGroup): HTMLDivElement {
     heading.innerText = group.heading;
     heading.style.fontWeight = "bold";
     heading.style.fontSize = "13px";
-    heading.style.color = colors.text_heading;
+    heading.style.color = colors.primary;
     heading.style.textTransform = "uppercase";
     heading.style.letterSpacing = "0.06em";
     heading.style.marginBottom = "8px";
@@ -248,7 +231,7 @@ function render_compound_examples(): HTMLDivElement {
     heading.innerText = "Compound examples";
     heading.style.fontWeight = "bold";
     heading.style.fontSize = "13px";
-    heading.style.color = colors.text_heading;
+    heading.style.color = colors.primary;
     heading.style.textTransform = "uppercase";
     heading.style.letterSpacing = "0.06em";
     heading.style.marginBottom = "10px";
@@ -281,7 +264,7 @@ function render_compound_examples(): HTMLDivElement {
         const btn = document.createElement("button");
         btn.innerText = "Cancel button";
         btn.style.color = colors.on_primary;
-        btn.style.backgroundColor = colors.cancel_bg;
+        btn.style.backgroundColor = colors.text_muted;
         btn.style.border = "none";
         btn.style.borderRadius = "5px";
         btn.style.padding = "5px 12px";
@@ -376,7 +359,7 @@ function render_compound_examples(): HTMLDivElement {
         row.style.backgroundColor = colors.selected_bg;
         row.style.padding = "4px 8px";
         row.style.fontSize = "13px";
-        row.style.color = colors.text_heading;
+        row.style.color = colors.primary;
         row.innerText = "> Selected topic";
         examples_row.append(row);
     }
@@ -396,7 +379,7 @@ export function plugin(context: PluginContext): Plugin {
     title.innerText = "Color Scheme";
     title.style.fontSize = "20px";
     title.style.fontWeight = "bold";
-    title.style.color = colors.text_heading;
+    title.style.color = colors.primary;
     title.style.marginBottom = "4px";
     div.append(title);
 

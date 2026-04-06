@@ -16,7 +16,7 @@ function render_content(data: TodoItemData): HTMLElement {
 
     const button = document.createElement("button");
     button.innerText = label;
-    button.style.color = colors.link_text;
+    button.style.color = colors.primary;
     button.style.fontWeight = "bold";
     button.style.background = "none";
     button.style.border = "none";

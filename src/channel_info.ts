@@ -15,7 +15,7 @@ function render_section_label(text: string): HTMLDivElement {
     div.innerText = text;
     div.style.fontSize = "13px";
     div.style.fontWeight = "bold";
-    div.style.color = colors.text_heading;
+    div.style.color = colors.primary;
     div.style.marginTop = "12px";
     div.style.marginBottom = "4px";
     div.style.textTransform = "uppercase";
@@ -83,7 +83,7 @@ function build_edit_popup_content(
     const label = document.createElement("div");
     label.innerText = `Edit description for #${stream_name}`;
     label.style.fontWeight = "bold";
-    label.style.color = colors.text_heading;
+    label.style.color = colors.primary;
     div.append(label);
 
     const textarea = document.createElement("textarea");

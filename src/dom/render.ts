@@ -37,7 +37,7 @@ export function render_th(label: string): HTMLElement {
     th.style.zIndex = "999";
     th.style.textAlign = "left";
     th.style.fontWeight = "bold";
-    th.style.color = colors.text_heading;
+    th.style.color = colors.primary;
     th.style.margin = "2px";
     return th;
 }

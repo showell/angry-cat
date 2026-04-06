@@ -17,7 +17,7 @@ function render_channel_name(channel_name: string): HTMLDivElement {
     div.innerText = "#" + channel_name;
     div.style.maxWidth = "270px";
     div.style.overflowWrap = "break-word";
-    div.style.color = colors.text_heading;
+    div.style.color = colors.primary;
     div.style.cursor = "pointer";
 
     return div;

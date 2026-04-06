@@ -19,8 +19,7 @@ export const accent_border = "#CCCCFF";
 // Tab bar: inactive (background) tab.
 export const tab_inactive_bg = "lightgray";
 
-// Cancel / secondary-action button.
-export const cancel_bg = "#888";
+// Cancel / secondary-action button (uses text_muted for bg, darker for focus).
 export const cancel_focus_bg = "#555";
 
 // Danger color — close button, destructive actions.
@@ -32,17 +31,13 @@ export const success = "#1A7A3A";
 // Informational status color.
 export const status_info = "#31708f";
 
-// Text hierarchy.
-export const text_heading = "#000080"; // section labels, table column headers
+// Text hierarchy (headings use primary; body and muted have their own values).
 export const text_body = "#333"; // standard body text
 export const text_muted = "#888"; // de-emphasized text (edit buttons, etc.)
 
 // Line separators.
 export const border = "black";
 export const border_subtle = "#ccc";
-
-// Link-styled text buttons (reading list items, etc.).
-export const link_text = "darkgreen";
 
 // Selection and presence indicators.
 export const selected_bg = "#CCEEFF"; // selected channel or topic row

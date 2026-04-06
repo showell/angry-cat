@@ -17,7 +17,7 @@ export function render_topic_name(topic_name: string): HTMLDivElement {
     div.innerText = "> " + topic_name;
     div.style.maxWidth = "270px";
     div.style.overflowWrap = "break-word";
-    div.style.color = colors.text_heading;
+    div.style.color = colors.primary;
     div.style.cursor = "pointer";
     div.style.paddingLeft = "3px";
 

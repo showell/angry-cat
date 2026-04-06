@@ -49,12 +49,12 @@ type PopupOptions = {
 };
 
 function style_as_cancel(button: Button): void {
-    button.button.style.backgroundColor = colors.cancel_bg;
+    button.button.style.backgroundColor = colors.text_muted;
     button.button.addEventListener("focus", () => {
         button.button.style.backgroundColor = colors.cancel_focus_bg;
     });
     button.button.addEventListener("blur", () => {
-        button.button.style.backgroundColor = colors.cancel_bg;
+        button.button.style.backgroundColor = colors.text_muted;
     });
 }
 
