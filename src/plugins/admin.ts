@@ -187,7 +187,9 @@ export function plugin(context: PluginContext): Plugin {
             "users/me/subscriptions",
             params,
         );
-        if (data.result !== "success") {
+        if (data.result === "success") {
+            show_success(name);
+        } else {
             pending_channel_name = undefined;
             waiting_popup.finish();
             waiting_popup = undefined;
@@ -197,14 +199,8 @@ export function plugin(context: PluginContext): Plugin {
         }
     }
 
-    function handle_zulip_event(event: ZulipEvent): void {
-        if (event.flavor !== EventFlavor.SUBSCRIPTION_ADD) return;
-        if (pending_channel_name === undefined) return;
-        if (!event.stream_names.includes(pending_channel_name)) return;
-
-        const name = pending_channel_name;
+    function show_success(name: string): void {
         pending_channel_name = undefined;
-
         if (waiting_popup) {
             waiting_popup.finish();
             waiting_popup = undefined;
@@ -220,6 +216,13 @@ export function plugin(context: PluginContext): Plugin {
                 rebuild_form();
             },
         });
+    }
+
+    function handle_zulip_event(event: ZulipEvent): void {
+        if (event.flavor !== EventFlavor.SUBSCRIPTION_ADD) return;
+        if (pending_channel_name === undefined) return;
+        if (!event.stream_names.includes(pending_channel_name)) return;
+        show_success(pending_channel_name);
     }
 
     rebuild_form();

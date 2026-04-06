@@ -539,13 +539,7 @@ export class Navigator
         this.update_label();
     }
 
-    get_message_view(): MessageView | undefined {
-        if (this.channel_view) {
-            return this.channel_view.get_message_view();
-        }
 
-        return undefined;
-    }
 
     reply(): void {
         const message_view = this.get_message_view();
