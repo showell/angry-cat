@@ -4,7 +4,7 @@ import * as popup from "./popup";
 
 export let StatusBar: StatusBarWidget;
 
-function show_help(): void {
+export function show_help(): void {
     const div = document.createElement("div");
     div.style.padding = "8px";
     div.style.maxWidth = "500px";

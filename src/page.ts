@@ -14,6 +14,7 @@ import { handle_p_key } from "./p_key";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
 import * as popup from "./popup";
 import * as recent_conversations from "./plugins/recent_conversations";
+import { show_help } from "./status_bar";
 import { create_global_status_bar, StatusBar } from "./status_bar";
 import { TabButton } from "./tab_button";
 
@@ -219,6 +220,10 @@ export class Page {
     dispatch_keyboard_shortcut(key: string): boolean {
         if (key === "p") {
             return handle_p_key();
+        }
+        if (key === "h" || key === "?") {
+            show_help();
+            return true;
         }
         const active = this.active_entry;
         if (!active) return false;
