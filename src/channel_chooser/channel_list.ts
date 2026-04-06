@@ -125,6 +125,20 @@ export class ChannelList {
         return this.channel_rows[0]?.stream_id();
     }
 
+    get_adjacent_channel_id(
+        current_channel_id: number,
+        direction: 1 | -1,
+    ): number | undefined {
+        const rows = this.channel_rows;
+        const index = rows.findIndex(
+            (row) => row.stream_id() === current_channel_id,
+        );
+        if (index === -1) return undefined;
+        const next = index + direction;
+        if (next < 0 || next >= rows.length) return undefined;
+        return rows[next].stream_id();
+    }
+
     get_first_unread_channel_id(): number | undefined {
         return this.channel_rows.find((row) => row.unread_count() > 0)?.stream_id();
     }
