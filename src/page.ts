@@ -7,15 +7,11 @@ import * as model from "./backend/model";
 import { get_current_realm_nickname } from "./backend/config";
 import * as page_widget from "./dom/page_widget";
 import * as layout from "./layout";
-import * as dm from "./dm/plugin";
 import * as lyn_rummy from "./lyn_rummy/plugin";
-import * as activity from "./plugins/activity";
-import * as admin from "./plugins/admin";
-import * as buddies from "./plugins/buddies";
 import { MessageRow } from "./backend/message_row";
 import * as navigator from "./navigator";
+import { handle_p_key } from "./p_key";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
-import * as reading_list from "./plugins/reading_list";
 import * as recent_conversations from "./plugins/recent_conversations";
 import { create_global_status_bar, StatusBar } from "./status_bar";
 import { TabButton } from "./tab_button";
@@ -60,13 +56,6 @@ export class Page {
         this.populate();
         this.add_plugin(lyn_rummy.plugin);
         this.add_plugin(recent_conversations.plugin);
-        this.add_plugin(reading_list.plugin);
-        this.add_plugin(activity.plugin);
-        this.add_plugin(dm.plugin);
-        this.add_plugin(buddies.plugin);
-        if (model.current_user_is_admin()) {
-            this.add_plugin(admin.plugin);
-        }
         this.add_navigator(address.nada());
         this.update_title();
     }
@@ -209,6 +198,9 @@ export class Page {
     }
 
     dispatch_keyboard_shortcut(key: string): boolean {
+        if (key === "p") {
+            return handle_p_key();
+        }
         const active = this.plugin_entries.find((e) => e.open);
         return active?.plugin.handle_keyboard_shortcut?.(key) ?? false;
     }

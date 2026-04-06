@@ -28,7 +28,6 @@ import { handle_esc_key } from "./esc_key";
 import type { EscKeyContext } from "./esc_key";
 import { handle_n_key, NextTopicResult } from "./n_key";
 import type { NKeyContext } from "./n_key";
-import { handle_p_key } from "./p_key";
 import { handle_r_key } from "./r_key";
 import type { RKeyContext } from "./r_key";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
@@ -194,9 +193,6 @@ export class Navigator
         }
         if (key === "Enter") {
             return handle_enter_key(this);
-        }
-        if (key === "p") {
-            return handle_p_key();
         }
         if (key === "Escape") {
             return handle_esc_key(this);
