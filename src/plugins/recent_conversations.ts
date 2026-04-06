@@ -11,7 +11,7 @@ import { render_topic_name } from "../dom/topic_row_widget";
 import { render_message_content } from "../message_content";
 import { MessageRow } from "../message_row";
 import { render_sender_name } from "../message_row_widget";
-import type { PluginHelper } from "../plugin_helper";
+import type { Plugin, PluginContext } from "../plugin_helper";
 
 function build_topic_cell(message_row: MessageRow): HTMLDivElement {
     const topic_name = message_row.topic_name();
@@ -173,13 +173,13 @@ function build_controls_div(
 
 class RecentConversations {
     div: HTMLDivElement;
-    plugin_helper: PluginHelper;
+    context: PluginContext;
     notification_div: HTMLDivElement;
     inner_div: HTMLDivElement;
     messages_per_topic: number;
 
-    constructor(plugin_helper: PluginHelper) {
-        this.plugin_helper = plugin_helper;
+    constructor(context: PluginContext) {
+        this.context = context;
         this.messages_per_topic = 1;
 
         const notification_div = build_notification_div(() => this.refresh());
@@ -217,25 +217,24 @@ class RecentConversations {
     handle_zulip_event(event: ZulipEvent): void {
         if (event.flavor === EventFlavor.MESSAGE) {
             this.notification_div.style.display = "flex";
-            this.plugin_helper.violet();
+            this.context.highlight_tab();
         }
     }
 
     refresh(): void {
         this.notification_div.style.display = "none";
-        this.plugin_helper.redraw_tab_button();
+        this.context.reset_tab_highlight();
         this.rebuild_table();
     }
 }
 
-export function plugin(plugin_helper: PluginHelper) {
-    plugin_helper.update_label("Recent conversations");
+export function plugin(context: PluginContext): Plugin {
+    context.update_label("Recent conversations");
 
-    const widget = new RecentConversations(plugin_helper);
+    const widget = new RecentConversations(context);
 
-    plugin_helper.set_zulip_event_listener((event) => {
-        widget.handle_zulip_event(event);
-    });
-
-    return { div: widget.div };
+    return {
+        div: widget.div,
+        handle_zulip_event: (event) => widget.handle_zulip_event(event),
+    };
 }

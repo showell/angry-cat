@@ -1,7 +1,7 @@
 import { APP } from "../app";
 import { label_for_address } from "../backend/database";
 import * as colors from "../colors";
-import type { PluginHelper } from "../plugin_helper";
+import type { Plugin, PluginContext } from "../plugin_helper";
 import type { TodoItemData } from "../todo_list";
 import { TodoList } from "../todo_list";
 
@@ -34,8 +34,8 @@ function on_remove(_data: TodoItemData): void {
     // message ID tracking added in next step
 }
 
-export function plugin(plugin_helper: PluginHelper) {
-    plugin_helper.update_label("Reading List");
+export function plugin(context: PluginContext): Plugin {
+    context.update_label("Reading List");
 
     const todo_list = new TodoList({ render_content, on_remove });
     APP.set_reading_list(todo_list);

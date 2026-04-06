@@ -1,5 +1,5 @@
 import * as colors from "../colors";
-import type { PluginHelper } from "../plugin_helper";
+import type { Plugin, PluginContext } from "../plugin_helper";
 
 type SwatchEntry = {
     name: string;
@@ -385,7 +385,7 @@ function render_compound_examples(): HTMLDivElement {
     return div;
 }
 
-export function plugin(plugin_helper: PluginHelper) {
+export function plugin(context: PluginContext): Plugin {
     const div = document.createElement("div");
     div.style.padding = "16px";
     div.style.overflowY = "auto";
@@ -414,7 +414,7 @@ export function plugin(plugin_helper: PluginHelper) {
         div.append(render_group(group));
     }
 
-    plugin_helper.update_label("Color Scheme");
+    context.update_label("Color Scheme");
 
     return { div };
 }

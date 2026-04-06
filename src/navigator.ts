@@ -18,7 +18,7 @@ import type { MessageList } from "./message_list";
 import type { MessageView } from "./message_view";
 import { ButtonPanel } from "./nav_button_panel";
 import { PaneManager } from "./pane_manager";
-import type { PluginHelper } from "./plugin_helper";
+import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
 import { StatusBar } from "./status_bar";
 import type { TopicList } from "./topic_list";
 
@@ -47,16 +47,15 @@ const enum NextTopicResult {
     CLEARED = "CLEARED",
 }
 
-export function plugin_maker_for_address(start_address: Address) {
-    function maker(plugin_helper: PluginHelper) {
-        const navigator = new Navigator(plugin_helper, start_address);
-        plugin_helper.set_zulip_event_listener((event) => {
-            navigator.handle_zulip_event(event);
-        });
-        return navigator;
-    }
-
-    return maker;
+export function plugin_maker_for_address(start_address: Address): PluginFactory {
+    return function (context: PluginContext): Plugin {
+        const nav = new Navigator(context, start_address);
+        return {
+            div: nav.div,
+            handle_zulip_event: (event) => nav.handle_zulip_event(event),
+            handle_keyboard_shortcut: (key) => nav.handle_keyboard_shortcut(key),
+        };
+    };
 }
 
 export class Navigator {
@@ -66,13 +65,13 @@ export class Navigator {
     channel_id: number | undefined;
     channel_chooser: ChannelChooser;
     channel_view?: ChannelView;
-    plugin_helper: PluginHelper;
+    context: PluginContext;
     start_address: Address;
 
-    constructor(plugin_helper: PluginHelper, start_address: Address) {
+    constructor(context: PluginContext, start_address: Address) {
         const self = this;
 
-        this.plugin_helper = plugin_helper;
+        this.context = context;
         this.start_address = start_address;
         this.channel_id = start_address.channel_id;
 
@@ -107,10 +106,6 @@ export class Navigator {
         this.channel_chooser = channel_chooser;
         this.pane_manager = pane_manager;
         this.div = div;
-
-        plugin_helper.set_keyboard_handler((key) =>
-            this.handle_keyboard_shortcut(key),
-        );
 
         this.navigate_to_start_address();
     }
@@ -339,7 +334,7 @@ export class Navigator {
     }
 
     update_label(): void {
-        this.plugin_helper!.update_label(this.get_narrow_label());
+        this.context.update_label(this.get_narrow_label());
     }
 
     clear_channel(): void {
@@ -425,7 +420,7 @@ export class Navigator {
     }
 
     close(): void {
-        this.plugin_helper!.delete_me();
+        this.context.request_close();
     }
 
     handle_zulip_event(event: ZulipEvent): void {

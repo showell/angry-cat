@@ -1,19 +1,19 @@
 import { APP } from "../app";
-import type { PluginHelper, PluginMaker } from "../plugin_helper";
+import type { Plugin, PluginContext, PluginFactory } from "../plugin_helper";
 
 import * as code_search from "./code_search";
 import * as color_scheme from "./color_scheme";
 import * as event_radio from "./event_radio";
 import * as github_search from "./github_search";
 
-export function plugin(plugin_helper: PluginHelper) {
+export function plugin(context: PluginContext): Plugin {
     const div = document.createElement("div");
 
     div.style.display = "flex";
     div.style.flexDirection = "column";
     div.style.gap = "10px";
 
-    function add_plugin(name: string, plugin_maker: PluginMaker) {
+    function add_plugin(name: string, plugin_maker: PluginFactory) {
         const button = document.createElement("button");
         button.innerText = `Launch ${name}`;
         button.addEventListener("click", () => {
@@ -27,7 +27,7 @@ export function plugin(plugin_helper: PluginHelper) {
     add_plugin("Code Search", code_search.plugin);
     add_plugin("GitHub Search", github_search.plugin);
 
-    plugin_helper.update_label("Plugins");
+    context.update_label("Plugins");
 
     return { div };
 }

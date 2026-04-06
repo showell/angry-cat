@@ -4,12 +4,12 @@ import * as model from "../backend/model";
 import { NetworkHelper } from "../backend/network";
 import { Button } from "../button";
 import { MessageRow } from "../message_row";
-import type { PluginHelper } from "../plugin_helper";
+import type { Plugin, PluginContext } from "../plugin_helper";
 import type { JsonCard } from "./game";
 import * as lyn_rummy from "./game";
 import { GameHelper } from "./game_helper";
 
-export function plugin(plugin_helper: PluginHelper) {
+export function plugin(context: PluginContext): Plugin {
     const div = document.createElement("div");
     const max_height = document.documentElement.clientHeight - 60;
     div.style.maxHeight = `${max_height}px`;
@@ -20,7 +20,7 @@ export function plugin(plugin_helper: PluginHelper) {
     landing_div.style.display = "flex";
     landing_div.style.justifyContent = "center";
 
-    plugin_helper.update_label(lyn_rummy.get_title());
+    context.update_label(lyn_rummy.get_title());
 
     const channel_id = model.channel_id_for("Lyn Rummy");
     if (channel_id === undefined) {
@@ -31,9 +31,9 @@ export function plugin(plugin_helper: PluginHelper) {
 
     const network_helper = new NetworkHelper(channel_id);
 
-    plugin_helper.set_zulip_event_listener((zulip_event: ZulipEvent) => {
+    const handle_zulip_event = (zulip_event: ZulipEvent) => {
         network_helper.handle_zulip_event(zulip_event);
-    });
+    };
 
     const button = new Button("Launch new game", 150, () => {
         div.innerHTML = "";
@@ -46,7 +46,7 @@ export function plugin(plugin_helper: PluginHelper) {
 
     new GameFinder(network_helper, div, landing_div);
 
-    return { div };
+    return { div, handle_zulip_event };
 }
 
 class GameLauncher {

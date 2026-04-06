@@ -2,7 +2,7 @@
 
 import type { Address } from "./address";
 import type { Page } from "./page";
-import type { PluginMaker } from "./plugin_helper";
+import type { PluginFactory } from "./plugin_helper";
 import type { TodoList } from "./todo_list";
 
 class Application {
@@ -18,8 +18,8 @@ class Application {
         this.page!.add_navigator(address);
     }
 
-    add_plugin(plugin_maker: PluginMaker) {
-        this.page!.add_plugin(plugin_maker);
+    add_plugin(factory: PluginFactory) {
+        this.page!.add_plugin(factory);
     }
 
     set_reading_list(todo_list: TodoList): void {
@@ -35,11 +35,7 @@ class Application {
     }
 
     dispatch_keyboard_shortcut(key: string): boolean {
-        return (
-            this.page.get_active_plugin_helper()?.dispatch_keyboard_shortcut(
-                key,
-            ) ?? false
-        );
+        return this.page.dispatch_keyboard_shortcut(key);
     }
 }
 

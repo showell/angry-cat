@@ -1,15 +1,15 @@
 import type { Message } from "../backend/db_types";
 import * as model from "../backend/model";
 import { MessageList } from "../message_list";
-import type { PluginHelper } from "../plugin_helper";
+import type { Plugin, PluginContext } from "../plugin_helper";
 
-export function plugin(plugin_helper: PluginHelper) {
+export function plugin(context: PluginContext): Plugin {
     const div = document.createElement("div");
     div.style.display = "flex";
     div.style.justifyContent = "center";
     div.style.maxHeight = "90vh";
     div.style.overflow = "auto";
-    plugin_helper.update_label("GitHub Search");
+    context.update_label("GitHub Search");
 
     const filter = {
         predicate(message: Message) {
