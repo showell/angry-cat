@@ -134,6 +134,23 @@ export type EmojiSelection = {
     code: string;
 };
 
+function render_emoji_button(
+    emoji_info: EmojiInfo,
+    on_click: () => void,
+): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.innerText = emoji_info.emoji;
+    button.style.fontSize = "24px";
+    button.style.padding = "6px";
+    button.style.cursor = "pointer";
+    button.style.border = "none";
+    button.style.background = "none";
+    button.style.borderRadius = "4px";
+    button.title = emoji_info.name;
+    button.addEventListener("click", on_click);
+    return button;
+}
+
 export function show_emoji_picker(
     on_select: (selection: EmojiSelection) => void,
 ): void {
@@ -150,20 +167,12 @@ export function show_emoji_picker(
     });
 
     for (const emoji_info of EMOJIS) {
-        const button = document.createElement("button");
-        button.innerText = emoji_info.emoji;
-        button.style.fontSize = "24px";
-        button.style.padding = "6px";
-        button.style.cursor = "pointer";
-        button.style.border = "none";
-        button.style.background = "none";
-        button.style.borderRadius = "4px";
-        button.title = emoji_info.name;
-        button.addEventListener("click", () => {
-            popup.finish(() =>
-                on_select({ name: emoji_info.name, code: emoji_info.code }),
-            );
-        });
-        grid.append(button);
+        grid.append(
+            render_emoji_button(emoji_info, () => {
+                popup.finish(() =>
+                    on_select({ name: emoji_info.name, code: emoji_info.code }),
+                );
+            }),
+        );
     }
 }

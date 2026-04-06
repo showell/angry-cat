@@ -58,6 +58,18 @@ function build_message_cell(
     return cell;
 }
 
+function render_count_cell(total: number, unread_count: number): HTMLDivElement {
+    const cell = document.createElement("div");
+    const total_div = document.createElement("div");
+    total_div.innerText = String(total);
+    total_div.style.textAlign = "right";
+    cell.append(total_div);
+    if (unread_count > 0) {
+        cell.append(render_unread_count(unread_count));
+    }
+    return cell;
+}
+
 function build_table(messages_per_topic: number): HTMLElement {
     const messages = model.all_messages();
     messages.sort((a, b) => b.timestamp - a.timestamp);
@@ -86,14 +98,7 @@ function build_table(messages_per_topic: number): HTMLElement {
         const participants = model.participants_for_messages(topic_messages);
 
         const unread_count = topic_messages.filter((msg) => msg.unread).length;
-        const count_cell = document.createElement("div");
-        const total_div = document.createElement("div");
-        total_div.innerText = String(topic_messages.length);
-        total_div.style.textAlign = "right";
-        count_cell.append(total_div);
-        if (unread_count > 0) {
-            count_cell.append(render_unread_count(unread_count));
-        }
+        const count_cell = render_count_cell(topic_messages.length, unread_count);
 
         const channel_cell = document.createElement("div");
         const topic_cell = build_topic_cell(message_row);
@@ -127,6 +132,45 @@ function build_table(messages_per_topic: number): HTMLElement {
     return table_widget.table(headers, rows);
 }
 
+function build_notification_div(on_refresh: () => void): HTMLDivElement {
+    const div = document.createElement("div");
+    div.style.display = "none";
+    div.style.alignItems = "center";
+    div.style.gap = "10px";
+    div.style.marginBottom = "8px";
+
+    const text = document.createElement("span");
+    text.innerText = "New messages have arrived.";
+
+    const refresh_button = new Button("Refresh", 100, on_refresh);
+    div.append(text, refresh_button.div);
+    return div;
+}
+
+function build_controls_div(
+    initial_count: number,
+    on_change: (count: number) => void,
+): HTMLDivElement {
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.alignItems = "center";
+    div.style.gap = "8px";
+    div.style.marginBottom = "8px";
+
+    const label = document.createElement("span");
+    label.innerText = "Messages per topic:";
+
+    const count_adjuster = adjuster({
+        min: 0,
+        max: 10,
+        value: initial_count,
+        callback: on_change,
+    });
+
+    div.append(label, count_adjuster);
+    return div;
+}
+
 class RecentConversations {
     div: HTMLDivElement;
     plugin_helper: PluginHelper;
@@ -138,42 +182,15 @@ class RecentConversations {
         this.plugin_helper = plugin_helper;
         this.messages_per_topic = 1;
 
-        const notification_div = document.createElement("div");
-        notification_div.style.display = "none";
-        notification_div.style.alignItems = "center";
-        notification_div.style.gap = "10px";
-        notification_div.style.marginBottom = "8px";
+        const notification_div = build_notification_div(() => this.refresh());
 
-        const notification_text = document.createElement("span");
-        notification_text.innerText = "New messages have arrived.";
-
-        const refresh_button = new Button("Refresh", 100, () => {
-            this.refresh();
-        });
-
-        notification_div.append(notification_text);
-        notification_div.append(refresh_button.div);
-
-        const controls_div = document.createElement("div");
-        controls_div.style.display = "flex";
-        controls_div.style.alignItems = "center";
-        controls_div.style.gap = "8px";
-        controls_div.style.marginBottom = "8px";
-
-        const label = document.createElement("span");
-        label.innerText = "Messages per topic:";
-
-        const count_adjuster = adjuster({
-            min: 0,
-            max: 10,
-            value: this.messages_per_topic,
-            callback: (count) => {
+        const controls_div = build_controls_div(
+            this.messages_per_topic,
+            (count) => {
                 this.messages_per_topic = count;
                 this.rebuild_table();
             },
-        });
-
-        controls_div.append(label, count_adjuster);
+        );
 
         const inner_div = document.createElement("div");
         inner_div.style.maxHeight = "82vh";
@@ -185,9 +202,7 @@ class RecentConversations {
         div.style.maxHeight = "fit-content";
         div.style.maxWidth = "fit-content";
 
-        div.append(notification_div);
-        div.append(controls_div);
-        div.append(inner_div);
+        div.append(notification_div, controls_div, inner_div);
 
         this.div = div;
         this.notification_div = notification_div;
