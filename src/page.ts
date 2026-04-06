@@ -10,6 +10,7 @@ import * as layout from "./layout";
 import * as dm from "./dm/plugin";
 import * as lyn_rummy from "./lyn_rummy/plugin";
 import * as activity from "./plugins/activity";
+import * as admin from "./plugins/admin";
 import * as buddies from "./plugins/buddies";
 import { MessageRow } from "./backend/message_row";
 import * as navigator from "./navigator";
@@ -65,6 +66,9 @@ export class Page {
         this.add_plugin(activity.plugin);
         this.add_plugin(dm.plugin);
         this.add_plugin(buddies.plugin);
+        if (model.current_user_is_admin()) {
+            this.add_plugin(admin.plugin);
+        }
         this.add_navigator(address.nada());
         this.update_title();
     }
