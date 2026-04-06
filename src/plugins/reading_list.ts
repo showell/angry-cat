@@ -90,14 +90,24 @@ function maybe_show_import_banner(
     text.innerText = `Your reading list is empty, but you have ${DB.starred_ids.size} starred message${DB.starred_ids.size === 1 ? "" : "s"}. Want to import them as reading list items?`;
     banner.append(text);
 
+    const button_row = document.createElement("div");
+    button_row.style.display = "flex";
+    button_row.style.gap = "6px";
+
+    const no_thanks = new Button("No thanks", 100, () => {
+        banner.remove();
+    });
     const import_button = new Button("Import Starred Messages", 220, () => {
         import_starred_messages(todo_list);
         banner.remove();
     });
-    banner.append(import_button.div);
+
+    button_row.append(no_thanks.div, import_button.div);
+    banner.append(button_row);
 
     // Insert the banner before the todo list content.
     container.prepend(banner);
+    import_button.focus();
 }
 
 export function plugin(context: PluginContext): Plugin {
