@@ -42,6 +42,11 @@ function narrow_label(
     return prefix + label;
 }
 
+const enum NextTopicResult {
+    ADVANCED = "ADVANCED",
+    CLEARED = "CLEARED",
+}
+
 export function plugin_maker_for_address(start_address: Address) {
     function maker(plugin_helper: PluginHelper) {
         const navigator = new Navigator(plugin_helper, start_address);
@@ -174,7 +179,16 @@ export class Navigator {
         }
         if (key === "n") {
             this.mark_topic_read();
-            this.go_to_next_topic();
+            const result = this.go_to_next_topic();
+            if (result === NextTopicResult.ADVANCED) {
+                StatusBar.inform(
+                    "You hit 'n', so we marked the topic as read and moved to the next unread topic.",
+                );
+            } else {
+                StatusBar.inform(
+                    "You hit 'n', so we marked the topic as read. No more unread topics in this channel.",
+                );
+            }
             return true;
         }
         if (key === "Escape") {
@@ -191,16 +205,18 @@ export class Navigator {
         APP.add_plugin(plugin_maker_for_address(address));
     }
 
-    go_to_next_topic(): void {
+    go_to_next_topic(): NextTopicResult {
         const topic_id = this.get_topic_id();
-        if (topic_id === undefined) return;
+        if (topic_id === undefined) return NextTopicResult.CLEARED;
         const topic_list = this.get_topic_list();
-        if (topic_list === undefined) return;
+        if (topic_list === undefined) return NextTopicResult.CLEARED;
         const next_id = topic_list.get_next_unread_topic_id(topic_id);
         if (next_id !== undefined) {
             this.set_topic_id(next_id);
+            return NextTopicResult.ADVANCED;
         } else {
             this.clear_message_view();
+            return NextTopicResult.CLEARED;
         }
     }
 
