@@ -18,6 +18,7 @@ import * as color_scheme from "./plugins/color_scheme";
 import * as image_search from "./plugins/image_search";
 import * as reading_list from "./plugins/reading_list";
 import * as recent_conversations from "./plugins/recent_conversations";
+import * as starred from "./plugins/starred";
 import * as popup from "./popup";
 
 type PluginEntry = { name: string; factory: PluginFactory };
@@ -33,6 +34,7 @@ function get_all_plugins(): PluginEntry[] {
         { name: "Lyn Rummy", factory: lyn_rummy.plugin },
         { name: "Reading List", factory: reading_list.plugin },
         { name: "Recent Conversations", factory: recent_conversations.plugin },
+        { name: "Starred Messages", factory: starred.plugin },
     ];
     if (model.current_user_is_admin()) {
         plugins.push({ name: "Admin", factory: admin.plugin });

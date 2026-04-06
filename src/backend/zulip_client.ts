@@ -80,6 +80,14 @@ export async function fetch_image(image_url: string): Promise<string> {
     return slash_join(config.get_current_realm_url(), data.url);
 }
 
+export function set_message_starred(message_id: number, starred: boolean): void {
+    api_form_request("POST", "messages/flags", {
+        op: starred ? "add" : "remove",
+        flag: "starred",
+        messages: JSON.stringify([message_id]),
+    });
+}
+
 type SendInfo = {
     channel_id: number;
     topic_name: string;
