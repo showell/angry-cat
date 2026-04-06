@@ -21,8 +21,6 @@ type PluginEntry = {
     plugin: Plugin;
     factory: PluginFactory;
     label: string;
-    open: boolean;
-    deleted: boolean;
     highlighted: boolean;
     container_div: HTMLDivElement;
     tab_button: TabButton;
@@ -30,7 +28,8 @@ type PluginEntry = {
 
 export class Page {
     div: HTMLDivElement;
-    plugin_entries: PluginEntry[];
+    entries: PluginEntry[];
+    active_entry: PluginEntry | undefined;
     container_div: HTMLDivElement;
     button_bar_div: HTMLDivElement;
 
@@ -50,7 +49,8 @@ export class Page {
         this.button_bar_div = document.createElement("div");
         this.container_div = document.createElement("div");
 
-        this.plugin_entries = [];
+        this.entries = [];
+        this.active_entry = undefined;
         this.div = div;
     }
 
@@ -75,15 +75,13 @@ export class Page {
         container_div.style.display = "none";
 
         const tab_button = new TabButton(() => {
-            this.make_plugin_active(entry);
+            this.make_active(entry);
         });
 
         const entry: PluginEntry = {
             plugin: undefined!,
             factory,
             label: "plugin",
-            open: false,
-            deleted: false,
             highlighted: false,
             container_div,
             tab_button,
@@ -92,125 +90,107 @@ export class Page {
         const context: PluginContext = {
             update_label: (label) => {
                 entry.label = label;
-                tab_button.refresh(label, entry.open, entry.highlighted);
+                this.refresh_tab_button(entry);
             },
             request_close: () => this.close_plugin(entry),
             highlight_tab: () => {
                 entry.highlighted = true;
-                tab_button.refresh(entry.label, entry.open, entry.highlighted);
+                this.refresh_tab_button(entry);
             },
             reset_tab_highlight: () => {
                 entry.highlighted = false;
-                tab_button.refresh(entry.label, entry.open, entry.highlighted);
+                this.refresh_tab_button(entry);
             },
             tab_count: () =>
-                this.plugin_entries.filter(
-                    (e) => !e.deleted && e.plugin.is_navigator,
-                ).length,
+                this.entries.filter((e) => e.plugin.is_navigator).length,
         };
-
-        tab_button.refresh(entry.label, entry.open, entry.highlighted);
 
         const plugin = factory(context);
         entry.plugin = plugin;
         container_div.append(plugin.div);
 
-        this.plugin_entries.push(entry);
-        this.make_plugin_active(entry);
+        this.entries.push(entry);
+        this.make_active(entry);
         this.container_div.append(container_div);
-        this.populate_button_bar();
+        this.rebuild_button_bar();
     }
 
-    close_all(): void {
-        for (const entry of this.plugin_entries) {
-            if (entry.open) {
-                entry.open = false;
-                entry.container_div.style.display = "none";
-                entry.tab_button.refresh(
-                    entry.label,
-                    entry.open,
-                    entry.highlighted,
-                );
-            }
+    private refresh_tab_button(entry: PluginEntry): void {
+        const is_active = entry === this.active_entry;
+        entry.tab_button.refresh(entry.label, is_active, entry.highlighted);
+    }
+
+    private deactivate_all(): void {
+        for (const entry of this.entries) {
+            entry.container_div.style.display = "none";
+        }
+        this.active_entry = undefined;
+    }
+
+    make_active(entry: PluginEntry): void {
+        this.deactivate_all();
+        this.active_entry = entry;
+        entry.container_div.style.display = "block";
+        this.refresh_all_tab_buttons();
+    }
+
+    private refresh_all_tab_buttons(): void {
+        for (const entry of this.entries) {
+            this.refresh_tab_button(entry);
         }
     }
 
-    make_plugin_active(entry: PluginEntry): void {
-        this.close_all();
-        entry.open = true;
-        entry.container_div.style.display = "block";
-        entry.tab_button.refresh(entry.label, entry.open, entry.highlighted);
-    }
-
-    activate_last_plugin(): void {
-        this.compact_deleted_plugins();
-        const entries = this.plugin_entries;
-        this.make_plugin_active(entries[entries.length - 1]);
-    }
-
     close_plugin(entry: PluginEntry): void {
+        const index = this.entries.indexOf(entry);
+        if (index === -1) return;
+
         entry.container_div.remove();
-        entry.deleted = true;
-        this.activate_last_plugin();
-        this.populate_button_bar();
+        this.entries.splice(index, 1);
+
+        if (this.active_entry === entry) {
+            const new_index = Math.min(index, this.entries.length - 1);
+            this.make_active(this.entries[new_index]);
+        }
+
+        this.rebuild_button_bar();
     }
 
     populate(): void {
-        const div = this.div;
-        const container_div = this.container_div;
-
-        this.populate_button_bar();
+        this.rebuild_button_bar();
         const navbar_div = layout.make_navbar(
             StatusBar.div,
             this.button_bar_div,
         );
-
-        layout.draw_page(div, navbar_div, container_div);
+        layout.draw_page(this.div, navbar_div, this.container_div);
     }
 
-    compact_deleted_plugins(): void {
-        this.plugin_entries = this.plugin_entries.filter(
-            (entry) => !entry.deleted,
-        );
-    }
-
-    populate_button_bar(): void {
-        const self = this;
-
-        this.compact_deleted_plugins();
-
-        const tab_button_divs = this.plugin_entries.map(
+    rebuild_button_bar(): void {
+        const tab_button_divs = this.entries.map(
             (entry) => entry.tab_button.div,
         );
 
-        function add_navigator(): void {
-            self.add_navigator(address.nada());
-        }
-
         const button_bar = page_widget.make_button_bar(
             tab_button_divs,
-            add_navigator,
+            () => this.add_navigator(address.nada()),
         );
 
         this.button_bar_div.innerHTML = "";
         this.button_bar_div.append(button_bar);
     }
 
-    add_navigator(address: Address): void {
-        this.add_plugin(navigator.plugin_maker_for_address(address));
+    add_navigator(addr: Address): void {
+        this.add_plugin(navigator.plugin_maker_for_address(addr));
     }
 
     is_plugin_active(factory: PluginFactory): boolean {
-        return this.plugin_entries.some(
-            (e) => !e.deleted && e.factory === factory,
-        );
+        return this.entries.some((e) => e.factory === factory);
     }
 
     dispatch_keyboard_shortcut(key: string): boolean {
         if (key === "p") {
             return handle_p_key();
         }
-        const active = this.plugin_entries.find((e) => e.open);
+        const active = this.active_entry;
         if (!active) return false;
         const handled = active.plugin.handle_keyboard_shortcut?.(key) ?? false;
         if (handled) return true;
@@ -227,9 +207,7 @@ export class Page {
 
         const is_sole_navigator =
             entry.plugin.is_navigator &&
-            this.plugin_entries.filter(
-                (e) => !e.deleted && e.plugin.is_navigator,
-            ).length <= 1;
+            this.entries.filter((e) => e.plugin.is_navigator).length <= 1;
 
         if (is_sole_navigator) {
             div.innerText =
@@ -250,9 +228,9 @@ export class Page {
         if (event.flavor === EventFlavor.MESSAGE) {
             const message_row = new MessageRow(event.message);
             const sender_name = message_row.sender_name();
-            const address = message_row.address_string();
+            const addr = message_row.address_string();
             StatusBar.inform(
-                `Message arrived from ${sender_name} at ${address}.`,
+                `Message arrived from ${sender_name} at ${addr}.`,
             );
         }
 
@@ -266,9 +244,9 @@ export class Page {
             const message = DB.message_map.get(event.message_id)!;
             const message_row = new MessageRow(message);
             const sender_name = message_row.sender_name();
-            const address = message_row.address_string();
+            const addr = message_row.address_string();
             StatusBar.inform(
-                `A message was edited by ${sender_name} on ${address}.`,
+                `A message was edited by ${sender_name} on ${addr}.`,
             );
         }
 
@@ -288,7 +266,7 @@ export class Page {
             }
         }
 
-        for (const entry of this.plugin_entries) {
+        for (const entry of this.entries) {
             entry.plugin.handle_zulip_event?.(event);
         }
 
