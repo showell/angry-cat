@@ -77,7 +77,7 @@ class Popup {
     }
 
     show(info: PopupOptions) {
-        const button = new Button(info.confirm_button_text, 80, () => {
+        const button = new Button(info.confirm_button_text, 120, () => {
             this.finish(info.callback);
         });
         this.confirm_button = button;
@@ -90,7 +90,7 @@ class Popup {
         if (info.cancel_button_text) {
             const cancel_button = new Button(
                 info.cancel_button_text,
-                80,
+                120,
                 () => {
                     this.finish();
                 },
@@ -101,12 +101,12 @@ class Popup {
 
         button_div.append(button.div);
 
-        // PUT THEM ALL TOGETHER
         const flex_div = document.createElement("div");
         flex_div.append(info.div);
         flex_div.append(button_div);
 
         this.dialog_shell.invoke_with_custom_div(flex_div);
+        button.focus();
     }
 
     finish(callback?: () => void) {
