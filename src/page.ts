@@ -9,6 +9,7 @@ import * as page_widget from "./dom/page_widget";
 import * as layout from "./layout";
 import * as lyn_rummy from "./lyn_rummy/plugin";
 import { MessageRow } from "./backend/message_row";
+import * as buddy_list from "./buddy_list";
 import * as navigator from "./navigator";
 import { handle_p_key } from "./p_key";
 import * as reading_list from "./plugins/reading_list";
@@ -285,9 +286,15 @@ export class Page {
             const message_row = new MessageRow(event.message);
             const sender_name = message_row.sender_name();
             const addr = message_row.address_string();
-            StatusBar.inform(
-                `Message arrived from ${sender_name} at ${addr}.`,
-            );
+            if (buddy_list.is_buddy(event.message.sender_id)) {
+                StatusBar.celebrate(
+                    `Your buddy ${sender_name} sent a message at ${addr}.`,
+                );
+            } else {
+                StatusBar.inform(
+                    `Message arrived from ${sender_name} at ${addr}.`,
+                );
+            }
         }
 
         if (event.flavor === EventFlavor.MUTATE_MESSAGE_ADDRESS) {
