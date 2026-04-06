@@ -43,9 +43,6 @@ export class Page {
         create_global_status_bar();
 
         div.append(StatusBar.div);
-        StatusBar.inform(
-            "Welcome to Zulip! loading users and recent messages...",
-        );
 
         this.button_bar_div = document.createElement("div");
         this.container_div = document.createElement("div");

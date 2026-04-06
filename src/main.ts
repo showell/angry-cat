@@ -19,6 +19,46 @@ function is_lyn_rummy_user(): boolean {
     return parts.length > 0 && parts[parts.length - 1] === "LynRummy";
 }
 
+function show_splash(): HTMLDivElement {
+    const splash = document.createElement("div");
+    splash.style.display = "flex";
+    splash.style.flexDirection = "column";
+    splash.style.alignItems = "center";
+    splash.style.justifyContent = "center";
+    splash.style.height = "100vh";
+    splash.style.fontFamily = "sans-serif";
+
+    const title = document.createElement("div");
+    title.innerText = "Angry Cat Zulip Client";
+    title.style.fontSize = "28px";
+    title.style.fontWeight = "bold";
+    title.style.color = "#000080";
+    title.style.marginBottom = "20px";
+    splash.append(title);
+
+    const img = document.createElement("img");
+    img.src = "images/angry_cat.png";
+    img.style.width = "200px";
+    img.style.height = "auto";
+    img.style.marginBottom = "20px";
+    splash.append(img);
+
+    const loading = document.createElement("div");
+    loading.innerText = "Loading your recent Zulip data...";
+    loading.style.fontSize = "16px";
+    loading.style.color = "#265a70";
+    splash.append(loading);
+
+    document.body.style.margin = "0";
+    document.body.append(splash);
+
+    return splash;
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function run() {
     if (is_lyn_rummy_user()) {
         game.gui();
@@ -26,50 +66,41 @@ export async function run() {
     }
 
     if (login_manager.needs_to_login()) {
-        // The login_manager will end up doing a page redirect that will
-        // call this `run` again.
         return;
     }
 
-    // We overwrite this as soon as we fetch data
-    // and call page.start(), which in turn calls
-    // into Navigator to get the unread counts
-    // for our initial download of Zulip data.  But
-    // this is nice to have while data is still loading.
     document.title = config.get_current_realm_nickname()!;
 
     mouse_drag.initialize();
 
-    // do before fetching to get "spinner"
+    const splash = show_splash();
+
+    // Start data loading and minimum splash timer in parallel.
+    const data_ready = (async () => {
+        await event_queue.register_queue();
+        await database.fetch_original_data();
+    })();
+
+    await Promise.all([data_ready, sleep(3000)]);
+
+    // Remove splash and build the real UI.
+    splash.remove();
+
     const page = new Page();
 
     function handle_zulip_event(event: ZulipEvent) {
-        // Reconcile outbound messages with their inbound events.
         zulip_client.handle_event(event);
-
-        // We want the model to update before any plugins touch
-        // the event.
         database.handle_event(event);
-
-        // The Page object dispatches events to all the plugins.
         page.handle_zulip_event(event);
     }
 
     const event_manager = new EventHandler(handle_zulip_event);
-
-    // we wait for register to finish, but then polling goes
-    // on "forever" asynchronously
-    await event_queue.register_queue();
-
-    await database.fetch_original_data();
 
     event_queue.start_polling(event_manager);
 
     app.init(page);
 
     document.addEventListener("keydown", (e) => {
-        // When a modal dialog is open, let the browser handle all keys
-        // (Enter to activate buttons, Tab to move focus, etc.).
         if (document.querySelector("dialog[open]")) return;
         const tag = (document.activeElement?.tagName ?? "").toLowerCase();
         const in_interactive = tag === "button" || tag === "input" || tag === "textarea";
