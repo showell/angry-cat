@@ -36,6 +36,9 @@ export const text_muted = "#888"; // de-emphasized text (edit buttons, etc.)
 export const border = "black";
 export const border_subtle = "#ccc";
 
+// Highlighted messages (starred, reading list, etc.).
+export const special_green = "#c6f6c6";
+
 // Selection and presence indicators.
 export const selected_bg = "#CCEEFF"; // selected channel or topic row
 export const unread_bg = "lavender"; // unread message background and badge

@@ -134,6 +134,12 @@ const GROUPS: SwatchGroup[] = [
                 description: "Unread message background and badge",
             },
             {
+                name: "special_green",
+                value: colors.special_green,
+                description:
+                    "Highlighted messages (starred, reading list, etc.)",
+            },
+            {
                 name: "new_message_border",
                 value: colors.new_message_border,
                 description: "Border on a newly-arrived message",

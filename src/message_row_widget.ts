@@ -105,7 +105,7 @@ export class MessageRowWidget {
 
         // Starred takes visual priority over unread.
         if (is_starred(message_id)) {
-            div.style.backgroundColor = "#c6f6c6";
+            div.style.backgroundColor = colors.special_green;
         } else if (message_row.unread()) {
             div.style.backgroundColor = colors.unread_bg;
         }
