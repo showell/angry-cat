@@ -113,16 +113,26 @@ export class ComposeBox {
     topic_input: TopicInput;
     textarea: TextArea;
     send_button: Button;
+    edit_button: Button;
     stream_id: number;
+    last_sent_message_id: number | undefined;
+    last_sent_content: string | undefined;
+    is_editing: boolean;
+    editing_message_id: number | undefined;
 
     constructor(stream_id: number, topic_name: string) {
         this.stream_id = stream_id;
+        this.last_sent_message_id = undefined;
+        this.last_sent_content = undefined;
+        this.is_editing = false;
+        this.editing_message_id = undefined;
 
         const div = document.createElement("div");
 
         const topic_input = new TopicInput(topic_name);
         const textarea = new TextArea();
-        const { button_row_div, send_button } = this.build_button_row();
+        const { button_row_div, send_button, edit_button } =
+            this.build_button_row();
 
         div.append(topic_input.div);
         div.append(textarea.div);
@@ -134,6 +144,7 @@ export class ComposeBox {
         this.div = div;
         this.textarea = textarea;
         this.send_button = send_button;
+        this.edit_button = edit_button;
     }
 
     has_text(): boolean {
@@ -148,7 +159,11 @@ export class ComposeBox {
         this.textarea.focus();
     }
 
-    build_button_row(): { button_row_div: HTMLElement; send_button: Button } {
+    build_button_row(): {
+        button_row_div: HTMLElement;
+        send_button: Button;
+        edit_button: Button;
+    } {
         const button_row_div = compose_widget.button_row_div();
 
         const file_input = document.createElement("input");
@@ -171,14 +186,28 @@ export class ComposeBox {
             const content = this.get_content_to_send();
             this.textarea.clear();
             this.disable();
-            StatusBar.inform("Sending…");
-            this.send(content);
+            if (this.is_editing) {
+                StatusBar.inform("Saving edit…");
+                this.save_edit(content);
+            } else {
+                StatusBar.inform("Sending…");
+                this.send(content);
+            }
         });
+
+        const edit_button = new Button("Edit last message", 160, () => {
+            this.enter_edit_mode(
+                this.last_sent_message_id!,
+                this.last_sent_content!,
+            );
+        });
+        edit_button.hide();
 
         button_row_div.append(send_button.div);
         button_row_div.append(upload_button.div);
+        button_row_div.append(edit_button.div);
 
-        return { button_row_div, send_button };
+        return { button_row_div, send_button, edit_button };
     }
 
     disable(): void {
@@ -201,7 +230,10 @@ export class ComposeBox {
 
         zulip_client.send_message(
             { channel_id, topic_name, content },
-            (_message) => {
+            (message) => {
+                this.last_sent_message_id = message.id;
+                this.last_sent_content = content;
+                this.edit_button.show();
                 this.enable();
                 this.textarea.focus();
             },
@@ -209,6 +241,38 @@ export class ComposeBox {
                 this.enable();
                 StatusBar.scold(`Failed to send: ${error_msg}`);
                 this.textarea.insert_text(content);
+            },
+        );
+    }
+
+    enter_edit_mode(message_id: number, content: string): void {
+        this.is_editing = true;
+        this.editing_message_id = message_id;
+        this.textarea.clear();
+        this.textarea.insert_text(content);
+        this.edit_button.hide();
+        StatusBar.inform("Editing your last message. Fix the text and click Send.");
+    }
+
+    save_edit(content: string): void {
+        const message_id = this.editing_message_id!;
+
+        zulip_client.edit_message(
+            message_id,
+            content,
+            () => {
+                this.is_editing = false;
+                this.editing_message_id = undefined;
+                this.last_sent_content = content;
+                this.edit_button.show();
+                this.enable();
+                this.textarea.focus();
+                StatusBar.celebrate("Message edited!");
+            },
+            (error_msg) => {
+                this.enable();
+                this.textarea.insert_text(content);
+                StatusBar.scold(`Failed to edit: ${error_msg}`);
             },
         );
     }

@@ -128,6 +128,23 @@ export function send_message(
     });
 }
 
+export function edit_message(
+    message_id: number,
+    content: string,
+    on_success: () => void,
+    on_error: (msg: string) => void,
+): void {
+    api_form_request("PATCH", `messages/${message_id}`, { content }).then(
+        (data) => {
+            if (data.result === "success") {
+                on_success();
+            } else {
+                on_error(data.msg ?? "Unknown error editing message");
+            }
+        },
+    );
+}
+
 export function update_stream_description(
     stream_id: number,
     description: string,
