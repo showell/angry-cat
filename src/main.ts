@@ -72,6 +72,7 @@ export async function run() {
         // (Enter to activate buttons, Tab to move focus, etc.).
         if (document.querySelector("dialog[open]")) return;
         const tag = (document.activeElement?.tagName ?? "").toLowerCase();
+        if (tag === "button") return;
         const in_text_field = tag === "input" || tag === "textarea";
         if (in_text_field && e.key !== "Escape") return;
         const in_scroll_area =
