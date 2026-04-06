@@ -1,4 +1,5 @@
 import { APP } from "../app";
+import * as buddy_list from "../buddy_list";
 import { DB } from "../backend/database";
 import type { ZulipEvent } from "../backend/event";
 import { EventFlavor } from "../backend/event";
@@ -133,9 +134,18 @@ function build_table(
         const topic_cell = build_topic_cell(message_row);
         const senders_cell = document.createElement("div");
         channel_cell.innerText = channel_name;
-        senders_cell.innerText = participants
-            .map((u) => u.full_name)
-            .join(", ");
+        for (let i = 0; i < participants.length; i++) {
+            const user = participants[i];
+            const span = document.createElement("span");
+            span.innerText = user.full_name;
+            if (buddy_list.is_buddy(user.id)) {
+                span.style.fontWeight = "bold";
+            }
+            senders_cell.append(span);
+            if (i < participants.length - 1) {
+                senders_cell.append(", ");
+            }
+        }
 
         const message_cell = build_message_cell(
             topic_messages,
