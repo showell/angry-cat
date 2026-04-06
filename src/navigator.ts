@@ -18,6 +18,8 @@ import type { MessageList } from "./message_list";
 import type { MessageView } from "./message_view";
 import { ButtonPanel } from "./nav_button_panel";
 import { PaneManager } from "./pane_manager";
+import { handle_arrow_down, handle_arrow_up } from "./arrow_keys";
+import type { ArrowKeyContext } from "./arrow_keys";
 import { handle_esc_key } from "./esc_key";
 import type { EscKeyContext } from "./esc_key";
 import { handle_n_key, NextTopicResult } from "./n_key";
@@ -57,7 +59,7 @@ export function plugin_maker_for_address(start_address: Address): PluginFactory 
     };
 }
 
-export class Navigator implements NKeyContext, EscKeyContext {
+export class Navigator implements NKeyContext, EscKeyContext, ArrowKeyContext {
     div: HTMLDivElement;
     button_panel: ButtonPanel;
     pane_manager: PaneManager;
@@ -174,6 +176,12 @@ export class Navigator implements NKeyContext, EscKeyContext {
         if (key === "n") {
             return handle_n_key(this);
         }
+        if (key === "ArrowDown") {
+            return handle_arrow_down(this);
+        }
+        if (key === "ArrowUp") {
+            return handle_arrow_up(this);
+        }
         if (key === "Escape") {
             return handle_esc_key(this);
         }
@@ -274,6 +282,10 @@ export class Navigator implements NKeyContext, EscKeyContext {
         return this.channel_id !== undefined;
     }
 
+    get_first_channel_id(): number | undefined {
+        return this.channel_chooser.get_first_channel_id();
+    }
+
     get_first_unread_channel_id(): number | undefined {
         return this.channel_chooser.get_first_unread_channel_id();
     }
@@ -284,6 +296,22 @@ export class Navigator implements NKeyContext, EscKeyContext {
 
     get_first_unread_topic_id(): number | undefined {
         return this.get_topic_list()?.get_next_unread_topic_id(undefined);
+    }
+
+    get_first_topic_id(): number | undefined {
+        return this.get_topic_list()?.get_first_topic_id();
+    }
+
+    get_next_topic_id(): number | undefined {
+        const topic_id = this.get_topic_id();
+        if (topic_id === undefined) return undefined;
+        return this.get_topic_list()?.get_adjacent_topic_id(topic_id, 1);
+    }
+
+    get_prev_topic_id(): number | undefined {
+        const topic_id = this.get_topic_id();
+        if (topic_id === undefined) return undefined;
+        return this.get_topic_list()?.get_adjacent_topic_id(topic_id, -1);
     }
 
     // --- EscKeyContext ---

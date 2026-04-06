@@ -132,6 +132,22 @@ export class TopicList {
         this.refresh();
     }
 
+    get_first_topic_id(): number | undefined {
+        return this.topic_rows[0]?.topic_id();
+    }
+
+    get_adjacent_topic_id(
+        current_topic_id: number,
+        direction: 1 | -1,
+    ): number | undefined {
+        const rows = this.topic_rows;
+        const index = rows.findIndex((row) => row.topic_id() === current_topic_id);
+        if (index === -1) return undefined;
+        const next = index + direction;
+        if (next < 0 || next >= rows.length) return undefined;
+        return rows[next].topic_id();
+    }
+
     get_next_unread_topic_id(current_topic_id: number | undefined): number | undefined {
         return this.all_topic_rows.find(
             (row) =>
