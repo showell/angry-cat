@@ -9,6 +9,7 @@ import * as config from "./backend/config";
 import * as login_manager from "./login_manager";
 import * as game from "./lyn_rummy/game";
 import { Page } from "./page";
+import { StatusBar } from "./status_bar";
 import * as mouse_drag from "./util/mouse_drag";
 
 function is_lyn_rummy_user(): boolean {
@@ -152,6 +153,10 @@ export async function run() {
     });
 
     page.start();
+
+    StatusBar.inform(
+        "Welcome! Use arrow keys to browse channels, Enter to open topics, or press 'h' for help.",
+    );
 }
 
 run();
