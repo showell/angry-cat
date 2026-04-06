@@ -83,8 +83,6 @@ export class Navigator
     private _topic_mode = false;
 
     constructor(context: PluginContext, start_address: Address) {
-        const self = this;
-
         this.context = context;
         this.start_address = start_address;
         this.channel_id = start_address.channel_id;
@@ -94,18 +92,18 @@ export class Navigator
         div.style.flexDirection = "column";
         div.style.height = "100%";
 
-        const button_panel = new ButtonPanel(self);
+        const button_panel = new ButtonPanel(this);
         const pane_manager = new PaneManager();
 
         const channel_chooser = make_channel_chooser({
             start_channel_id: start_address.channel_id,
-            handle_channel_chosen(channel_id: number | undefined) {
-                self.channel_id = channel_id;
-                self.update_channel();
+            handle_channel_chosen: (channel_id: number | undefined) => {
+                this.channel_id = channel_id;
+                this.update_channel();
             },
-            handle_channel_cleared() {
-                self.channel_id = undefined;
-                self.clear_channel();
+            handle_channel_cleared: () => {
+                this.channel_id = undefined;
+                this.clear_channel();
             },
         });
 
@@ -149,7 +147,6 @@ export class Navigator
                 }
 
                 const channel_row = this.get_channel_row();
-                console.log("channel_row", channel_row);
 
                 // ChannelView will add panes
                 this.channel_view = new ChannelView(
@@ -263,36 +260,14 @@ export class Navigator
         }
     }
 
-    // --- State ---
-
-    get_topic_list(): TopicList | undefined {
-        if (this.channel_view === undefined) {
-            return undefined;
-        }
-        return this.channel_view.get_topic_list();
-    }
-
-    get_topic_name(): string | undefined {
-        return this.channel_view?.get_topic_name();
-    }
-
-    get_message_list(): MessageList | undefined {
-        if (this.channel_view === undefined) {
-            return undefined;
-        }
-        return this.channel_view.get_message_list();
-    }
-
-    topic_selected(): boolean {
-        const topic_list = this.get_topic_list();
-        if (topic_list === undefined) {
-            return false;
-        }
-        return topic_list.has_selection();
-    }
+    // --- State queries ---
 
     channel_selected(): boolean {
         return this.channel_id !== undefined;
+    }
+
+    topic_selected(): boolean {
+        return this.get_topic_list()?.has_selection() ?? false;
     }
 
     in_topic_mode(): boolean {
@@ -303,8 +278,30 @@ export class Navigator
         this._topic_mode = false;
     }
 
+    get_topic_list(): TopicList | undefined {
+        return this.channel_view?.get_topic_list();
+    }
+
+    get_topic_name(): string | undefined {
+        return this.channel_view?.get_topic_name();
+    }
+
+    get_message_list(): MessageList | undefined {
+        return this.channel_view?.get_message_list();
+    }
+
+    get_message_view(): MessageView | undefined {
+        return this.channel_view?.get_message_view();
+    }
+
+    // --- Channel navigation ---
+
     get_first_channel_id(): number | undefined {
         return this.channel_chooser.get_first_channel_id();
+    }
+
+    get_first_unread_channel_id(): number | undefined {
+        return this.channel_chooser.get_first_unread_channel_id();
     }
 
     get_next_channel_id(): number | undefined {
@@ -320,20 +317,22 @@ export class Navigator
         );
     }
 
-    get_first_unread_channel_id(): number | undefined {
-        return this.channel_chooser.get_first_unread_channel_id();
-    }
-
     select_channel(channel_id: number): void {
         this.channel_chooser.select_channel(channel_id);
     }
 
-    get_first_unread_topic_id(): number | undefined {
-        return this.get_topic_list()?.get_next_unread_topic_id(undefined);
+    close_channel(): void {
+        this.channel_chooser.deselect();
     }
+
+    // --- Topic navigation ---
 
     get_first_topic_id(): number | undefined {
         return this.get_topic_list()?.get_first_topic_id();
+    }
+
+    get_first_unread_topic_id(): number | undefined {
+        return this.get_topic_list()?.get_next_unread_topic_id(undefined);
     }
 
     get_next_topic_id(): number | undefined {
@@ -348,7 +347,7 @@ export class Navigator
         return this.get_topic_list()?.get_adjacent_topic_id(topic_id, -1);
     }
 
-    // --- EscKeyContext ---
+    // --- Compose and focus management ---
 
     is_composing(): boolean {
         const reply_pane = this.get_message_view()?.reply_pane;
@@ -387,14 +386,6 @@ export class Navigator
         this.channel_view?.close_add_topic_pane();
     }
 
-    close_channel(): void {
-        this.channel_chooser.deselect();
-    }
-
-    tab_count(): number {
-        return this.context.tab_count();
-    }
-
     message_list_focused(): boolean {
         return (
             document.activeElement?.classList.contains("keyboard-scroll") ??
@@ -408,14 +399,18 @@ export class Navigator
         }
     }
 
-    close_tab(): void {
-        this.context.request_close();
-    }
-
-    // --- EnterKeyContext ---
-
     focus_message_list(): void {
         this.get_message_list()?.focus();
+    }
+
+    // --- Tab management ---
+
+    tab_count(): number {
+        return this.context.tab_count();
+    }
+
+    close_tab(): void {
+        this.close();
     }
 
     // --- Updates ---
@@ -479,13 +474,14 @@ export class Navigator
 
     update_channel(): void {
         this._topic_mode = false;
-        const pane_manager = this.pane_manager;
-        const channel_row = this.get_channel_row();
-
         this.pane_manager.remove_after("channel_chooser");
 
-        // ChannelView will add panes
-        this.channel_view = new ChannelView(channel_row, this, pane_manager);
+        const channel_row = this.get_channel_row();
+        this.channel_view = new ChannelView(
+            channel_row,
+            this,
+            this.pane_manager,
+        );
 
         this.update_button_panel();
         StatusBar.inform("You can click on a topic now.");
