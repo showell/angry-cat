@@ -110,6 +110,7 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     code_snippets: [],
                     content: raw_message.content,
                     github_refs: [],
+                    has_images: false,
                     id: raw_message.id,
                     is_super_new: true,
                     local_message_id,

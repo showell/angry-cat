@@ -4,6 +4,7 @@ export type Message = {
     code_snippets: string[];
     content: string;
     github_refs: string[];
+    has_images: boolean;
     id: number;
     is_super_new: boolean;
     local_message_id: string | undefined;

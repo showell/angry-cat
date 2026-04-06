@@ -108,6 +108,7 @@ async function process_message_rows_from_server(
                 code_snippets: [],
                 content: row.content,
                 github_refs: [],
+                    has_images: false,
                 id: message_id,
                 is_super_new: false,
                 local_message_id,

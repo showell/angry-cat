@@ -17,4 +17,7 @@ export function parse_content(message: Message): void {
     doc.querySelectorAll("div.codehilite").forEach((code_div) => {
         message.code_snippets.push(code_div.textContent);
     });
+    if (doc.querySelector("img")) {
+        message.has_images = true;
+    }
 }
