@@ -3,3 +3,4 @@ foo.txt
 bar.txt
 node_modules
 src/test_config.ts
+dist/
