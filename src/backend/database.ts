@@ -21,10 +21,15 @@ export type Database = {
     message_index: MessageIndex;
     reactions_map: ReactionsMap;
     unread_ids: Set<number>;
+    image_message_ids: Set<number>;
 };
 
 export function is_unread(message_id: number): boolean {
     return DB.unread_ids.has(message_id);
+}
+
+export function has_images(message_id: number): boolean {
+    return DB.image_message_ids.has(message_id);
 }
 
 export function label_for_address(address: Address): string {

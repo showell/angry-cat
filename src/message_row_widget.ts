@@ -103,10 +103,6 @@ export class MessageRowWidget {
             div.style.backgroundColor = colors.unread_bg;
         }
 
-        if (message_row.is_super_new()) {
-            div.style.border = `1px ${colors.new_message_border} solid`;
-        }
-
         div.append(top_line(message_row));
 
         if (message_row.topic_id() !== topic_id) {

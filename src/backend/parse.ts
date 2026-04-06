@@ -1,3 +1,4 @@
+import { DB } from "./database";
 import { get_dom_parser } from "../parser";
 import type { Message } from "./db_types";
 
@@ -18,6 +19,6 @@ export function parse_content(message: Message): void {
         message.code_snippets.push(code_div.textContent);
     });
     if (doc.querySelector("img")) {
-        message.has_images = true;
+        DB.image_message_ids.add(message.id);
     }
 }

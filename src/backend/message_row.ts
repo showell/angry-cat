@@ -94,9 +94,6 @@ export class MessageRow {
         return is_unread(this._message.id);
     }
 
-    is_super_new(): boolean {
-        return this._message.is_super_new;
-    }
 
     address_string(): string {
         const stream_name = this.stream_name();
