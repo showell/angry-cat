@@ -163,46 +163,106 @@ type StarredMessageDiv = HTMLDivElement & {
     handle_star_change: () => void;
 };
 
+function build_stats(messages: Message[]): HTMLDivElement {
+    const div = document.createElement("div");
+    div.style.fontSize = "15px";
+    div.style.color = colors.text_body;
+    div.style.lineHeight = "1.8";
+
+    const starred_count = messages.filter((m) => is_starred(m.id)).length;
+    const unstarred_count = messages.length - starred_count;
+
+    // Summary
+    const summary = document.createElement("div");
+    summary.style.marginBottom = "16px";
+    summary.innerHTML = [
+        `<b>${messages.length}</b> starred message${messages.length === 1 ? "" : "s"}`,
+        starred_count > 0 ? `<b>${starred_count}</b> still starred` : "",
+        unstarred_count > 0 ? `<b>${unstarred_count}</b> unstarred` : "",
+    ]
+        .filter(Boolean)
+        .join("<br>");
+    div.append(summary);
+
+    // Breakdown by topic
+    const by_topic = new Map<string, number>();
+    for (const m of messages) {
+        if (!is_starred(m.id)) continue;
+        const row = new MessageRow(m);
+        const key = `#${row.stream_name()} > ${row.topic_name()}`;
+        by_topic.set(key, (by_topic.get(key) ?? 0) + 1);
+    }
+
+    if (by_topic.size > 0) {
+        const heading = document.createElement("div");
+        heading.style.fontWeight = "bold";
+        heading.style.color = colors.primary;
+        heading.style.marginBottom = "4px";
+        heading.innerText = "By topic";
+        div.append(heading);
+
+        const sorted = [...by_topic.entries()].sort((a, b) => b[1] - a[1]);
+        for (const [topic, count] of sorted) {
+            const line = document.createElement("div");
+            line.innerText = `${topic}: ${count}`;
+            div.append(line);
+        }
+    }
+
+    return div;
+}
+
 export function plugin(context: PluginContext): Plugin {
     context.update_label("Starred");
 
+    // Two-pane layout: scrollable message list on the left, stats on the right.
     const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.gap = "20px";
     div.style.paddingTop = "15px";
-    div.style.maxWidth = "700px";
     div.style.height = "100%";
-    div.style.overflow = "auto";
 
-    const count_div = document.createElement("div");
-    count_div.style.fontWeight = "bold";
-    count_div.style.color = colors.primary;
-    count_div.style.marginBottom = "8px";
+    const left_pane = document.createElement("div");
+    left_pane.style.flex = "1";
+    left_pane.style.overflow = "auto";
+    left_pane.style.maxWidth = "700px";
 
-    const list_div = document.createElement("div");
+    const right_pane = document.createElement("div");
+    right_pane.style.width = "250px";
+    right_pane.style.flexShrink = "0";
+    right_pane.style.paddingTop = "4px";
 
-    div.append(count_div, list_div);
+    div.append(left_pane, right_pane);
 
     // Track rendered message divs so we can notify them of star changes
     // without rebuilding the entire list.
     let message_divs: StarredMessageDiv[] = [];
+    let current_messages: Message[] = [];
+
+    function refresh_stats(): void {
+        right_pane.innerHTML = "";
+        right_pane.append(build_stats(current_messages));
+    }
 
     function rebuild(): void {
-        const messages = get_starred_messages();
-        count_div.innerText = `${messages.length} starred message${messages.length === 1 ? "" : "s"}`;
+        current_messages = get_starred_messages();
 
-        list_div.innerHTML = "";
+        left_pane.innerHTML = "";
         message_divs = [];
-        if (messages.length === 0) {
-            list_div.append(build_empty_message());
+        if (current_messages.length === 0) {
+            left_pane.append(build_empty_message());
         } else {
-            for (const message of messages) {
+            for (const message of current_messages) {
                 const msg_div = render_starred_message(
                     message,
                     rebuild,
                 ) as StarredMessageDiv;
-                list_div.append(msg_div);
+                left_pane.append(msg_div);
                 message_divs.push(msg_div);
             }
         }
+
+        refresh_stats();
     }
 
     rebuild();
@@ -217,6 +277,9 @@ export function plugin(context: PluginContext): Plugin {
         for (const msg_div of message_divs) {
             msg_div.handle_star_change();
         }
+
+        // Update stats to reflect the new star/unstar counts.
+        refresh_stats();
 
         // If new messages were starred (not by us), rebuild to include them.
         if (event.starred) {
