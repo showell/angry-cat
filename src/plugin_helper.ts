@@ -11,6 +11,7 @@ export type PluginContext = {
     request_close: () => void;
     highlight_tab: () => void;
     reset_tab_highlight: () => void;
+    tab_count: () => number;
 };
 
 export type PluginFactory = (context: PluginContext) => Plugin;

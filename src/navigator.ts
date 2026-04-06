@@ -329,6 +329,10 @@ export class Navigator implements NKeyContext, EscKeyContext {
         this.channel_chooser.deselect();
     }
 
+    tab_count(): number {
+        return this.context.tab_count();
+    }
+
     close_tab(): void {
         this.context.request_close();
     }

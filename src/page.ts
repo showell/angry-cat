@@ -103,6 +103,8 @@ export class Page {
                 entry.highlighted = false;
                 tab_button.refresh(entry.label, entry.open, entry.highlighted);
             },
+            tab_count: () =>
+                this.plugin_entries.filter((e) => !e.deleted).length,
         };
 
         tab_button.refresh(entry.label, entry.open, entry.highlighted);

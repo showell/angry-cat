@@ -26,19 +26,27 @@ export interface EscKeyContext {
     clear_message_view(): void;
     channel_selected(): boolean;
     close_channel(): void;
+    tab_count(): number;
     close_tab(): void;
 }
 
 function show_close_tab_popup(ctx: EscKeyContext): void {
     const div = document.createElement("div");
-    div.innerText = "Close this tab?";
     div.style.padding = "8px 4px";
-    popup.pop({
-        div,
-        confirm_button_text: "Close",
-        cancel_button_text: "Cancel",
-        callback: () => ctx.close_tab(),
-    });
+
+    if (ctx.tab_count() <= 1) {
+        div.innerText =
+            "This is your only open tab, so we'll keep it open for you.";
+        popup.pop({ div, confirm_button_text: "OK", callback: () => {} });
+    } else {
+        div.innerText = "Close this tab?";
+        popup.pop({
+            div,
+            confirm_button_text: "Close",
+            cancel_button_text: "Cancel",
+            callback: () => ctx.close_tab(),
+        });
+    }
 }
 
 export function handle_esc_key(ctx: EscKeyContext): boolean {
