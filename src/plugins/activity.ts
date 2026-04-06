@@ -1,5 +1,9 @@
 import * as action_log from "../action_log";
 import type { ActionEntry } from "../action_log";
+import type { Address } from "../address";
+import { APP } from "../app";
+import * as model from "../backend/model";
+import { DB } from "../backend/database";
 import * as colors from "../colors";
 import * as table_widget from "../dom/table_widget";
 import type { Plugin, PluginContext } from "../plugin_helper";
@@ -15,10 +19,38 @@ function render_text_cell(text: string): HTMLDivElement {
     return div;
 }
 
+function label_for_address(address: Address): string {
+    const parts: string[] = [];
+    if (address.channel_id !== undefined) {
+        parts.push("#" + model.stream_name_for(address.channel_id));
+    }
+    if (address.topic_id !== undefined) {
+        const topic = DB.topic_map.get(address.topic_id);
+        if (topic) {
+            parts.push("> " + topic.topic_name);
+        }
+    }
+    return parts.join(" ") || "unknown";
+}
+
 function render_location_cell(entry: ActionEntry): HTMLDivElement {
     const div = document.createElement("div");
-    div.innerText = `#${entry.channel_name} > ${entry.topic_name}`;
-    div.style.color = colors.primary;
+
+    const link = document.createElement("button");
+    link.innerText = label_for_address(entry.address);
+    link.style.color = colors.primary;
+    link.style.fontWeight = "bold";
+    link.style.background = "none";
+    link.style.border = "none";
+    link.style.cursor = "pointer";
+    link.style.padding = "0";
+    link.style.textAlign = "left";
+    link.addEventListener("click", (e) => {
+        e.stopPropagation();
+        APP.add_navigator(entry.address);
+    });
+
+    div.append(link);
     return div;
 }
 

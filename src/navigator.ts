@@ -555,9 +555,12 @@ export class Navigator
     }
 
     private record_action(action_type: ActionType): void {
-        const channel_name = this.get_channel_name() ?? "unknown";
-        const topic_name = this.get_topic_name() ?? "unknown";
-        action_log.record(action_type, channel_name, topic_name);
+        const address = {
+            channel_id: this.channel_id,
+            topic_id: this.get_topic_id(),
+            message_id: undefined,
+        };
+        action_log.record(action_type, address);
     }
 
     close(): void {

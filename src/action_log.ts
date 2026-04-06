@@ -1,6 +1,8 @@
 // Central log of user actions. Other modules call record() to log an
 // action; the activity plugin reads get_entries() to display them.
 
+import type { Address } from "./address";
+
 export const enum ActionType {
     TOPIC_VIEWED = "Viewed topic",
     MESSAGE_SENT = "Sent message",
@@ -11,8 +13,7 @@ export const enum ActionType {
 export type ActionEntry = {
     timestamp: number;
     action: ActionType;
-    channel_name: string;
-    topic_name: string;
+    address: Address;
 };
 
 const entries: ActionEntry[] = [];
@@ -22,12 +23,8 @@ export function on_change(callback: () => void): void {
     listener = callback;
 }
 
-export function record(
-    action: ActionType,
-    channel_name: string,
-    topic_name: string,
-): void {
-    entries.push({ timestamp: Date.now(), action, channel_name, topic_name });
+export function record(action: ActionType, address: Address): void {
+    entries.push({ timestamp: Date.now(), action, address });
     listener?.();
 }
 
