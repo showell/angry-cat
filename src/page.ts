@@ -15,7 +15,6 @@ import * as buddies from "./plugins/buddies";
 import { MessageRow } from "./backend/message_row";
 import * as navigator from "./navigator";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
-import * as plugin_chooser from "./plugins/plugin_chooser";
 import * as reading_list from "./plugins/reading_list";
 import * as recent_conversations from "./plugins/recent_conversations";
 import { create_global_status_bar, StatusBar } from "./status_bar";
@@ -59,7 +58,6 @@ export class Page {
 
     start(): void {
         this.populate();
-        this.add_plugin(plugin_chooser.plugin);
         this.add_plugin(lyn_rummy.plugin);
         this.add_plugin(recent_conversations.plugin);
         this.add_plugin(reading_list.plugin);
