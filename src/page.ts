@@ -11,6 +11,7 @@ import * as lyn_rummy from "./lyn_rummy/plugin";
 import { MessageRow } from "./backend/message_row";
 import * as navigator from "./navigator";
 import { handle_p_key } from "./p_key";
+import * as reading_list from "./plugins/reading_list";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
 import * as popup from "./popup";
 import * as recent_conversations from "./plugins/recent_conversations";
@@ -56,6 +57,7 @@ export class Page {
     start(): void {
         this.populate();
         this.add_plugin(lyn_rummy.plugin);
+        this.add_plugin(reading_list.plugin);
         this.add_plugin(recent_conversations.plugin);
         this.add_navigator(address.nada());
         this.update_title();
