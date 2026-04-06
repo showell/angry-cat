@@ -8,14 +8,14 @@ export interface MessageGrouping {
 }
 
 const next_mode: Record<SortMode, SortMode> = {
-    alpha: "recent",
-    recent: "count",
-    count: "alpha",
+    recent: "alpha",
+    alpha: "count",
+    count: "recent",
 };
 
 const mode_label: Record<SortMode, string> = {
+    recent: "Most Recent",
     alpha: "A-Z",
-    recent: "Recent",
     count: "Most Messages",
 };
 
@@ -23,8 +23,8 @@ export class SortCycle {
     mode: SortMode;
     private labels: Record<SortMode, string>;
 
-    constructor(count_label: string) {
-        this.mode = "alpha";
+    constructor(count_label: string, initial_mode: SortMode) {
+        this.mode = initial_mode;
         this.labels = { ...mode_label, count: count_label };
     }
 

@@ -1,19 +1,23 @@
 import * as batch_count from "./batch_count";
 import { Button } from "./button";
 import { SortCycle } from "./grouping_sort";
+import * as sort_prefs from "./sort_prefs";
 
 export class SortControls {
     div: HTMLDivElement;
     topic_sort: SortCycle;
     batch_size: number;
     on_change: () => void;
+    pane_key: string;
 
     constructor(info: {
         initial_max: number;
         on_change: () => void;
         count_label: string;
+        pane_key: string;
     }) {
-        this.topic_sort = new SortCycle(info.count_label);
+        this.pane_key = info.pane_key;
+        this.topic_sort = new SortCycle(info.count_label, sort_prefs.get(info.pane_key));
         this.batch_size = 10;
         this.on_change = info.on_change;
 
@@ -31,6 +35,7 @@ export class SortControls {
 
         const toggle_button = new Button("Toggle Sort", 100, () => {
             this.topic_sort.toggle();
+            sort_prefs.set(this.pane_key, this.topic_sort.mode);
             this.on_change();
         });
         div.append(toggle_button.div);

@@ -36,6 +36,7 @@ export class ChannelList {
         this.sort_controls = new SortControls({
             initial_max: this.all_channel_rows.length,
             count_label: "Most Topics",
+            pane_key: "channel",
             on_change: () => {
                 this.populate_channel_rows();
                 this.redraw();
