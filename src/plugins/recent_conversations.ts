@@ -1,6 +1,7 @@
 import { APP } from "../app";
 import * as buddy_list from "../buddy_list";
 import { DB } from "../backend/database";
+import type { User } from "../backend/db_types";
 import type { ZulipEvent } from "../backend/event";
 import { EventFlavor } from "../backend/event";
 import * as model from "../backend/model";
@@ -95,30 +96,79 @@ function render_count_cell(total: number, unread_count: number): HTMLDivElement 
     return cell;
 }
 
-function build_table(
-    messages_per_topic: number,
+function get_recent_message_rows(
     allowed_topic_ids: Set<number> | undefined,
-): HTMLElement {
+): MessageRow[] {
     const messages = model.all_messages();
     messages.sort((a, b) => b.timestamp - a.timestamp);
 
-    const grouped = model.messages_grouped_by_topic();
-
     const used_topic_ids = new Set<number>();
-    const recent_message_rows = [];
+    const result: MessageRow[] = [];
 
     for (const message of messages) {
         const topic_id = message.topic_id;
-
         if (used_topic_ids.has(topic_id)) continue;
         if (allowed_topic_ids !== undefined && !allowed_topic_ids.has(topic_id))
             continue;
         used_topic_ids.add(topic_id);
-
-        recent_message_rows.push(new MessageRow(message));
-
-        if (recent_message_rows.length >= 30) break;
+        result.push(new MessageRow(message));
+        if (result.length >= 30) break;
     }
+
+    return result;
+}
+
+function sort_participants(participants: User[]): User[] {
+    const buddies = participants
+        .filter((u) => buddy_list.is_buddy(u.id))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
+    const others = participants
+        .filter((u) => !buddy_list.is_buddy(u.id))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
+    return [...buddies, ...others];
+}
+
+function build_senders_cell(
+    participants: User[],
+    compact: boolean,
+): HTMLDivElement {
+    const div = document.createElement("div");
+    const sorted = sort_participants(participants);
+
+    if (compact) {
+        for (let i = 0; i < sorted.length; i++) {
+            const span = document.createElement("span");
+            span.innerText = sorted[i].full_name;
+            if (buddy_list.is_buddy(sorted[i].id)) {
+                span.style.fontWeight = "bold";
+            }
+            div.append(span);
+            if (i < sorted.length - 1) {
+                div.append(", ");
+            }
+        }
+    } else {
+        for (const user of sorted) {
+            const row = document.createElement("div");
+            row.innerText = user.full_name;
+            if (buddy_list.is_buddy(user.id)) {
+                row.style.fontWeight = "bold";
+            } else {
+                row.style.fontSize = "12px";
+            }
+            div.append(row);
+        }
+    }
+
+    return div;
+}
+
+function build_table(
+    messages_per_topic: number,
+    allowed_topic_ids: Set<number> | undefined,
+): HTMLElement {
+    const grouped = model.messages_grouped_by_topic();
+    const recent_message_rows = get_recent_message_rows(allowed_topic_ids);
 
     const rows = [];
     for (const message_row of recent_message_rows) {
@@ -131,42 +181,12 @@ function build_table(
         const count_cell = render_count_cell(topic_messages.length, unread_count);
 
         const channel_cell = document.createElement("div");
-        const topic_cell = build_topic_cell(message_row);
-        const senders_cell = document.createElement("div");
         channel_cell.innerText = channel_name;
-
-        const buddies = participants
-            .filter((u) => buddy_list.is_buddy(u.id))
-            .sort((a, b) => a.full_name.localeCompare(b.full_name));
-        const others = participants
-            .filter((u) => !buddy_list.is_buddy(u.id))
-            .sort((a, b) => a.full_name.localeCompare(b.full_name));
-        const sorted = [...buddies, ...others];
-
-        if (messages_per_topic === 0) {
-            for (let i = 0; i < sorted.length; i++) {
-                const span = document.createElement("span");
-                span.innerText = sorted[i].full_name;
-                if (buddy_list.is_buddy(sorted[i].id)) {
-                    span.style.fontWeight = "bold";
-                }
-                senders_cell.append(span);
-                if (i < sorted.length - 1) {
-                    senders_cell.append(", ");
-                }
-            }
-        } else {
-            for (const user of sorted) {
-                const row = document.createElement("div");
-                row.innerText = user.full_name;
-                if (buddy_list.is_buddy(user.id)) {
-                    row.style.fontWeight = "bold";
-                } else {
-                    row.style.fontSize = "12px";
-                }
-                senders_cell.append(row);
-            }
-        }
+        const topic_cell = build_topic_cell(message_row);
+        const senders_cell = build_senders_cell(
+            participants,
+            messages_per_topic === 0,
+        );
 
         const message_cell = build_message_cell(
             topic_messages,
