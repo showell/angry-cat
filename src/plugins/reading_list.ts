@@ -144,6 +144,7 @@ export class ReadingList {
     private items: InternalItem[];
     private drag_id: number | undefined;
     private drop_index: number | undefined;
+    on_change: (() => void) | undefined;
 
     constructor() {
         this.items = this.load();
@@ -156,6 +157,10 @@ export class ReadingList {
         this.div.style.minWidth = "300px";
         this.div.style.margin = "40px";
         this.render();
+    }
+
+    private notify(): void {
+        this.on_change?.();
     }
 
     // Persistence uses dump_address/load_address so that topic_ids
@@ -191,6 +196,7 @@ export class ReadingList {
             data: { kind: "text", text },
         });
         this.save();
+        this.notify();
         this.render();
     }
 
@@ -201,6 +207,7 @@ export class ReadingList {
             data: { kind: "address_link", address },
         });
         this.save();
+        this.notify();
         this.render();
     }
 
@@ -219,6 +226,7 @@ export class ReadingList {
     private remove_item(id: number): void {
         this.items = this.items.filter((item) => item.id !== id);
         this.save();
+        this.notify();
         this.render();
     }
 
@@ -237,6 +245,7 @@ export class ReadingList {
         const [item] = this.items.splice(from_index, 1);
         this.items.splice(to_index, 0, item);
         this.save();
+        this.notify();
     }
 
     // Uses pointer events (not mouse events) so drag works on
@@ -482,6 +491,74 @@ function maybe_show_import_banner(
     requestAnimationFrame(() => import_button.focus());
 }
 
+// --- Right pane ---
+
+function build_cat_welcome(): HTMLDivElement {
+    const div = document.createElement("div");
+    div.style.padding = "12px";
+    div.style.border = `1px solid ${colors.accent_border}`;
+    div.style.borderRadius = "8px";
+    div.style.marginBottom = "16px";
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.gap = "10px";
+    header.style.marginBottom = "8px";
+
+    const avatar = document.createElement("img");
+    avatar.src = "images/angry_cat.png";
+    avatar.style.width = "40px";
+    avatar.style.height = "40px";
+    avatar.style.borderRadius = "50%";
+    avatar.style.objectFit = "cover";
+
+    const name = document.createElement("span");
+    name.innerText = "Angry Cat says:";
+    name.style.fontWeight = "bold";
+    name.style.color = colors.primary;
+
+    header.append(avatar, name);
+    div.append(header);
+
+    const tip = document.createElement("div");
+    tip.style.fontSize = "14px";
+    tip.style.lineHeight = "1.5";
+    tip.innerText =
+        "Welcome to your Reading List! Add topics from the message " +
+        "view using 'Read Later'. " +
+        "Drag the ☰ handles to reorder items. Check them off as you go!";
+    div.append(tip);
+
+    return div;
+}
+
+function build_right_pane(reading_list: ReadingList): HTMLDivElement {
+    const right_pane = document.createElement("div");
+    right_pane.style.width = "350px";
+    right_pane.style.flexShrink = "0";
+    right_pane.style.paddingTop = "40px";
+    right_pane.style.overflow = "auto";
+
+    right_pane.append(build_cat_welcome());
+
+    const count_div = document.createElement("div");
+    count_div.style.fontWeight = "bold";
+    count_div.style.color = colors.primary;
+    count_div.style.fontSize = "16px";
+    right_pane.append(count_div);
+
+    function refresh(): void {
+        const n = reading_list.item_count();
+        count_div.innerText = `${n} item${n === 1 ? "" : "s"} in your reading list`;
+    }
+
+    reading_list.on_change = refresh;
+    refresh();
+
+    return right_pane;
+}
+
 // --- Plugin entry point ---
 
 export function plugin(context: PluginContext): Plugin {
@@ -490,10 +567,20 @@ export function plugin(context: PluginContext): Plugin {
     const reading_list = new ReadingList();
     APP.set_reading_list(reading_list);
 
-    const container = document.createElement("div");
-    container.append(reading_list.div);
+    // Two-pane layout: scrollable reading list on the left, info on the right.
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.gap = "20px";
+    div.style.height = "100%";
 
-    maybe_show_import_banner(reading_list, container);
+    const left_pane = document.createElement("div");
+    left_pane.style.flex = "1";
+    left_pane.style.overflow = "auto";
+    left_pane.append(reading_list.div);
 
-    return { div: container };
+    maybe_show_import_banner(reading_list, left_pane);
+
+    div.append(left_pane, build_right_pane(reading_list));
+
+    return { div };
 }
