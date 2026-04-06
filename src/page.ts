@@ -80,6 +80,10 @@ export class Page {
         }
     }
 
+    get_active_plugin_helper(): PluginHelper | undefined {
+        return this.plugin_helpers.find((h) => h.open);
+    }
+
     make_plugin_active(plugin_helper: PluginHelper): void {
         this.close_all();
         plugin_helper.open = true;

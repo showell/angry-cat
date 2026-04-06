@@ -69,7 +69,8 @@ export async function run() {
 
     document.addEventListener("keydown", (e) => {
         const tag = (document.activeElement?.tagName ?? "").toLowerCase();
-        if (tag === "input" || tag === "textarea") return;
+        const in_text_field = tag === "input" || tag === "textarea";
+        if (in_text_field && e.key !== "Escape") return;
         const handled = app.APP.dispatch_keyboard_shortcut(e.key);
         if (handled) e.preventDefault();
     });

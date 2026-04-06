@@ -12,6 +12,8 @@ export type PluginMaker = (plugin_helper: PluginHelper) => Plugin;
 
 type ZulipEventListener = (event: ZulipEvent) => void;
 
+type KeyboardHandler = (key: string) => boolean;
+
 export class PluginHelper {
     div: HTMLDivElement;
     deleted: boolean;
@@ -21,6 +23,7 @@ export class PluginHelper {
     tab_button: TabButton;
     plugin: Plugin;
     zulip_event_listener?: ZulipEventListener;
+    keyboard_handler?: KeyboardHandler;
 
     constructor(plugin_maker: PluginMaker, page: Page) {
         const div = document.createElement("div");
@@ -51,6 +54,14 @@ export class PluginHelper {
         if (this.zulip_event_listener) {
             this.zulip_event_listener(event);
         }
+    }
+
+    set_keyboard_handler(handler: KeyboardHandler): void {
+        this.keyboard_handler = handler;
+    }
+
+    dispatch_keyboard_shortcut(key: string): boolean {
+        return this.keyboard_handler?.(key) ?? false;
     }
 
     delete_me(): void {

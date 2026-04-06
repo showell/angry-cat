@@ -136,6 +136,14 @@ export class ComposeBox {
         this.send_button = send_button;
     }
 
+    has_text(): boolean {
+        return this.textarea.contents().trim() !== "";
+    }
+
+    blur_textarea(): void {
+        this.textarea.elem.blur();
+    }
+
     focus_textarea(): void {
         this.textarea.focus();
     }

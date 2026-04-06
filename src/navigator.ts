@@ -103,6 +103,10 @@ export class Navigator {
         this.pane_manager = pane_manager;
         this.div = div;
 
+        plugin_helper.set_keyboard_handler((key) =>
+            this.handle_keyboard_shortcut(key),
+        );
+
         this.navigate_to_start_address();
     }
 
@@ -159,6 +163,20 @@ export class Navigator {
     }
 
     // --- Actions ---
+
+    handle_keyboard_shortcut(key: string): boolean {
+        if (key === "r") {
+            // TODO: if the add-topic pane is open, this silently no-ops
+            // because get_message_view() returns undefined. Consider whether
+            // "r" should close add-topic and open reply instead.
+            this.reply();
+            return true;
+        }
+        if (key === "Escape") {
+            return this.get_message_view()?.handle_escape() ?? false;
+        }
+        return false;
+    }
 
     fork(): void {
         const channel_id = this.channel_id;
