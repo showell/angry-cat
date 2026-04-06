@@ -15,6 +15,8 @@
 // If nothing is left to peel, returns false so Page can offer to close
 // the tab (Page handles this for all plugin types, not just Navigator).
 
+import { StatusBar } from "./status_bar";
+
 export interface EscKeyContext {
     is_composing(): boolean;
     blur_compose(): void;
@@ -35,30 +37,37 @@ export interface EscKeyContext {
 export function handle_esc_key(ctx: EscKeyContext): boolean {
     if (ctx.is_composing()) {
         ctx.blur_compose();
+        StatusBar.inform("Compose blurred. Press Escape again to close it.");
         return true;
     }
     if (ctx.reply_pane_open()) {
         ctx.close_reply_pane();
+        StatusBar.inform("Reply closed.");
         return true;
     }
     if (ctx.add_topic_pane_open()) {
         ctx.close_add_topic_pane();
+        StatusBar.inform("New topic cancelled.");
         return true;
     }
     if (ctx.message_list_focused()) {
         ctx.blur_message_list();
+        StatusBar.inform("Use arrows to browse topics, Enter to read messages.");
         return true;
     }
     if (ctx.topic_selected()) {
         ctx.clear_message_view();
+        StatusBar.inform("Use arrows to browse topics, or Escape to go back to channels.");
         return true;
     }
     if (ctx.in_topic_mode()) {
         ctx.exit_topic_mode();
+        StatusBar.inform("Back to channel navigation.");
         return true;
     }
     if (ctx.channel_selected()) {
         ctx.close_channel();
+        StatusBar.inform("Use arrows to browse channels.");
         return true;
     }
     return false;

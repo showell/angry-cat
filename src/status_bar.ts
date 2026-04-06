@@ -53,9 +53,13 @@ Click <b>+</b> to open a new navigator tab.</p>
     popup.pop({ div, confirm_button_text: "Close", callback: () => {} });
 }
 
+const DISPLAY_MS = 10_000;
+const FADE_MS = 3_000;
+
 class StatusBarWidget {
     div: HTMLDivElement;
     text_div: HTMLElement;
+    private fade_timer: ReturnType<typeof setTimeout> | undefined;
 
     constructor() {
         this.div = document.createElement("div");
@@ -74,22 +78,34 @@ class StatusBarWidget {
         const text_div = document.createElement("div");
         text_div.style.fontSize = "16px";
         text_div.style.flex = "1";
+        text_div.style.transition = `opacity ${FADE_MS}ms ease`;
         return text_div;
     }
 
-    scold(text: string) {
-        this.text_div.style.color = colors.danger;
+    private show(text: string, color: string): void {
+        this.text_div.style.color = color;
         this.text_div.innerText = text;
+        this.text_div.style.opacity = "1";
+
+        if (this.fade_timer !== undefined) {
+            clearTimeout(this.fade_timer);
+        }
+        this.fade_timer = setTimeout(() => {
+            this.text_div.style.opacity = "0";
+            this.fade_timer = undefined;
+        }, DISPLAY_MS);
+    }
+
+    scold(text: string) {
+        this.show(text, colors.danger);
     }
 
     celebrate(text: string) {
-        this.text_div.style.color = colors.success;
-        this.text_div.innerText = text;
+        this.show(text, colors.success);
     }
 
     inform(text: string) {
-        this.text_div.style.color = colors.status_info;
-        this.text_div.innerText = text;
+        this.show(text, colors.status_info);
     }
 
     clear(): void {

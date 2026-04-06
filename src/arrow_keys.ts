@@ -28,6 +28,8 @@ export interface ArrowKeyContext {
     topic_selected(): boolean;
     in_topic_mode(): boolean;
     exit_topic_mode(): void;
+    get_channel_name(): string | undefined;
+    get_topic_name(): string | undefined;
     get_first_channel_id(): number | undefined;
     get_next_channel_id(): number | undefined;
     get_prev_channel_id(): number | undefined;
@@ -45,6 +47,7 @@ export function handle_arrow_down(ctx: ArrowKeyContext): boolean {
         const next_id = ctx.get_next_topic_id();
         if (next_id !== undefined) {
             ctx.set_topic_id(next_id);
+            StatusBar.inform(`Topic: ${ctx.get_topic_name()}`);
             return true;
         }
         StatusBar.inform("You're at the last topic.");
@@ -58,6 +61,7 @@ export function handle_arrow_down(ctx: ArrowKeyContext): boolean {
             return true;
         }
         ctx.set_topic_id(topic_id);
+        StatusBar.inform(`Topic: ${ctx.get_topic_name()}`);
         return true;
     }
 
@@ -69,12 +73,14 @@ export function handle_arrow_down(ctx: ArrowKeyContext): boolean {
             return true;
         }
         ctx.select_channel(channel_id);
+        StatusBar.inform(`Channel: #${ctx.get_channel_name()}`);
         return true;
     }
 
     const next_id = ctx.get_next_channel_id();
     if (next_id !== undefined) {
         ctx.select_channel(next_id);
+        StatusBar.inform(`Channel: #${ctx.get_channel_name()}`);
         return true;
     }
     StatusBar.inform("You're at the last channel.");
@@ -86,16 +92,19 @@ export function handle_arrow_up(ctx: ArrowKeyContext): boolean {
         const prev_id = ctx.get_prev_topic_id();
         if (prev_id !== undefined) {
             ctx.set_topic_id(prev_id);
+            StatusBar.inform(`Topic: ${ctx.get_topic_name()}`);
             return true;
         }
         // At first topic — deselect topic but stay in topic mode.
         ctx.clear_message_view();
+        StatusBar.inform("Use arrows to browse topics, or Escape to go back to channels.");
         return true;
     }
 
     if (ctx.in_topic_mode()) {
         // No topic selected — exit topic mode, back to channel navigation.
         ctx.exit_topic_mode();
+        StatusBar.inform(`Back to channel navigation. Channel: #${ctx.get_channel_name()}`);
         return true;
     }
 
@@ -108,9 +117,11 @@ export function handle_arrow_up(ctx: ArrowKeyContext): boolean {
     const prev_id = ctx.get_prev_channel_id();
     if (prev_id !== undefined) {
         ctx.select_channel(prev_id);
+        StatusBar.inform(`Channel: #${ctx.get_channel_name()}`);
         return true;
     }
     // At first channel — deselect.
     ctx.close_channel();
+    StatusBar.inform("Use arrows to browse channels.");
     return true;
 }

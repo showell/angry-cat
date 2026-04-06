@@ -11,6 +11,7 @@ import { StatusBar } from "./status_bar";
 export interface EnterKeyContext {
     channel_selected(): boolean;
     topic_selected(): boolean;
+    get_topic_name(): string | undefined;
     get_first_topic_id(): number | undefined;
     set_topic_id(topic_id: number): void;
     focus_message_list(): void;
@@ -19,6 +20,7 @@ export interface EnterKeyContext {
 export function handle_enter_key(ctx: EnterKeyContext): boolean {
     if (ctx.topic_selected()) {
         ctx.focus_message_list();
+        StatusBar.inform("Reading messages. Use arrows to scroll, Escape to browse topics.");
         return true;
     }
 
@@ -30,6 +32,7 @@ export function handle_enter_key(ctx: EnterKeyContext): boolean {
         }
         ctx.set_topic_id(topic_id);
         ctx.focus_message_list();
+        StatusBar.inform(`Opened topic: ${ctx.get_topic_name()}`);
         return true;
     }
 
