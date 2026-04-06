@@ -1,4 +1,6 @@
 import { APP } from "./app";
+import { is_starred } from "./backend/database";
+import * as zulip_client from "./backend/zulip_client";
 import { Button } from "./button";
 import * as colors from "./colors";
 import { render_message_content } from "./message_content";
@@ -99,7 +101,12 @@ export class MessageRowWidget {
             e.stopPropagation();
         });
 
-        if (message_row.unread()) {
+        const message_id = message_row.message_id();
+
+        // Starred takes visual priority over unread.
+        if (is_starred(message_id)) {
+            div.style.backgroundColor = "#c6f6c6";
+        } else if (message_row.unread()) {
             div.style.backgroundColor = colors.unread_bg;
         }
 
@@ -112,9 +119,15 @@ export class MessageRowWidget {
         const content = message_row.content();
         const content_div = render_message_content(content);
 
-        const reactions_widget = new ReactionsRowWidget(
-            message_row.message_id(),
-        );
+        const reactions_widget = new ReactionsRowWidget(message_id);
+
+        // Put the unstar button in the same row as reactions.
+        if (is_starred(message_id)) {
+            const unstar_button = new Button("Unstar", 70, () => {
+                zulip_client.set_message_starred(message_id, false);
+            });
+            reactions_widget.div.append(unstar_button.div);
+        }
 
         div.append(content_div);
         div.append(reactions_widget.div);
