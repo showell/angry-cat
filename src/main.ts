@@ -38,16 +38,18 @@ function show_splash(): HTMLDivElement {
 
     const img = document.createElement("img");
     img.src = "images/angry_cat.png";
-    img.style.width = "200px";
+    img.style.width = "240px";
     img.style.height = "auto";
     img.style.marginBottom = "20px";
     splash.append(img);
 
-    const loading = document.createElement("div");
-    loading.innerText = "Loading your recent Zulip data...";
-    loading.style.fontSize = "16px";
-    loading.style.color = "#265a70";
-    splash.append(loading);
+    const log = document.createElement("div");
+    log.setAttribute("data-log", "");
+    log.style.fontSize = "16px";
+    log.style.color = "#265a70";
+    log.style.textAlign = "center";
+    log.style.lineHeight = "1.6";
+    splash.append(log);
 
     document.body.style.margin = "0";
     document.body.append(splash);
@@ -75,13 +77,25 @@ export async function run() {
 
     const splash = show_splash();
 
-    // Start data loading and minimum splash timer in parallel.
+    const log = splash.querySelector("[data-log]") as HTMLElement;
+
+    function add_log(text: string): void {
+        const line = document.createElement("div");
+        line.innerText = text;
+        log.append(line);
+    }
+
+    add_log("Connecting to Zulip...");
+
     const data_ready = (async () => {
         await event_queue.register_queue();
+        add_log("Connected!");
         await database.fetch_original_data();
+        add_log(`${DB.message_map.size} recent messages loaded.`);
+        add_log(`${DB.user_map.size} users found.`);
     })();
 
-    await Promise.all([data_ready, sleep(3000)]);
+    await Promise.all([data_ready, sleep(4000)]);
 
     // Remove splash and build the real UI.
     splash.remove();
