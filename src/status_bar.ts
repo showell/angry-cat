@@ -82,18 +82,21 @@ class StatusBarWidget {
         return text_div;
     }
 
-    private show(text: string, color: string): void {
+    private show(text: string, color: string, persistent = false): void {
         this.text_div.style.color = color;
         this.text_div.innerText = text;
         this.text_div.style.opacity = "1";
 
         if (this.fade_timer !== undefined) {
             clearTimeout(this.fade_timer);
-        }
-        this.fade_timer = setTimeout(() => {
-            this.text_div.style.opacity = "0";
             this.fade_timer = undefined;
-        }, DISPLAY_MS);
+        }
+        if (!persistent) {
+            this.fade_timer = setTimeout(() => {
+                this.text_div.style.opacity = "0";
+                this.fade_timer = undefined;
+            }, DISPLAY_MS);
+        }
     }
 
     scold(text: string) {
@@ -106,6 +109,11 @@ class StatusBarWidget {
 
     inform(text: string) {
         this.show(text, colors.status_info);
+    }
+
+    // Shows a message that stays until the next status update replaces it.
+    persist(text: string) {
+        this.show(text, colors.status_info, true);
     }
 
     clear(): void {

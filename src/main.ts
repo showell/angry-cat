@@ -90,7 +90,7 @@ async function run() {
     install_keyboard_handler();
     page.start();
 
-    StatusBar.inform(
+    StatusBar.persist(
         "Welcome! Use arrow keys to browse channels, Enter to open topics, or press 'h' for help. Press 'p' to peruse plugins.",
     );
 
