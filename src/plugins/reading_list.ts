@@ -239,22 +239,51 @@ export class ReadingList {
         this.save();
     }
 
-    private wire_drag(handle: HTMLElement, item_id: number): void {
-        handle.addEventListener("mousedown", (e: MouseEvent) => {
-            this.drag_id = item_id;
-            this.drop_index = this.items.findIndex((i) => i.id === item_id);
-            this.render();
+    // Uses pointer events (not mouse events) so drag works on
+    // touchscreens and trackpads. A ghost follows the pointer
+    // vertically during the drag for visual feedback.
+    private wire_drag(handle: HTMLElement, row: HTMLElement, item_id: number): void {
+        handle.style.touchAction = "none";
 
-            const on_move = (e: MouseEvent) => {
-                this.drop_index = this.index_for_y(e.clientY);
-                this.render();
+        handle.addEventListener("pointerdown", (e: PointerEvent) => {
+            const start_y = e.clientY;
+            let dragging = false;
+            let ghost: HTMLElement | undefined;
+
+            const on_move = (me: PointerEvent) => {
+                if (!dragging && Math.abs(me.clientY - start_y) > 5) {
+                    dragging = true;
+                    this.drag_id = item_id;
+                    this.drop_index = this.items.findIndex(
+                        (i) => i.id === item_id,
+                    );
+                    row.style.opacity = "0.4";
+
+                    ghost = row.cloneNode(true) as HTMLElement;
+                    ghost.style.position = "fixed";
+                    ghost.style.opacity = "0.8";
+                    ghost.style.pointerEvents = "none";
+                    ghost.style.zIndex = "9999";
+                    ghost.style.left = `${row.getBoundingClientRect().left}px`;
+                    ghost.style.width = `${row.getBoundingClientRect().width}px`;
+                    ghost.style.top = `${me.clientY}px`;
+                    document.body.append(ghost);
+                }
+                if (dragging) {
+                    this.drop_index = this.index_for_y(me.clientY);
+                    this.render();
+                    if (ghost) {
+                        ghost.style.top = `${me.clientY}px`;
+                    }
+                }
             };
 
-            document.addEventListener("mousemove", on_move);
-            document.addEventListener(
-                "mouseup",
-                () => {
-                    document.removeEventListener("mousemove", on_move);
+            const on_up = () => {
+                document.removeEventListener("pointermove", on_move);
+                document.removeEventListener("pointerup", on_up);
+                ghost?.remove();
+
+                if (dragging) {
                     if (
                         this.drag_id !== undefined &&
                         this.drop_index !== undefined
@@ -264,10 +293,11 @@ export class ReadingList {
                     this.drag_id = undefined;
                     this.drop_index = undefined;
                     this.render();
-                },
-                { once: true },
-            );
+                }
+            };
 
+            document.addEventListener("pointermove", on_move);
+            document.addEventListener("pointerup", on_up);
             e.preventDefault();
         });
     }
@@ -325,7 +355,7 @@ export class ReadingList {
         }
 
         const drag_handle = render_drag_handle();
-        this.wire_drag(drag_handle, item.id);
+        this.wire_drag(drag_handle, row, item.id);
 
         const content = render_item_content(item.data);
         apply_done_style(content, item.done);
