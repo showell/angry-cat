@@ -1,4 +1,6 @@
 import { APP } from "./app";
+import { is_starred } from "./backend/database";
+import * as zulip_client from "./backend/zulip_client";
 import { Button } from "./button";
 import * as table_widget from "./dom/table_widget";
 import type { MessageRow } from "./backend/message_row";
@@ -43,6 +45,19 @@ export class MessagePopup {
             button_container.append(confirmation);
             this.focus_confirm();
         });
+
+        // Only show Star if the message isn't already starred.
+        if (!is_starred(message_row.message_id())) {
+            const star_button = new Button("Star Message", 120, () => {
+                zulip_client.set_message_starred(message_row.message_id(), true);
+                button_container.innerHTML = "";
+                const confirmation = document.createElement("span");
+                confirmation.innerText = "Message starred!";
+                button_container.append(confirmation);
+                this.focus_confirm();
+            });
+            button_container.append(star_button.div);
+        }
 
         button_container.append(read_later_button.div);
         div.append(button_container);
