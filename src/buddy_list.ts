@@ -44,11 +44,11 @@ export function get_message_sender_ids(): Set<number> {
 }
 
 export function get_buddies(): User[] {
-    return get_all_users().filter((u) => buddy_ids.has(u.id));
+    return get_all_users().filter((u) => is_buddy(u.id));
 }
 
 export function is_buddy(user_id: number): boolean {
-    return buddy_ids.has(user_id);
+    return user_id === DB.current_user_id || buddy_ids.has(user_id);
 }
 
 export function add_buddy(user_id: number): void {
