@@ -170,21 +170,26 @@ export class Page {
 
     private handle_tab_reorder(
         source: TabButton,
-        target: TabButton,
+        target: TabButton | "end",
     ): void {
         const source_entry = this.entries.find(
             (e) => e.tab_button === source,
         );
-        const target_entry = this.entries.find(
-            (e) => e.tab_button === target,
-        );
-        if (!source_entry || !target_entry) return;
+        if (!source_entry) return;
 
         const source_index = this.entries.indexOf(source_entry);
         this.entries.splice(source_index, 1);
 
-        const target_index = this.entries.indexOf(target_entry);
-        this.entries.splice(target_index, 0, source_entry);
+        if (target === "end") {
+            this.entries.push(source_entry);
+        } else {
+            const target_entry = this.entries.find(
+                (e) => e.tab_button === target,
+            );
+            if (!target_entry) return;
+            const target_index = this.entries.indexOf(target_entry);
+            this.entries.splice(target_index, 0, source_entry);
+        }
 
         this.rebuild_button_bar();
     }

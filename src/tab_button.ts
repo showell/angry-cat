@@ -3,18 +3,35 @@ import * as tab_button_widget from "./dom/tab_button_widget";
 
 const all_tab_buttons: TabButton[] = [];
 
-function find_tab_button_at(x: number, y: number): TabButton | undefined {
+const MOVE_TO_END = Symbol("move_to_end");
+
+function find_drop_target(
+    x: number,
+    y: number,
+): TabButton | typeof MOVE_TO_END | undefined {
     const elem = document.elementFromPoint(x, y);
-    if (!elem) return undefined;
-    return all_tab_buttons.find(
-        (tb) => tb.div === elem || tb.div.contains(elem),
-    );
+    if (elem) {
+        const tab = all_tab_buttons.find(
+            (tb) => tb.div === elem || tb.div.contains(elem),
+        );
+        if (tab) return tab;
+    }
+    const last = all_tab_buttons[all_tab_buttons.length - 1];
+    if (last) {
+        const rect = last.div.getBoundingClientRect();
+        if (x > rect.right && Math.abs(y - rect.top) < rect.height * 2) {
+            return MOVE_TO_END;
+        }
+    }
+    return undefined;
 }
 
 export class TabButton {
     tab_button: HTMLElement;
     div: HTMLDivElement;
-    on_reorder: ((source: TabButton, target: TabButton) => void) | undefined;
+    on_reorder:
+        | ((source: TabButton, target: TabButton | "end") => void)
+        | undefined;
 
     constructor(on_click: () => void) {
         const div = document.createElement("div");
@@ -64,8 +81,10 @@ export class TabButton {
 
                 if (dragging) {
                     suppress_click = true;
-                    const target = find_tab_button_at(ue.clientX, ue.clientY);
-                    if (target && target !== this) {
+                    const target = find_drop_target(ue.clientX, ue.clientY);
+                    if (target === MOVE_TO_END) {
+                        this.on_reorder?.(this, "end");
+                    } else if (target && target !== this) {
                         this.on_reorder?.(this, target);
                     }
                 }
