@@ -1,7 +1,8 @@
 // Reading List — a persistent, reorderable list of items (text notes
 // or links to channels/topics/messages). Persisted to localStorage.
 
-import type { Address } from "../address";
+import type { Address, DumpedAddress } from "../address";
+import { dump_address, load_address } from "../address";
 import { APP } from "../app";
 import { DB, is_starred, label_for_address } from "../backend/database";
 import { MessageRow } from "../backend/message_row";
@@ -26,6 +27,32 @@ type InternalItem = {
 let next_id = 1;
 
 const STORAGE_KEY = "reading_list";
+
+// Serialization helpers. Address links are stored using dump_address
+// (channel_id + message_id) so they survive session restarts where
+// topic_ids change. On load, we recover topic_id from the message.
+
+type DumpedItemData =
+    | { kind: "text"; text: string }
+    | { kind: "address_link"; address: DumpedAddress };
+
+function dump_item_data(data: ItemData): DumpedItemData {
+    if (data.kind === "text") return data;
+    return { kind: "address_link", address: dump_address(data.address) };
+}
+
+// Returns undefined if the address can't be recovered (e.g. the
+// message was not in the current backfill window).
+function load_item_data(data: DumpedItemData): ItemData | undefined {
+    if (data.kind === "text") return data;
+    const address = load_address(data.address);
+    // If we couldn't recover a topic_id, the message wasn't in our
+    // cache — skip this item rather than showing a broken link.
+    if (address.topic_id === undefined && data.address.message_id !== undefined) {
+        return undefined;
+    }
+    return { kind: "address_link", address };
+}
 
 // --- Pure rendering helpers ---
 
@@ -116,10 +143,14 @@ export class ReadingList {
         this.render();
     }
 
+    // Persistence uses dump_address/load_address so that topic_ids
+    // (which are session-local) are replaced with message_ids that
+    // survive across page reloads.
+
     private save(): void {
         const data = this.items.map((item) => ({
             done: item.done,
-            data: item.data,
+            data: dump_item_data(item.data),
         }));
         local_storage.set(STORAGE_KEY, { items: data });
     }
@@ -129,13 +160,14 @@ export class ReadingList {
         if (raw === null) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed.items)) return [];
-        return parsed.items.map(
-            (entry: { done: boolean; data: ItemData }) => ({
-                id: next_id++,
-                done: entry.done,
-                data: entry.data,
-            }),
-        );
+        const result: InternalItem[] = [];
+        for (const entry of parsed.items) {
+            const data = load_item_data(entry.data);
+            if (data !== undefined) {
+                result.push({ id: next_id++, done: entry.done, data });
+            }
+        }
+        return result;
     }
 
     add_text_item(text: string): void {

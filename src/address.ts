@@ -1,4 +1,5 @@
 import { DB } from "./backend/database";
+import * as model from "./backend/model";
 
 export enum AddressType {
     NADA,
@@ -67,6 +68,56 @@ export function parse_path(path: string): PathInfo | undefined {
 
 function topic_id_lookup(channel_id: number, topic_name: string): number {
     return DB.topic_map.get_topic_id(channel_id, topic_name);
+}
+
+// --- Persistence ---
+//
+// Topic IDs are local to the current session (invented by Angry Cat,
+// not Zulip). To persist an Address across sessions, we dump it as
+// { channel_id, message_id } — dropping topic_id. If the original
+// address had a topic but no message, we find the first message in
+// the topic to use as a representative. On load, we recover topic_id
+// by looking up the message in DB.message_map.
+
+export type DumpedAddress = {
+    channel_id: number | undefined;
+    message_id: number | undefined;
+};
+
+export function dump_address(address: Address): DumpedAddress {
+    let message_id = address.message_id;
+
+    // If we have a topic but no message, find the first message in
+    // the topic to serve as a representative for later recovery.
+    if (message_id === undefined && address.topic_id !== undefined) {
+        const messages = model.messages_for_topic(address.topic_id);
+        if (messages.length > 0) {
+            message_id = messages[0].id;
+        }
+    }
+
+    return {
+        channel_id: address.channel_id,
+        message_id,
+    };
+}
+
+export function load_address(dumped: DumpedAddress): Address {
+    let topic_id: number | undefined;
+
+    // Recover topic_id from the message's topic assignment.
+    if (dumped.message_id !== undefined) {
+        const message = DB.message_map.get(dumped.message_id);
+        if (message) {
+            topic_id = message.topic_id;
+        }
+    }
+
+    return {
+        channel_id: dumped.channel_id,
+        topic_id,
+        message_id: dumped.message_id,
+    };
 }
 
 export function get_address_from_path(path: string): Address | undefined {
