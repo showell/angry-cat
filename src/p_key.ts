@@ -6,16 +6,14 @@ import * as popup from "./popup";
 
 import * as code_search from "./plugins/code_search";
 import * as color_scheme from "./plugins/color_scheme";
-import * as event_radio from "./plugins/event_radio";
 import * as github_search from "./plugins/github_search";
 import * as image_search from "./plugins/image_search";
 
 type PluginEntry = { name: string; factory: PluginFactory };
 
 const PLUGINS: PluginEntry[] = [
-    { name: "Color Scheme", factory: color_scheme.plugin },
-    { name: "Event Radio", factory: event_radio.plugin },
     { name: "Code Search", factory: code_search.plugin },
+    { name: "Color Scheme", factory: color_scheme.plugin },
     { name: "GitHub Search", factory: github_search.plugin },
     { name: "Image Search", factory: image_search.plugin },
 ];
