@@ -12,6 +12,7 @@ import * as lyn_rummy from "./lyn_rummy/plugin";
 import type { PluginFactory } from "./plugin_helper";
 import * as activity from "./plugins/activity";
 import * as admin from "./plugins/admin";
+import * as bot_management from "./plugins/bot_management";
 import * as buddies from "./plugins/buddies";
 import * as code_search from "./plugins/code_search";
 import * as color_scheme from "./plugins/color_scheme";
@@ -26,6 +27,7 @@ type PluginEntry = { name: string; factory: PluginFactory };
 function get_all_plugins(): PluginEntry[] {
     const plugins: PluginEntry[] = [
         { name: "Activity", factory: activity.plugin },
+        { name: "Bot Management", factory: bot_management.plugin },
         { name: "Buddies", factory: buddies.plugin },
         { name: "Code Search", factory: code_search.plugin },
         { name: "Color Scheme", factory: color_scheme.plugin },
