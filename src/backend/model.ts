@@ -1,3 +1,4 @@
+import * as buddy_list from "../buddy_list";
 import type { ChannelRow } from "./channel_row";
 import type { TopicRow } from "./topic_row";
 import * as channel_row_query from "./channel_row_query";
@@ -100,6 +101,26 @@ export function messages_grouped_by_topic(): Map<number, Message[]> {
         }
     }
     return map;
+}
+
+export function topic_ids_with_participant(user_id: number): Set<number> {
+    const ids = new Set<number>();
+    for (const message of DB.message_map.values()) {
+        if (message.sender_id === user_id) {
+            ids.add(message.topic_id);
+        }
+    }
+    return ids;
+}
+
+export function topic_ids_with_buddy_participation(): Set<number> {
+    const ids = new Set<number>();
+    for (const message of DB.message_map.values()) {
+        if (buddy_list.is_buddy(message.sender_id)) {
+            ids.add(message.topic_id);
+        }
+    }
+    return ids;
 }
 
 export function filtered_messages(filter: Filter): Message[] {

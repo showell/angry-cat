@@ -1,4 +1,5 @@
 import { APP } from "../app";
+import { DB } from "../backend/database";
 import type { ZulipEvent } from "../backend/event";
 import { EventFlavor } from "../backend/event";
 import * as model from "../backend/model";
@@ -12,6 +13,29 @@ import { render_message_content } from "../message_content";
 import { MessageRow } from "../backend/message_row";
 import { render_sender_name } from "../message_row_widget";
 import type { Plugin, PluginContext } from "../plugin_helper";
+
+const enum FilterMode {
+    ALL = "All",
+    PARTICIPATED = "Participated",
+    BUDDIES = "Buddies participated",
+}
+
+const FILTER_CYCLE: FilterMode[] = [
+    FilterMode.ALL,
+    FilterMode.PARTICIPATED,
+    FilterMode.BUDDIES,
+];
+
+function get_allowed_topic_ids(mode: FilterMode): Set<number> | undefined {
+    switch (mode) {
+        case FilterMode.ALL:
+            return undefined;
+        case FilterMode.PARTICIPATED:
+            return model.topic_ids_with_participant(DB.current_user_id);
+        case FilterMode.BUDDIES:
+            return model.topic_ids_with_buddy_participation();
+    }
+}
 
 function build_topic_cell(message_row: MessageRow): HTMLDivElement {
     const topic_name = message_row.topic_name();
@@ -70,7 +94,10 @@ function render_count_cell(total: number, unread_count: number): HTMLDivElement 
     return cell;
 }
 
-function build_table(messages_per_topic: number): HTMLElement {
+function build_table(
+    messages_per_topic: number,
+    allowed_topic_ids: Set<number> | undefined,
+): HTMLElement {
     const messages = model.all_messages();
     messages.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -83,6 +110,8 @@ function build_table(messages_per_topic: number): HTMLElement {
         const topic_id = message.topic_id;
 
         if (used_topic_ids.has(topic_id)) continue;
+        if (allowed_topic_ids !== undefined && !allowed_topic_ids.has(topic_id))
+            continue;
         used_topic_ids.add(topic_id);
 
         recent_message_rows.push(new MessageRow(message));
@@ -177,12 +206,33 @@ class RecentConversations {
     notification_div: HTMLDivElement;
     inner_div: HTMLDivElement;
     messages_per_topic: number;
+    filter_mode: FilterMode;
+    filter_label: HTMLElement;
 
     constructor(context: PluginContext) {
         this.context = context;
         this.messages_per_topic = 1;
+        this.filter_mode = FilterMode.ALL;
 
         const notification_div = build_notification_div(() => this.refresh());
+
+        const filter_label = document.createElement("span");
+        filter_label.innerText = this.filter_mode;
+        this.filter_label = filter_label;
+
+        const filter_button = new Button("Filter", 80, () => {
+            const idx = FILTER_CYCLE.indexOf(this.filter_mode);
+            this.filter_mode = FILTER_CYCLE[(idx + 1) % FILTER_CYCLE.length];
+            this.filter_label.innerText = this.filter_mode;
+            this.rebuild_table();
+        });
+
+        const filter_div = document.createElement("div");
+        filter_div.style.display = "flex";
+        filter_div.style.alignItems = "center";
+        filter_div.style.gap = "8px";
+        filter_div.style.marginBottom = "8px";
+        filter_div.append(filter_button.div, filter_label);
 
         const controls_div = build_controls_div(
             this.messages_per_topic,
@@ -195,14 +245,19 @@ class RecentConversations {
         const inner_div = document.createElement("div");
         inner_div.style.maxHeight = "82vh";
         inner_div.style.overflow = "auto";
-        inner_div.append(build_table(this.messages_per_topic));
+        inner_div.append(
+            build_table(
+                this.messages_per_topic,
+                get_allowed_topic_ids(this.filter_mode),
+            ),
+        );
 
         const div = document.createElement("div");
         div.style.paddingTop = "15px";
         div.style.maxHeight = "fit-content";
         div.style.maxWidth = "fit-content";
 
-        div.append(notification_div, controls_div, inner_div);
+        div.append(notification_div, filter_div, controls_div, inner_div);
 
         this.div = div;
         this.notification_div = notification_div;
@@ -211,7 +266,12 @@ class RecentConversations {
 
     rebuild_table(): void {
         this.inner_div.innerHTML = "";
-        this.inner_div.append(build_table(this.messages_per_topic));
+        this.inner_div.append(
+            build_table(
+                this.messages_per_topic,
+                get_allowed_topic_ids(this.filter_mode),
+            ),
+        );
     }
 
     handle_zulip_event(event: ZulipEvent): void {
