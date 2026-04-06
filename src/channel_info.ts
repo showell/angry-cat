@@ -113,6 +113,13 @@ export class ChannelInfo {
 
         div.append(render_list_heading(`#${channel_row.name()}`));
 
+        const id_div = document.createElement("div");
+        id_div.innerText = `Channel ID: ${channel_row.stream_id()}`;
+        id_div.style.fontSize = "12px";
+        id_div.style.color = colors.text_muted;
+        id_div.style.marginBottom = "4px";
+        div.append(id_div);
+
         const rendered_description = channel_row.rendered_description();
         if (rendered_description || model.current_user_is_admin()) {
             if (model.current_user_is_admin()) {
