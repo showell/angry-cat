@@ -1,5 +1,13 @@
 // Splash screen shown during startup while data loads.
 // All splash DOM and progress reporting is self-contained here.
+//
+// run_backfill returns two promises:
+//   threshold — resolves when BACKFILL_THRESHOLD messages are cached
+//               (or when backfill finishes, if the server has fewer).
+//               main.ts awaits this to dismiss the splash.
+//   complete  — resolves when backfill truly finishes (all batches done
+//               or MAX_SIZE reached). main.ts uses this to trigger a
+//               final refresh of all channel choosers.
 
 import * as message_fetch from "./backend/message_fetch";
 import type { Database } from "./backend/database";
@@ -55,32 +63,43 @@ class Splash {
         this.log.append(line);
     }
 
-    run_backfill(db: Database): { threshold: Promise<void>; complete: Promise<void> } {
+    run_backfill(db: Database): {
+        threshold: Promise<void>;
+        complete: Promise<void>;
+    } {
         let backfill_line: HTMLDivElement | undefined;
-        let threshold_resolved = false;
-        let threshold_resolve: () => void;
 
+        // threshold resolves early (at BACKFILL_THRESHOLD) so the splash
+        // can dismiss while backfill continues in the background.
+        let threshold_resolved = false;
+        let threshold_resolve!: () => void;
         const threshold = new Promise<void>((resolve) => {
             threshold_resolve = resolve;
         });
 
-        const complete = message_fetch.backfill(db, (count) => {
-            if (!backfill_line) {
-                backfill_line = document.createElement("div");
-                this.log.append(backfill_line);
-            }
-            backfill_line.innerText =
-                `Backfilling... ${count.toLocaleString()} messages cached.`;
-            if (!threshold_resolved && count >= BACKFILL_THRESHOLD) {
-                threshold_resolved = true;
-                threshold_resolve();
-            }
-        }).then(() => {
+        function resolve_threshold(): void {
             if (!threshold_resolved) {
                 threshold_resolved = true;
                 threshold_resolve();
             }
-        });
+        }
+
+        const complete = message_fetch
+            .backfill(db, (count) => {
+                if (!backfill_line) {
+                    backfill_line = document.createElement("div");
+                    this.log.append(backfill_line);
+                }
+                backfill_line.innerText = `Backfilling... ${count.toLocaleString()} messages cached.`;
+
+                if (count >= BACKFILL_THRESHOLD) {
+                    resolve_threshold();
+                }
+            })
+            // If the server has fewer than BACKFILL_THRESHOLD messages,
+            // backfill finishes before the threshold is reached. Resolve
+            // threshold here so the splash still dismisses.
+            .then(resolve_threshold);
 
         return { threshold, complete };
     }

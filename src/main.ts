@@ -51,7 +51,10 @@ async function run() {
     document.title = config.get_current_realm_nickname()!;
     mouse_drag.initialize();
 
-    // --- Splash phase: load data while the user watches progress ---
+    // --- Splash phase ---
+    // Show the mascot and progress while we load data. The splash
+    // dismisses once we reach the backfill threshold (or the server
+    // runs out of messages). Backfill continues in the background.
 
     const screen = splash.create();
 
@@ -63,11 +66,16 @@ async function run() {
     screen.add_line(`${DB.message_map.size} recent messages loaded.`);
     screen.add_line(`${DB.user_map.size} users found.`);
 
+    // run_backfill returns two promises: threshold (enough data to
+    // render a useful UI) and complete (all data fetched). We await
+    // threshold here and handle complete below.
     const backfill = screen.run_backfill(DB);
     await backfill.threshold;
     screen.remove();
 
-    // --- App phase: build the UI and start event processing ---
+    // --- App phase ---
+    // Build the real UI. Event polling starts here, so the database
+    // and all plugins stay up to date from this point forward.
 
     const page = new Page();
 
@@ -86,8 +94,9 @@ async function run() {
         "Welcome! Use arrow keys to browse channels, Enter to open topics, or press 'h' for help.",
     );
 
-    // When backfill fully completes, refresh all navigators so channel
-    // choosers reflect the complete data without waiting for the next event.
+    // Backfill continues in the background after the splash dismisses.
+    // When it finishes, refresh all navigators so channel choosers
+    // reflect the full dataset (not just the threshold subset).
     backfill.complete.then(() => {
         page.refresh_navigators();
     });
