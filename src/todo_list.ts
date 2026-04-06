@@ -1,5 +1,6 @@
 import type { Address } from "./address";
 import * as colors from "./colors";
+import * as local_storage from "./localstorage";
 
 export type TodoItemData =
     | { kind: "text"; text: string }
@@ -14,6 +15,7 @@ type InternalItem = {
 export type TodoListParams = {
     render_content: (data: TodoItemData) => HTMLElement;
     on_remove: (data: TodoItemData) => void;
+    storage_key?: string;
 };
 
 function render_drag_handle(): HTMLSpanElement {
@@ -69,7 +71,7 @@ export class TodoList {
 
     constructor(params: TodoListParams) {
         this.params = params;
-        this.items = [];
+        this.items = this.load();
         this.drag_id = undefined;
         this.drop_index = undefined;
         this.div = document.createElement("div");
@@ -81,12 +83,40 @@ export class TodoList {
         this.render();
     }
 
+    // Persist the item list to localStorage so it survives page reloads.
+    private save(): void {
+        const key = this.params.storage_key;
+        if (!key) return;
+        const data = this.items.map((item) => ({
+            done: item.done,
+            data: item.data,
+        }));
+        local_storage.set(key, { items: data });
+    }
+
+    private load(): InternalItem[] {
+        const key = this.params.storage_key;
+        if (!key) return [];
+        const raw = local_storage.get(key);
+        if (raw === null) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed.items)) return [];
+        return parsed.items.map(
+            (entry: { done: boolean; data: TodoItemData }) => ({
+                id: next_id++,
+                done: entry.done,
+                data: entry.data,
+            }),
+        );
+    }
+
     add_text_item(text: string): void {
         this.items.push({
             id: next_id++,
             done: false,
             data: { kind: "text", text },
         });
+        this.save();
         this.render();
     }
 
@@ -96,6 +126,7 @@ export class TodoList {
             done: false,
             data: { kind: "address_link", address },
         });
+        this.save();
         this.render();
     }
 
@@ -117,6 +148,7 @@ export class TodoList {
             this.params.on_remove(item.data);
         }
         this.items = this.items.filter((item) => item.id !== id);
+        this.save();
         this.render();
     }
 
@@ -124,6 +156,7 @@ export class TodoList {
         const item = this.items.find((item) => item.id === id);
         if (item) {
             item.done = !item.done;
+            this.save();
             this.render();
         }
     }
@@ -133,6 +166,7 @@ export class TodoList {
         if (from_index === -1) return;
         const [item] = this.items.splice(from_index, 1);
         this.items.splice(to_index, 0, item);
+        this.save();
     }
 
     wire_drag(handle: HTMLElement, item_id: number): void {

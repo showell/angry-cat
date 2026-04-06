@@ -119,7 +119,11 @@ function maybe_show_import_banner(
 export function plugin(context: PluginContext): Plugin {
     context.update_label("Reading List");
 
-    const todo_list = new TodoList({ render_content, on_remove });
+    const todo_list = new TodoList({
+        render_content,
+        on_remove,
+        storage_key: "reading_list",
+    });
     APP.set_reading_list(todo_list);
 
     const container = document.createElement("div");
