@@ -1,10 +1,13 @@
 import { api_form_request } from "../backend/api_helpers";
 import { DB } from "../backend/database";
 import type { User } from "../backend/db_types";
+import type { ZulipEvent } from "../backend/event";
+import { EventFlavor } from "../backend/event";
 import * as buddy_list from "../buddy_list";
 import { Button } from "../button";
 import * as colors from "../colors";
 import type { Plugin, PluginContext } from "../plugin_helper";
+import * as popup from "../popup";
 import { StatusBar } from "../status_bar";
 
 function render_label(text: string): HTMLLabelElement {
@@ -33,37 +36,6 @@ function render_textarea(placeholder: string): HTMLTextAreaElement {
     textarea.style.height = "60px";
     textarea.style.padding = "4px";
     return textarea;
-}
-
-async function create_channel(
-    name: string,
-    description: string,
-    is_private: boolean,
-    subscriber_ids: number[],
-): Promise<void> {
-    const subscription = {
-        name,
-        description,
-    };
-    const params: Record<string, string> = {
-        subscriptions: JSON.stringify([subscription]),
-    };
-    if (is_private) {
-        params.invite_only = "true";
-    }
-    if (subscriber_ids.length > 0) {
-        params.principals = JSON.stringify(subscriber_ids);
-    }
-    const data = await api_form_request(
-        "POST",
-        "users/me/subscriptions",
-        params,
-    );
-    if (data.result === "success") {
-        StatusBar.celebrate(`Channel "#${name}" created!`);
-    } else {
-        StatusBar.scold(`Failed to create channel: ${data.msg ?? "unknown error"}`);
-    }
 }
 
 function build_subscriber_picker(): {
@@ -112,69 +84,148 @@ function build_subscriber_picker(): {
     return { div, get_selected_ids };
 }
 
-function build_create_channel_form(): HTMLDivElement {
-    const form = document.createElement("div");
-
-    const heading = document.createElement("div");
-    heading.innerText = "Create Channel";
-    heading.style.fontSize = "18px";
-    heading.style.fontWeight = "bold";
-    heading.style.color = colors.primary;
-    heading.style.marginBottom = "8px";
-    form.append(heading);
-
-    form.append(render_label("Channel name"));
-    const name_input = render_text_input("e.g. design-reviews");
-    form.append(name_input);
-
-    form.append(render_label("Description (optional)"));
-    const desc_input = render_textarea("What is this channel about?");
-    form.append(desc_input);
-
-    form.append(render_label("Visibility"));
-    const visibility_select = document.createElement("select");
-    const public_option = document.createElement("option");
-    public_option.value = "public";
-    public_option.innerText = "Public";
-    const private_option = document.createElement("option");
-    private_option.value = "private";
-    private_option.innerText = "Private";
-    visibility_select.append(public_option, private_option);
-    form.append(visibility_select);
-
-    form.append(render_label("Subscribe buddies"));
-    const subscriber_picker = build_subscriber_picker();
-    form.append(subscriber_picker.div);
-
-    const button_div = document.createElement("div");
-    button_div.style.marginTop = "16px";
-    const create_button = new Button("Create", 100, () => {
-        const name = name_input.value.trim();
-        if (name === "") {
-            StatusBar.scold("Channel name cannot be empty.");
-            return;
-        }
-        create_channel(
-            name,
-            desc_input.value.trim(),
-            visibility_select.value === "private",
-            subscriber_picker.get_selected_ids(),
-        );
-    });
-    button_div.append(create_button.div);
-    form.append(button_div);
-
-    return form;
-}
-
 export function plugin(context: PluginContext): Plugin {
     context.update_label("Admin");
+
+    let pending_channel_name: string | undefined;
+    let waiting_popup: ReturnType<typeof popup.pop> | undefined;
 
     const div = document.createElement("div");
     div.style.paddingTop = "15px";
     div.style.maxWidth = "500px";
 
-    div.append(build_create_channel_form());
+    function rebuild_form(): void {
+        div.innerHTML = "";
+        div.append(build_form());
+    }
 
-    return { div };
+    function build_form(): HTMLDivElement {
+        const form = document.createElement("div");
+
+        const heading = document.createElement("div");
+        heading.innerText = "Create Channel";
+        heading.style.fontSize = "18px";
+        heading.style.fontWeight = "bold";
+        heading.style.color = colors.primary;
+        heading.style.marginBottom = "8px";
+        form.append(heading);
+
+        form.append(render_label("Channel name"));
+        const name_input = render_text_input("e.g. design-reviews");
+        form.append(name_input);
+
+        form.append(render_label("Description (optional)"));
+        const desc_input = render_textarea("What is this channel about?");
+        form.append(desc_input);
+
+        form.append(render_label("Visibility"));
+        const visibility_select = document.createElement("select");
+        const public_option = document.createElement("option");
+        public_option.value = "public";
+        public_option.innerText = "Public";
+        const private_option = document.createElement("option");
+        private_option.value = "private";
+        private_option.innerText = "Private";
+        visibility_select.append(public_option, private_option);
+        form.append(visibility_select);
+
+        form.append(render_label("Subscribe buddies"));
+        const subscriber_picker = build_subscriber_picker();
+        form.append(subscriber_picker.div);
+
+        const button_div = document.createElement("div");
+        button_div.style.marginTop = "16px";
+        const create_button = new Button("Create", 100, () => {
+            const name = name_input.value.trim();
+            if (name === "") {
+                StatusBar.scold("Channel name cannot be empty.");
+                return;
+            }
+            submit_create(
+                name,
+                desc_input.value.trim(),
+                visibility_select.value === "private",
+                subscriber_picker.get_selected_ids(),
+            );
+        });
+        button_div.append(create_button.div);
+        form.append(button_div);
+
+        return form;
+    }
+
+    async function submit_create(
+        name: string,
+        description: string,
+        is_private: boolean,
+        subscriber_ids: number[],
+    ): Promise<void> {
+        pending_channel_name = name;
+
+        const waiting_div = document.createElement("div");
+        waiting_div.innerText = `Creating channel "#${name}"...`;
+        waiting_div.style.padding = "8px 4px";
+        waiting_popup = popup.pop({
+            div: waiting_div,
+            confirm_button_text: "Waiting...",
+            callback: () => {},
+        });
+        waiting_popup.confirm_button.disable();
+
+        const subscription = { name, description };
+        const params: Record<string, string> = {
+            subscriptions: JSON.stringify([subscription]),
+        };
+        if (is_private) {
+            params.invite_only = "true";
+        }
+        if (subscriber_ids.length > 0) {
+            params.principals = JSON.stringify(subscriber_ids);
+        }
+        const data = await api_form_request(
+            "POST",
+            "users/me/subscriptions",
+            params,
+        );
+        if (data.result !== "success") {
+            pending_channel_name = undefined;
+            waiting_popup.finish();
+            waiting_popup = undefined;
+            StatusBar.scold(
+                `Failed to create channel: ${data.msg ?? "unknown error"}`,
+            );
+        }
+    }
+
+    function handle_zulip_event(event: ZulipEvent): void {
+        if (event.flavor !== EventFlavor.SUBSCRIPTION_ADD) return;
+        if (pending_channel_name === undefined) return;
+        if (!event.stream_names.includes(pending_channel_name)) return;
+
+        const name = pending_channel_name;
+        pending_channel_name = undefined;
+
+        if (waiting_popup) {
+            waiting_popup.finish();
+            waiting_popup = undefined;
+        }
+
+        const success_div = document.createElement("div");
+        success_div.innerText = `Channel "#${name}" created!`;
+        success_div.style.padding = "8px 4px";
+        popup.pop({
+            div: success_div,
+            confirm_button_text: "OK",
+            callback: () => {
+                rebuild_form();
+            },
+        });
+    }
+
+    rebuild_form();
+
+    return {
+        div,
+        handle_zulip_event,
+    };
 }

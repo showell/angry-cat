@@ -9,6 +9,7 @@ export enum EventFlavor {
     MUTATE_MESSAGE_CONTENT,
     MUTATE_UNREAD,
     MUTATE_STREAM,
+    SUBSCRIPTION_ADD,
     UNKNOWN,
     REACTION_ADD_EVENT,
     REACTION_REMOVE_EVENT,
@@ -55,6 +56,11 @@ type MutateStreamEvent = {
     rendered_description: string;
 };
 
+type SubscriptionAddEvent = {
+    flavor: EventFlavor.SUBSCRIPTION_ADD;
+    stream_names: string[];
+};
+
 type UnknownEvent = {
     flavor: EventFlavor.UNKNOWN;
     raw_event: any;
@@ -66,6 +72,7 @@ export type ZulipEvent =
     | MutateMessageContentEvent
     | MutateUnreadEvent
     | MutateStreamEvent
+    | SubscriptionAddEvent
     | ReactionEvent
     | UnknownEvent;
 
@@ -193,6 +200,19 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     stream_id: raw_event.stream_id,
                     description: undefined,
                     rendered_description: raw_event.value,
+                };
+            }
+            return undefined;
+        }
+
+        case "subscription": {
+            if (raw_event.op === "add") {
+                const stream_names: string[] = raw_event.subscriptions.map(
+                    (s: { name: string }) => s.name,
+                );
+                return {
+                    flavor: EventFlavor.SUBSCRIPTION_ADD,
+                    stream_names,
                 };
             }
             return undefined;
