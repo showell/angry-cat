@@ -14,7 +14,28 @@ type Bot = {
     username: string;
     full_name: string;
     api_key: string;
+    bot_type: string;
 };
+
+const BOT_TYPE_LABELS: Record<number, string> = {
+    1: "Generic bot",
+    2: "Incoming webhook",
+    3: "Outgoing webhook",
+    4: "Embedded bot",
+};
+
+// The /bots endpoint doesn't include bot_type, so we look it up
+// from /users by matching email to the bot's username.
+async function fetch_bot_types(): Promise<Map<string, number>> {
+    const data = await api_get("users");
+    const map = new Map<string, number>();
+    for (const user of data.members ?? []) {
+        if (user.is_bot) {
+            map.set(user.email, user.bot_type);
+        }
+    }
+    return map;
+}
 
 function render_bot_row(bot: Bot): HTMLDivElement {
     const div = document.createElement("div");
@@ -32,7 +53,7 @@ function render_bot_row(bot: Bot): HTMLDivElement {
     const username_div = document.createElement("div");
     username_div.style.color = colors.text_muted;
     username_div.style.fontSize = "14px";
-    username_div.innerText = bot.username;
+    username_div.innerText = `${bot.username} — ${bot.bot_type}`;
 
     const info = document.createElement("div");
     info.append(name_div, username_div);
@@ -157,20 +178,31 @@ export function plugin(context: PluginContext): Plugin {
     list_div.innerText = "Loading bots...";
     div.append(list_div);
 
-    // Fetch bots from the server.
-    api_get("bots").then((data) => {
-        list_div.innerHTML = "";
-        const bots: Bot[] = data.bots ?? [];
+    // Fetch bots and their types in parallel, then merge.
+    Promise.all([api_get("bots"), fetch_bot_types()]).then(
+        ([bots_data, type_map]) => {
+            list_div.innerHTML = "";
+            const raw_bots = bots_data.bots ?? [];
 
-        if (bots.length === 0) {
-            list_div.innerText = "You have no bots on this realm.";
-            return;
-        }
+            if (raw_bots.length === 0) {
+                list_div.innerText = "You have no bots on this realm.";
+                return;
+            }
 
-        for (const bot of bots) {
-            list_div.append(render_bot_row(bot));
-        }
-    });
+            const bots: Bot[] = raw_bots.map((b: any) => ({
+                username: b.username,
+                full_name: b.full_name,
+                api_key: b.api_key,
+                bot_type:
+                    BOT_TYPE_LABELS[type_map.get(b.username) ?? 0] ??
+                    "Unknown",
+            }));
+
+            for (const bot of bots) {
+                list_div.append(render_bot_row(bot));
+            }
+        },
+    );
 
     return { div };
 }
