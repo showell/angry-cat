@@ -134,16 +134,37 @@ function build_table(
         const topic_cell = build_topic_cell(message_row);
         const senders_cell = document.createElement("div");
         channel_cell.innerText = channel_name;
-        for (let i = 0; i < participants.length; i++) {
-            const user = participants[i];
-            const span = document.createElement("span");
-            span.innerText = user.full_name;
-            if (buddy_list.is_buddy(user.id)) {
-                span.style.fontWeight = "bold";
+
+        const buddies = participants
+            .filter((u) => buddy_list.is_buddy(u.id))
+            .sort((a, b) => a.full_name.localeCompare(b.full_name));
+        const others = participants
+            .filter((u) => !buddy_list.is_buddy(u.id))
+            .sort((a, b) => a.full_name.localeCompare(b.full_name));
+        const sorted = [...buddies, ...others];
+
+        if (messages_per_topic === 0) {
+            for (let i = 0; i < sorted.length; i++) {
+                const span = document.createElement("span");
+                span.innerText = sorted[i].full_name;
+                if (buddy_list.is_buddy(sorted[i].id)) {
+                    span.style.fontWeight = "bold";
+                }
+                senders_cell.append(span);
+                if (i < sorted.length - 1) {
+                    senders_cell.append(", ");
+                }
             }
-            senders_cell.append(span);
-            if (i < participants.length - 1) {
-                senders_cell.append(", ");
+        } else {
+            for (const user of sorted) {
+                const row = document.createElement("div");
+                row.innerText = user.full_name;
+                if (buddy_list.is_buddy(user.id)) {
+                    row.style.fontWeight = "bold";
+                } else {
+                    row.style.fontSize = "12px";
+                }
+                senders_cell.append(row);
             }
         }
 
