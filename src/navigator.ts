@@ -18,6 +18,8 @@ import type { MessageList } from "./message_list";
 import type { MessageView } from "./message_view";
 import { ButtonPanel } from "./nav_button_panel";
 import { PaneManager } from "./pane_manager";
+import { handle_n_key, NextTopicResult } from "./n_key";
+import type { NKeyContext } from "./n_key";
 import type { Plugin, PluginContext, PluginFactory } from "./plugin_helper";
 import { StatusBar } from "./status_bar";
 import type { TopicList } from "./topic_list";
@@ -42,11 +44,6 @@ function narrow_label(
     return prefix + label;
 }
 
-const enum NextTopicResult {
-    ADVANCED = "ADVANCED",
-    CLEARED = "CLEARED",
-}
-
 export function plugin_maker_for_address(start_address: Address): PluginFactory {
     return function (context: PluginContext): Plugin {
         const nav = new Navigator(context, start_address);
@@ -58,7 +55,7 @@ export function plugin_maker_for_address(start_address: Address): PluginFactory 
     };
 }
 
-export class Navigator {
+export class Navigator implements NKeyContext {
     div: HTMLDivElement;
     button_panel: ButtonPanel;
     pane_manager: PaneManager;
@@ -173,32 +170,7 @@ export class Navigator {
             return true;
         }
         if (key === "n") {
-            if (!this.channel_selected()) return false;
-            const topic_list = this.get_topic_list();
-            if (topic_list === undefined) return false;
-
-            if (!this.topic_selected()) {
-                const first_unread = topic_list.get_next_unread_topic_id(undefined);
-                if (first_unread === undefined) return false;
-                this.set_topic_id(first_unread);
-                StatusBar.inform(
-                    "You hit 'n', so we jumped to the first unread topic.",
-                );
-                return true;
-            }
-
-            this.mark_topic_read();
-            const result = this.go_to_next_topic();
-            if (result === NextTopicResult.ADVANCED) {
-                StatusBar.inform(
-                    "You hit 'n', so we marked the topic as read and moved to the next unread topic.",
-                );
-            } else {
-                StatusBar.inform(
-                    "You hit 'n', so we marked the topic as read. No more unread topics in this channel.",
-                );
-            }
-            return true;
+            return handle_n_key(this);
         }
         if (key === "Escape") {
             return this.get_message_view()?.handle_escape() ?? false;
@@ -298,6 +270,18 @@ export class Navigator {
 
     channel_selected(): boolean {
         return this.channel_id !== undefined;
+    }
+
+    get_first_unread_channel_id(): number | undefined {
+        return this.channel_chooser.get_first_unread_channel_id();
+    }
+
+    select_channel(channel_id: number): void {
+        this.channel_chooser.select_channel(channel_id);
+    }
+
+    get_first_unread_topic_id(): number | undefined {
+        return this.get_topic_list()?.get_next_unread_topic_id(undefined);
     }
 
     // --- Updates ---

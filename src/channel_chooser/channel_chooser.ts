@@ -38,7 +38,15 @@ export function make_channel_chooser(opts: ChannelChooserOpts) {
         return channel_list.total_unread_count();
     }
 
+    function get_first_unread_channel_id(): number | undefined {
+        return channel_list.get_first_unread_channel_id();
+    }
+
+    function select_channel(channel_id: number): void {
+        channel_list.select_channel(channel_id);
+    }
+
     const div = pane_div();
 
-    return { div, refresh_completely, get_channel_row, total_unread_count };
+    return { div, refresh_completely, get_channel_row, total_unread_count, get_first_unread_channel_id, select_channel };
 }

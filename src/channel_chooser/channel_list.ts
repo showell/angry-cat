@@ -121,6 +121,16 @@ export class ChannelList {
         return count;
     }
 
+    get_first_unread_channel_id(): number | undefined {
+        return this.channel_rows.find((row) => row.unread_count() > 0)?.stream_id();
+    }
+
+    select_channel(channel_id: number): void {
+        this.channel_id = channel_id;
+        this.refresh_completely();
+        this.handle_channel_chosen(channel_id);
+    }
+
     refresh_completely() {
         this.populate_channel_rows();
         this.redraw();
