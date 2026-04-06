@@ -8,7 +8,7 @@ export const primary = "#000080";
 export const on_primary = "white";
 
 // Keyboard-focus highlight color for primary buttons.
-export const primary_focus = "#E87722";
+export const primary_focus = "#1A7A3A";
 
 // Background for content panes, sticky table headers, and the active tab.
 export const surface = "white";
@@ -18,9 +18,6 @@ export const accent_border = "#CCCCFF";
 
 // Tab bar: inactive (background) tab.
 export const tab_inactive_bg = "lightgray";
-
-// Cancel / secondary-action button (uses text_muted for bg, darker for focus).
-export const cancel_focus_bg = "#555";
 
 // Danger color — close button, destructive actions.
 export const danger = "#CC0000";

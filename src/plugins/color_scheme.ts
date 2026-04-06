@@ -65,16 +65,6 @@ const GROUPS: SwatchGroup[] = [
         ],
     },
     {
-        heading: "Cancel / secondary buttons",
-        entries: [
-            {
-                name: "cancel_focus_bg",
-                value: colors.cancel_focus_bg,
-                description: "Cancel button background when focused",
-            },
-        ],
-    },
-    {
         heading: "Semantic feedback",
         entries: [
             {
