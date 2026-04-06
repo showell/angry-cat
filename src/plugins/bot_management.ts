@@ -2,8 +2,11 @@
 // Uses GET /bots to fetch the bot list.
 
 import { api_get } from "../backend/api_helpers";
+import * as config from "../backend/config";
+import { Button } from "../button";
 import * as colors from "../colors";
 import type { Plugin, PluginContext } from "../plugin_helper";
+import * as popup from "../popup";
 
 type Bot = {
     username: string;
@@ -33,7 +36,35 @@ function render_bot_row(bot: Bot): HTMLDivElement {
     info.append(name_div, username_div);
     info.style.flex = "1";
 
-    div.append(info);
+    const creds_button = new Button("Credentials", 110, () => {
+        const creds = {
+            email: bot.username,
+            api_key: bot.api_key,
+            url: config.get_current_realm_url(),
+            nickname: bot.full_name,
+        };
+
+        const popup_div = document.createElement("div");
+        popup_div.style.padding = "8px 4px";
+
+        const pre = document.createElement("pre");
+        pre.innerText = JSON.stringify(creds, null, 4);
+        pre.style.fontSize = "14px";
+        pre.style.backgroundColor = "#f5f5f5";
+        pre.style.padding = "12px";
+        pre.style.borderRadius = "4px";
+        pre.style.overflow = "auto";
+        pre.style.userSelect = "all";
+        popup_div.append(pre);
+
+        popup.pop({
+            div: popup_div,
+            confirm_button_text: "Close",
+            callback: () => {},
+        });
+    });
+
+    div.append(info, creds_button.div);
     return div;
 }
 
