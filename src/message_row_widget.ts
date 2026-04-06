@@ -1,6 +1,4 @@
 import { APP } from "./app";
-import { is_starred } from "./backend/database";
-import * as zulip_client from "./backend/zulip_client";
 import { Button } from "./button";
 import * as colors from "./colors";
 import { render_message_content } from "./message_content";
@@ -8,6 +6,7 @@ import { MessagePopup } from "./message_popup";
 import type { MessageRow } from "./backend/message_row";
 import { pop } from "./popup";
 import { ReactionsRowWidget } from "./reactions_row_widget";
+import * as star_widget from "./star_widget";
 import * as mouse_drag from "./util/mouse_drag";
 
 function render_message_box() {
@@ -104,9 +103,8 @@ export class MessageRowWidget {
         const message_id = message_row.message_id();
 
         // Starred takes visual priority over unread.
-        if (is_starred(message_id)) {
-            div.style.backgroundColor = colors.special_green;
-        } else if (message_row.unread()) {
+        const starred = star_widget.apply_star_style(div, message_id);
+        if (!starred && message_row.unread()) {
             div.style.backgroundColor = colors.unread_bg;
         }
 
@@ -124,11 +122,9 @@ export class MessageRowWidget {
         // Unstar button for starred messages. The widget is fully
         // re-rendered by refresh_message_ids when MUTATE_STARRED arrives,
         // so the button disappears and the background reverts automatically.
-        if (is_starred(message_id)) {
-            const btn = new Button("Unstar", 70, () => {
-                zulip_client.set_message_starred(message_id, false);
-            });
-            reactions_widget.div.append(btn.div);
+        const unstar_btn = star_widget.render_unstar_button(message_id);
+        if (unstar_btn) {
+            reactions_widget.div.append(unstar_btn.div);
         }
 
         div.append(content_div);
