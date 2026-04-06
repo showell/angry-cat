@@ -76,7 +76,7 @@ class StatusBarWidget {
 
     make_text_div() {
         const text_div = document.createElement("div");
-        text_div.style.fontSize = "16px";
+        text_div.style.fontSize = "17px";
         text_div.style.flex = "1";
         text_div.style.transition = `opacity ${FADE_MS}ms ease`;
         return text_div;

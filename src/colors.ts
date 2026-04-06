@@ -26,7 +26,7 @@ export const danger = "#CC0000";
 export const success = "#1A7A3A";
 
 // Informational status color.
-export const status_info = "#31708f";
+export const status_info = "#265a70";
 
 // Text hierarchy (headings use primary; body and muted have their own values).
 export const text_body = "#333"; // standard body text
