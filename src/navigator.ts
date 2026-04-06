@@ -73,6 +73,7 @@ export class Navigator
     channel_view?: ChannelView;
     context: PluginContext;
     start_address: Address;
+    private _topic_mode = false;
 
     constructor(context: PluginContext, start_address: Address) {
         const self = this;
@@ -290,6 +291,14 @@ export class Navigator
         return this.channel_id !== undefined;
     }
 
+    in_topic_mode(): boolean {
+        return this._topic_mode;
+    }
+
+    exit_topic_mode(): void {
+        this._topic_mode = false;
+    }
+
     get_first_channel_id(): number | undefined {
         return this.channel_chooser.get_first_channel_id();
     }
@@ -443,6 +452,7 @@ export class Navigator
     }
 
     clear_channel(): void {
+        this._topic_mode = false;
         this.pane_manager.remove_after("channel_chooser");
         this.channel_view = undefined;
         this.update_button_panel();
@@ -451,6 +461,7 @@ export class Navigator
     }
 
     update_channel(): void {
+        this._topic_mode = false;
         const pane_manager = this.pane_manager;
         const channel_row = this.get_channel_row();
 
@@ -499,6 +510,7 @@ export class Navigator
     }
 
     set_topic_id(topic_id: number): void {
+        this._topic_mode = true;
         this.channel_view!.select_topic_id(topic_id);
         this.update_topic();
     }

@@ -8,8 +8,9 @@
 //   2. Reply pane open                         → close the reply pane
 //   3. Add-topic pane open                     → close the add-topic pane
 //   4. Topic selected (reading messages)       → deselect the topic
-//   5. Channel selected (browsing topics)      → deselect the channel
-//   6. Nothing left                            → offer to close the tab
+//   5. In topic mode (no topic selected)       → exit topic mode
+//   6. Channel selected (browsing channels)    → deselect the channel
+//   7. Nothing left                            → offer to close the tab
 //
 // Every state produces a visible action, so ESC is never a silent no-op.
 
@@ -24,6 +25,8 @@ export interface EscKeyContext {
     close_add_topic_pane(): void;
     topic_selected(): boolean;
     clear_message_view(): void;
+    in_topic_mode(): boolean;
+    exit_topic_mode(): void;
     channel_selected(): boolean;
     close_channel(): void;
     tab_count(): number;
@@ -64,6 +67,10 @@ export function handle_esc_key(ctx: EscKeyContext): boolean {
     }
     if (ctx.topic_selected()) {
         ctx.clear_message_view();
+        return true;
+    }
+    if (ctx.in_topic_mode()) {
+        ctx.exit_topic_mode();
         return true;
     }
     if (ctx.channel_selected()) {
