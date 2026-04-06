@@ -121,11 +121,14 @@ export function enter(page_div: HTMLDivElement, exit_callback: () => void): void
 
         const img = document.createElement("img");
         img.src = "images/angry_cat.png";
-        img.style.width = "350px";
+        img.style.width = "35vw";
+        img.style.maxHeight = "90vh";
         img.style.height = "auto";
         left.append(img);
         div.append(left);
     }
+
+    let exit_button: Button;
 
     // Right: stats, event log, exit button
     {
@@ -166,14 +169,22 @@ export function enter(page_div: HTMLDivElement, exit_callback: () => void): void
 
         add_event_line(`${format_time()} — You entered zen mode.`);
 
-        const exit_button = new Button("Back to work", 200, exit);
+        exit_button = new Button("Back to work", 200, exit);
         right.append(exit_button.div);
+
+        const hint = document.createElement("div");
+        hint.innerText = "You can also press 'z' to exit zen mode.";
+        hint.style.fontSize = "12px";
+        hint.style.color = colors.status_info;
+        hint.style.marginTop = "4px";
+        right.append(hint);
 
         div.append(right);
     }
 
     document.body.append(div);
     zen_div = div;
+    exit_button.focus();
 }
 
 export function exit(): void {
