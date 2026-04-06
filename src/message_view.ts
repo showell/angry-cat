@@ -42,7 +42,7 @@ export class MessageView {
     handle_escape(): boolean {
         const reply_pane = this.reply_pane;
         if (!reply_pane) return false;
-        if (reply_pane.has_text()) {
+        if (reply_pane.has_text() && reply_pane.is_textarea_focused()) {
             reply_pane.blur();
             return true;
         }

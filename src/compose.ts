@@ -151,6 +151,10 @@ export class ComposeBox {
         return this.textarea.contents().trim() !== "";
     }
 
+    is_textarea_focused(): boolean {
+        return document.activeElement === this.textarea.elem;
+    }
+
     blur_textarea(): void {
         this.textarea.elem.blur();
     }

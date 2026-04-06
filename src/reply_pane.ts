@@ -37,6 +37,10 @@ export class ReplyPane {
         return this.compose_box.has_text();
     }
 
+    is_textarea_focused(): boolean {
+        return this.compose_box.is_textarea_focused();
+    }
+
     blur(): void {
         this.compose_box.blur_textarea();
     }
