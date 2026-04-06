@@ -17,6 +17,7 @@ import * as recent_conversations from "./plugins/recent_conversations";
 import { show_help } from "./status_bar";
 import { create_global_status_bar, StatusBar } from "./status_bar";
 import { TabButton } from "./tab_button";
+import * as zen from "./zen";
 
 type PluginEntry = {
     plugin: Plugin;
@@ -214,7 +215,22 @@ export class Page {
         return this.entries.some((e) => e.factory === factory);
     }
 
+    private toggle_zen(): void {
+        if (zen.is_active()) {
+            zen.exit();
+        } else {
+            zen.enter(this.div, () => {
+                this.div.style.display = "";
+            });
+        }
+    }
+
     dispatch_keyboard_shortcut(key: string): boolean {
+        if (key === "z") {
+            this.toggle_zen();
+            return true;
+        }
+        if (zen.is_active()) return false;
         if (key === "p") {
             return handle_p_key();
         }
@@ -295,6 +311,22 @@ export class Page {
             } else if (message?.sender_id === DB.current_user_id) {
                 const reactor_name = DB.user_map.get(sender_id)?.full_name;
                 StatusBar.celebrate(`${reactor_name} reacted to your message!`);
+            }
+        }
+
+        // Notify zen mode with calm summaries.
+        if (zen.is_active()) {
+            if (event.flavor === EventFlavor.MESSAGE) {
+                const message_row = new MessageRow(event.message);
+                zen.notify_message(message_row.sender_name());
+            }
+            if (event.flavor === EventFlavor.MUTATE_UNREAD) {
+                const val = event.unread ? "unread" : "read";
+                zen.notify_event(`Messages marked as ${val}.`);
+            }
+            if (event.flavor === EventFlavor.REACTION_ADD_EVENT) {
+                const name = DB.user_map.get(event.user_id)?.full_name ?? "Someone";
+                zen.notify_event(`${name} reacted to a message.`);
             }
         }
 
