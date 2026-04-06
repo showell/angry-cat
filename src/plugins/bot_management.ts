@@ -1,12 +1,14 @@
 // Bot Management plugin — shows the user's bots on the Zulip instance.
 // Uses GET /bots to fetch the bot list.
 
-import { api_get } from "../backend/api_helpers";
+import { api_form_request, api_get } from "../backend/api_helpers";
 import * as config from "../backend/config";
+import { DB } from "../backend/database";
 import { Button } from "../button";
 import * as colors from "../colors";
 import type { Plugin, PluginContext } from "../plugin_helper";
 import * as popup from "../popup";
+import { StatusBar } from "../status_bar";
 
 type Bot = {
     username: string;
@@ -64,7 +66,72 @@ function render_bot_row(bot: Bot): HTMLDivElement {
         });
     });
 
-    div.append(info, creds_button.div);
+    const edit_name_button = new Button("Edit Nickname", 130, () => {
+        const popup_div = document.createElement("div");
+        popup_div.style.padding = "8px 4px";
+
+        const label = document.createElement("div");
+        label.innerText = "New nickname:";
+        label.style.marginBottom = "6px";
+        popup_div.append(label);
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = bot.full_name;
+        input.style.width = "300px";
+        input.style.padding = "4px";
+        input.style.fontSize = "16px";
+        popup_div.append(input);
+
+        const edit_popup = popup.pop({
+            div: popup_div,
+            confirm_button_text: "Save",
+            cancel_button_text: "Cancel",
+            callback: async () => {
+                const new_name = input.value.trim();
+                if (new_name === "" || new_name === bot.full_name) return;
+
+                // Find the bot's user_id from DB.user_map by matching email.
+                let user_id: number | undefined;
+                for (const user of DB.user_map.values()) {
+                    if (user.email === bot.username) {
+                        user_id = user.id;
+                        break;
+                    }
+                }
+                if (user_id === undefined) {
+                    StatusBar.scold("Could not find bot's user ID.");
+                    return;
+                }
+
+                const result = await api_form_request(
+                    "PATCH",
+                    `bots/${user_id}`,
+                    { full_name: new_name },
+                );
+                if (result.result === "success") {
+                    bot.full_name = new_name;
+                    name_div.innerText = new_name;
+                    StatusBar.celebrate(
+                        `Bot renamed to "${new_name}".`,
+                    );
+                } else {
+                    StatusBar.scold(
+                        `Failed to rename bot: ${result.msg ?? "unknown error"}`,
+                    );
+                }
+            },
+        });
+
+        requestAnimationFrame(() => input.focus());
+    });
+
+    const button_row = document.createElement("div");
+    button_row.style.display = "flex";
+    button_row.style.gap = "6px";
+    button_row.append(creds_button.div, edit_name_button.div);
+
+    div.append(info, button_row);
     return div;
 }
 
