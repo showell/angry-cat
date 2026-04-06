@@ -121,12 +121,14 @@ export class MessageRowWidget {
 
         const reactions_widget = new ReactionsRowWidget(message_id);
 
-        // Put the unstar button in the same row as reactions.
+        // Unstar button for starred messages. The widget is fully
+        // re-rendered by refresh_message_ids when MUTATE_STARRED arrives,
+        // so the button disappears and the background reverts automatically.
         if (is_starred(message_id)) {
-            const unstar_button = new Button("Unstar", 70, () => {
+            const btn = new Button("Unstar", 70, () => {
                 zulip_client.set_message_starred(message_id, false);
             });
-            reactions_widget.div.append(unstar_button.div);
+            reactions_widget.div.append(btn.div);
         }
 
         div.append(content_div);

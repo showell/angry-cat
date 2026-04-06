@@ -572,6 +572,9 @@ export class Navigator
             case EventFlavor.MUTATE_UNREAD:
                 this.refresh_message_ids(event.message_ids);
                 break;
+            case EventFlavor.MUTATE_STARRED:
+                this.refresh_message_ids(event.message_ids);
+                break;
             case EventFlavor.REACTION_ADD_EVENT:
             case EventFlavor.REACTION_REMOVE_EVENT:
                 this.refresh_message_ids([event.message_id]);
