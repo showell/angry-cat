@@ -48,7 +48,12 @@ function render_starred_message(
     div.style.borderBottom = `1px solid ${colors.border_subtle}`;
     div.style.paddingBottom = "8px";
     div.style.marginBottom = "8px";
-    div.style.transition = "opacity 0.3s ease";
+
+    // Content area (header + message body) dims on unstar;
+    // buttons stay at full opacity so they remain clearly clickable.
+    const content_area = document.createElement("div");
+    content_area.style.transition = "opacity 0.3s ease";
+    div.append(content_area);
 
     // Header: sender, topic, time
     const header = document.createElement("div");
@@ -61,10 +66,10 @@ function render_starred_message(
         minute: "2-digit",
     });
     header.innerText = `${message_row.sender_name()} — ${message_row.topic_link()} — ${time}`;
-    div.append(header);
+    content_area.append(header);
 
     // Message content
-    div.append(render_message_content(message_row.content()));
+    content_area.append(render_message_content(message_row.content()));
 
     // Action buttons — managed as a row that swaps between states.
     const button_row = document.createElement("div");
@@ -100,13 +105,17 @@ function render_starred_message(
 
     function show_unstarred_buttons(): void {
         button_row.innerHTML = "";
-        div.style.opacity = "0.5";
+        content_area.style.opacity = "0.5";
         const restar_button = new Button("Restar", 80, () => {
             pending_starred = true;
             zulip_client.set_message_starred(message.id, true);
             show_pending();
         });
-        button_row.append(restar_button.div);
+        const dismiss_button = new Button("Dismiss", 80, () => {
+            dismissed_ids.add(message.id);
+            on_dismiss();
+        });
+        button_row.append(restar_button.div, dismiss_button.div);
     }
 
     function show_pending(): void {
@@ -124,7 +133,7 @@ function render_starred_message(
 
         pending_starred = null;
         if (starred) {
-            div.style.opacity = "1";
+            content_area.style.opacity = "1";
             show_starred_buttons();
         } else {
             show_unstarred_buttons();
