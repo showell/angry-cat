@@ -1,3 +1,4 @@
+import type { Address } from "../address";
 import type { Message, Stream, User } from "./db_types";
 import type { ZulipEvent } from "./event";
 import { EventFlavor } from "./event";
@@ -20,6 +21,21 @@ export type Database = {
     message_index: MessageIndex;
     reactions_map: ReactionsMap;
 };
+
+export function label_for_address(address: Address): string {
+    const { channel_id, topic_id, message_id } = address;
+    const channel_name =
+        channel_id !== undefined
+            ? (DB.channel_map.get(channel_id)?.name ?? `channel:${channel_id}`)
+            : "?";
+    const topic_name =
+        topic_id !== undefined
+            ? (DB.topic_map.get(topic_id)?.topic_name ?? `topic:${topic_id}`)
+            : "?";
+    return message_id !== undefined
+        ? `#${channel_name} > ${topic_name} (msg ${message_id})`
+        : `#${channel_name} > ${topic_name}`;
+}
 
 export async function fetch_original_data(): Promise<void> {
     DB = await fetch.fetch_model_data();

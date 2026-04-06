@@ -1,5 +1,5 @@
 import { APP } from "../app";
-import { DB } from "../backend/database";
+import { label_for_address } from "../backend/database";
 import * as colors from "../colors";
 import type { PluginHelper } from "../plugin_helper";
 import type { TodoItemData } from "../todo_list";
@@ -12,20 +12,7 @@ function render_content(data: TodoItemData): HTMLElement {
         return span;
     }
 
-    const { channel_id, topic_id, message_id } = data.address;
-    const channel_name =
-        channel_id !== undefined
-            ? (DB.channel_map.get(channel_id)?.name ?? `channel:${channel_id}`)
-            : "?";
-    const topic_name =
-        topic_id !== undefined
-            ? (DB.topic_map.get(topic_id)?.topic_name ?? `topic:${topic_id}`)
-            : "?";
-
-    const label =
-        message_id !== undefined
-            ? `#${channel_name} > ${topic_name} (msg ${message_id})`
-            : `#${channel_name} > ${topic_name}`;
+    const label = label_for_address(data.address);
 
     const button = document.createElement("button");
     button.innerText = label;
