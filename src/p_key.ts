@@ -1,4 +1,8 @@
 // The 'p' key opens a popup to launch optional plugins.
+//
+// Navigation: first plugin button is auto-focused. Arrow keys and Tab
+// navigate via normal browser behavior. ESC focuses the Cancel button;
+// pressing ESC or Enter when Cancel is focused closes the dialog.
 
 import { APP } from "./app";
 import * as model from "./backend/model";
@@ -47,6 +51,8 @@ export function handle_p_key(): boolean {
     heading.style.marginBottom = "4px";
     div.append(heading);
 
+    let first_button: HTMLButtonElement | undefined;
+
     for (const entry of get_plugins()) {
         const button = document.createElement("button");
         button.innerText = entry.name;
@@ -58,6 +64,9 @@ export function handle_p_key(): boolean {
             chooser_popup.finish();
         });
         div.append(button);
+        if (first_button === undefined) {
+            first_button = button;
+        }
     }
 
     const chooser_popup = popup.pop({
@@ -65,6 +74,24 @@ export function handle_p_key(): boolean {
         confirm_button_text: "Cancel",
         callback: () => {},
     });
+
+    const cancel_button = chooser_popup.confirm_button;
+
+    chooser_popup.dialog_shell.popup_element.addEventListener(
+        "keydown",
+        (e) => {
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (document.activeElement === cancel_button.button) {
+                chooser_popup.finish();
+            } else {
+                cancel_button.focus();
+            }
+        },
+    );
+
+    first_button?.focus();
 
     return true;
 }
