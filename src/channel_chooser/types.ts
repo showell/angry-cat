@@ -17,6 +17,7 @@ export type ChannelChooser = {
         direction: 1 | -1,
     ) => number | undefined;
     get_first_unread_channel_id: () => number | undefined;
+    get_first_unread_channel_id_excluding: (exclude_id: number | undefined) => number | undefined;
     select_channel: (channel_id: number) => void;
     deselect: () => void;
 };

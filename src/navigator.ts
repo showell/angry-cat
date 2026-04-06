@@ -306,6 +306,12 @@ export class Navigator
         return this.channel_chooser.get_first_unread_channel_id();
     }
 
+    get_next_unread_channel_id(): number | undefined {
+        return this.channel_chooser.get_first_unread_channel_id_excluding(
+            this.channel_id,
+        );
+    }
+
     get_next_channel_id(): number | undefined {
         if (this.channel_id === undefined) return undefined;
         return this.channel_chooser.get_adjacent_channel_id(this.channel_id, 1);

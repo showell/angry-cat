@@ -144,6 +144,12 @@ export class ChannelList {
         return this.channel_rows.find((row) => row.unread_count() > 0)?.stream_id();
     }
 
+    get_first_unread_channel_id_excluding(exclude_id: number | undefined): number | undefined {
+        return this.channel_rows.find(
+            (row) => row.stream_id() !== exclude_id && row.unread_count() > 0,
+        )?.stream_id();
+    }
+
     select_channel(channel_id: number): void {
         this.channel_id = channel_id;
         this.refresh_completely();

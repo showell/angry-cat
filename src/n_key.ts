@@ -13,6 +13,7 @@ export interface NKeyContext {
     channel_selected(): boolean;
     get_channel_name(): string | undefined;
     get_first_unread_channel_id(): number | undefined;
+    get_next_unread_channel_id(): number | undefined;
     select_channel(channel_id: number): void;
     topic_selected(): boolean;
     get_first_unread_topic_id(): number | undefined;
@@ -31,6 +32,7 @@ function show_inbox_zero_popup(): void {
 
 function show_channel_cleared_popup(
     channel_name: string,
+    next_channel_id: number,
     ctx: NKeyContext,
 ): void {
     const div = document.createElement("div");
@@ -41,20 +43,21 @@ function show_channel_cleared_popup(
         div,
         confirm_button_text: "Awesome!",
         callback: () => {
-            const next_channel_id = ctx.get_first_unread_channel_id();
-            if (next_channel_id !== undefined) {
-                ctx.select_channel(next_channel_id);
-            }
+            ctx.select_channel(next_channel_id);
         },
     });
 }
 
 function show_channel_done_popup(ctx: NKeyContext): void {
-    const next_channel_id = ctx.get_first_unread_channel_id();
+    const next_channel_id = ctx.get_next_unread_channel_id();
     if (next_channel_id === undefined) {
         show_inbox_zero_popup();
     } else {
-        show_channel_cleared_popup(ctx.get_channel_name() ?? "this channel", ctx);
+        show_channel_cleared_popup(
+            ctx.get_channel_name() ?? "this channel",
+            next_channel_id,
+            ctx,
+        );
     }
 }
 
