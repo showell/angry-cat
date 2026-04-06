@@ -172,6 +172,11 @@ export class Navigator {
             this.reply();
             return true;
         }
+        if (key === "n") {
+            this.mark_topic_read();
+            this.go_to_next_topic();
+            return true;
+        }
         if (key === "Escape") {
             return this.get_message_view()?.handle_escape() ?? false;
         }
