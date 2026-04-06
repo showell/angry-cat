@@ -173,7 +173,20 @@ export class Navigator {
             return true;
         }
         if (key === "n") {
-            if (!this.topic_selected()) return false;
+            if (!this.channel_selected()) return false;
+            const topic_list = this.get_topic_list();
+            if (topic_list === undefined) return false;
+
+            if (!this.topic_selected()) {
+                const first_unread = topic_list.get_next_unread_topic_id(undefined);
+                if (first_unread === undefined) return false;
+                this.set_topic_id(first_unread);
+                StatusBar.inform(
+                    "You hit 'n', so we jumped to the first unread topic.",
+                );
+                return true;
+            }
+
             this.mark_topic_read();
             const result = this.go_to_next_topic();
             if (result === NextTopicResult.ADVANCED) {

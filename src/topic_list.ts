@@ -132,7 +132,7 @@ export class TopicList {
         this.refresh();
     }
 
-    get_next_unread_topic_id(current_topic_id: number): number | undefined {
+    get_next_unread_topic_id(current_topic_id: number | undefined): number | undefined {
         return this.all_topic_rows.find(
             (row) =>
                 row.topic_id() !== current_topic_id && row.unread_count() > 0,
