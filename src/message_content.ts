@@ -139,6 +139,20 @@ function fix_in_site_link(anchor_elem: HTMLAnchorElement) {
 
         if (addr) {
             APP.add_navigator(addr);
+            return;
+        }
+
+        // If we couldn't resolve the link, show a helpful message
+        // when it looks like a topic that doesn't exist locally yet.
+        const path_info = address.parse_path(path);
+        if (path_info?.topic_name) {
+            const div = document.createElement("div");
+            div.textContent = `There does not appear to be a topic named "${path_info.topic_name}" yet.`;
+            popup.pop({
+                div,
+                confirm_button_text: "Ok",
+                callback: () => {},
+            });
         } else {
             console.log("could not understand path", path);
         }
