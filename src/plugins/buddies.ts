@@ -6,6 +6,7 @@ import * as zulip_client from "../backend/zulip_client";
 import * as buddy_list from "../buddy_list";
 import * as colors from "../colors";
 import type { Plugin, PluginContext } from "../plugin_helper";
+import { StatusBar } from "../status_bar";
 
 type PresenceMap = Record<string, PresenceInfo>;
 
@@ -167,22 +168,26 @@ export function plugin(context: PluginContext): Plugin {
         // Detect who came online.
         for (const uid of now_online) {
             if (!prev_online.has(uid)) {
+                const name = user_name_for(parseInt(uid));
                 presence_log.push({
                     user_id: parseInt(uid),
                     event: "came online",
                     time: new Date(),
                 });
+                StatusBar.inform(`${name} came online`);
             }
         }
 
         // Detect who went offline.
         for (const uid of prev_online) {
             if (!now_online.has(uid)) {
+                const name = user_name_for(parseInt(uid));
                 presence_log.push({
                     user_id: parseInt(uid),
                     event: "went offline",
                     time: new Date(),
                 });
+                StatusBar.inform(`${name} went offline`);
             }
         }
 

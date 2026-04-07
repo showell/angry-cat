@@ -14,6 +14,7 @@ export enum EventFlavor {
     UNKNOWN,
     REACTION_ADD_EVENT,
     REACTION_REMOVE_EVENT,
+    PRESENCE,
 }
 
 type MessageEvent = {
@@ -77,6 +78,12 @@ type SubscriptionAddEvent = {
     subscriptions: SubscriptionInfo[];
 };
 
+export type PresenceEvent = {
+    flavor: EventFlavor.PRESENCE;
+    user_id: number;
+    status: string; // "active" or "offline"
+};
+
 type UnknownEvent = {
     flavor: EventFlavor.UNKNOWN;
     raw_event: any;
@@ -91,6 +98,7 @@ export type ZulipEvent =
     | MutateStreamEvent
     | SubscriptionAddEvent
     | ReactionEvent
+    | PresenceEvent
     | UnknownEvent;
 
 function build_event(raw_event: any): ZulipEvent | undefined {
@@ -250,6 +258,14 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                 };
             }
             return undefined;
+        }
+
+        case "presence": {
+            return {
+                flavor: EventFlavor.PRESENCE,
+                user_id: raw_event.user_id,
+                status: raw_event.status,
+            };
         }
 
         case "reaction": {
