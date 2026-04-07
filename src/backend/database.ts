@@ -4,6 +4,7 @@ import type { ZulipEvent } from "./event";
 import { EventFlavor } from "./event";
 import * as fetch from "./fetch";
 import type { MessageIndex } from "./message_index";
+import * as parse from "./parse";
 import type { ReactionsMap } from "./reactions";
 import type { TopicMap } from "./topic_map";
 
@@ -23,6 +24,7 @@ export type Database = {
     unread_ids: Set<number>;
     image_message_ids: Set<number>;
     code_message_ids: Set<number>;
+    mention_message_ids: Set<number>;
     starred_ids: Set<number>;
 };
 
@@ -36,6 +38,10 @@ export function has_images(message_id: number): boolean {
 
 export function has_code(message_id: number): boolean {
     return DB.code_message_ids.has(message_id);
+}
+
+export function has_mention(message_id: number): boolean {
+    return DB.mention_message_ids.has(message_id);
 }
 
 export function is_starred(message_id: number): boolean {
@@ -138,6 +144,7 @@ export function handle_event(event: ZulipEvent): void {
 function add_message_to_cache(message: Message) {
     DB.message_index.add_message(message);
     DB.message_map.set(message.id, message);
+    parse.parse_content(message, DB);
 }
 
 function mutate_message(

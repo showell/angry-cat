@@ -18,6 +18,7 @@ import * as code_search from "./plugins/code_search";
 import * as color_scheme from "./plugins/color_scheme";
 import * as config_viewer from "./plugins/config_viewer";
 import * as image_search from "./plugins/image_search";
+import * as mentions from "./plugins/mentions";
 import * as reading_list from "./plugins/reading_list";
 import * as recent_conversations from "./plugins/recent_conversations";
 import * as starred from "./plugins/starred";
@@ -36,6 +37,7 @@ function get_all_plugins(): PluginEntry[] {
         { name: "DMs", factory: dm.plugin },
         { name: "Image Search", factory: image_search.plugin },
         { name: "Lyn Rummy", factory: lyn_rummy.plugin },
+        { name: "Mentions", factory: mentions.plugin },
         { name: "Reading List", factory: reading_list.plugin },
         { name: "Recent Conversations", factory: recent_conversations.plugin },
         { name: "Starred Messages", factory: starred.plugin },

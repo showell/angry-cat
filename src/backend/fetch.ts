@@ -68,6 +68,7 @@ export async function fetch_model_data(): Promise<Database> {
     const unread_ids = new Set<number>();
     const image_message_ids = new Set<number>();
     const code_message_ids = new Set<number>();
+    const mention_message_ids = new Set<number>();
     const starred_ids = new Set<number>();
 
     const db = {
@@ -81,6 +82,7 @@ export async function fetch_model_data(): Promise<Database> {
         unread_ids,
         image_message_ids,
         code_message_ids,
+        mention_message_ids,
         starred_ids,
     };
 
