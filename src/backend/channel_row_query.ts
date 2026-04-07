@@ -2,7 +2,7 @@ import { ChannelRow } from "./channel_row";
 import type { Message, Stream } from "./db_types";
 import { MessageList } from "./message_list";
 
-export function get_rows(
+export function get_unsorted_rows(
     channel_map: Map<number, Stream>,
     messages: Message[],
 ): ChannelRow[] {

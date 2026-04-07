@@ -24,7 +24,7 @@ export function current_user_is_admin(): boolean {
 // STREAMS
 //
 export function get_channel_rows(): ChannelRow[] {
-    return channel_row_query.get_rows(DB.channel_map, [
+    return channel_row_query.get_unsorted_rows(DB.channel_map, [
         ...DB.message_map.values(),
     ]);
 }

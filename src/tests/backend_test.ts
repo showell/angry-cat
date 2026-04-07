@@ -120,7 +120,7 @@ function make_msg(id: number, stream_id: number, topic_id: number): Message {
         make_msg(3, 20, 2),
     ];
 
-    const rows = channel_row_query.get_rows(db.channel_map, msgs);
+    const rows = channel_row_query.get_unsorted_rows(db.channel_map, msgs);
     assert.equal(rows.length, 2);
 
     // Rows follow channel_map iteration order, not sorted.
