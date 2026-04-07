@@ -3,8 +3,7 @@ import type { Plugin, PluginContext, PluginFactory } from "../plugin_helper";
 
 import * as code_search from "./code_search";
 import * as color_scheme from "./color_scheme";
-import * as event_radio from "./event_radio";
-import * as github_search from "./github_search";
+import * as config_viewer from "./config_viewer";
 import * as image_search from "./image_search";
 
 export function plugin(context: PluginContext): Plugin {
@@ -23,10 +22,9 @@ export function plugin(context: PluginContext): Plugin {
         div.append(button);
     }
 
-    add_plugin("Color Scheme", color_scheme.plugin);
-    add_plugin("Event Radio", event_radio.plugin);
     add_plugin("Code Search", code_search.plugin);
-    add_plugin("GitHub Search", github_search.plugin);
+    add_plugin("Color Scheme", color_scheme.plugin);
+    add_plugin("Config", config_viewer.plugin);
     add_plugin("Image Search", image_search.plugin);
 
     context.update_label("Plugins");

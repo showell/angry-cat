@@ -16,6 +16,7 @@ import * as bot_management from "./plugins/bot_management";
 import * as buddies from "./plugins/buddies";
 import * as code_search from "./plugins/code_search";
 import * as color_scheme from "./plugins/color_scheme";
+import * as config_viewer from "./plugins/config_viewer";
 import * as image_search from "./plugins/image_search";
 import * as reading_list from "./plugins/reading_list";
 import * as recent_conversations from "./plugins/recent_conversations";
@@ -31,6 +32,7 @@ function get_all_plugins(): PluginEntry[] {
         { name: "Buddies", factory: buddies.plugin },
         { name: "Code Search", factory: code_search.plugin },
         { name: "Color Scheme", factory: color_scheme.plugin },
+        { name: "Config", factory: config_viewer.plugin },
         { name: "DMs", factory: dm.plugin },
         { name: "Image Search", factory: image_search.plugin },
         { name: "Lyn Rummy", factory: lyn_rummy.plugin },
