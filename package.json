@@ -10,8 +10,7 @@
   "scripts": {
     "dev": "vite",
     "fetch": "vite-node src/fetch.ts",
-    "test": "vite-node src/tests/run_all_tests.ts",
-    "test:old": "vite-node src/test.ts",
+    "test": "vite-node src/tests/run_all_tests.ts && vite-node src/lyn_rummy/run_all_tests.ts",
     "check": "tsc --noEmit && oxlint && biome format --write src/*.ts src/*/*.ts && vite-node src/lyn_rummy/run_all_tests.ts && vite-node src/tests/run_all_tests.ts",
     "build": "vite build",
     "lint": "oxlint",
