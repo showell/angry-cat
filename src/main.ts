@@ -10,6 +10,7 @@ import * as game from "./lyn_rummy/game";
 import { Page } from "./page";
 import * as splash from "./splash";
 import { StatusBar } from "./status_bar";
+import * as presence from "./presence";
 import * as mouse_drag from "./util/mouse_drag";
 
 function is_lyn_rummy_user(): boolean {
@@ -88,6 +89,7 @@ async function run() {
     event_queue.start_polling(event_manager);
     app.init(page);
     install_keyboard_handler();
+    presence.start();
     page.start();
 
     StatusBar.persist(

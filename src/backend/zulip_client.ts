@@ -180,6 +180,12 @@ export function toggle_reaction_on_message(
     );
 }
 
+export function send_presence(status: "active" | "idle"): void {
+    api_form_request("POST", "users/me/presence", {
+        status,
+    });
+}
+
 export function handle_event(event: ZulipEvent): void {
     if (event.flavor === EventFlavor.MESSAGE) {
         const local_message_id = event.message.local_message_id;
