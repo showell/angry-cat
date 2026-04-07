@@ -1,12 +1,19 @@
 import { DB } from "../backend/database";
 import type { User } from "../backend/db_types";
 import * as model from "../backend/model";
+import type { PresenceInfo } from "../backend/zulip_client";
 import * as zulip_client from "../backend/zulip_client";
 import * as buddy_list from "../buddy_list";
 import * as colors from "../colors";
 import type { Plugin, PluginContext } from "../plugin_helper";
 
-type PresenceMap = Record<string, { status: string }>;
+type PresenceMap = Record<string, PresenceInfo>;
+
+type PresenceLogEntry = {
+    user_id: number;
+    event: string; // "came online" or "went offline"
+    time: Date;
+};
 
 function presence_dot(status: string): string {
     switch (status) {
@@ -17,6 +24,18 @@ function presence_dot(status: string): string {
         default:
             return "\u26AA"; // white circle (offline)
     }
+}
+
+function user_name_for(user_id: number): string {
+    return DB.user_map.get(user_id)?.full_name ?? `User ${user_id}`;
+}
+
+function time_ago(date: Date): string {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes === 1) return "1 min ago";
+    return `${minutes} min ago`;
 }
 
 function render_user_row(user: User, presences: PresenceMap): HTMLDivElement {
@@ -109,8 +128,9 @@ export function plugin(context: PluginContext): Plugin {
     count_div.style.marginBottom = "8px";
 
     const list_div = document.createElement("div");
+    const log_div = document.createElement("div");
 
-    div.append(self_div, count_div, list_div);
+    div.append(self_div, count_div, list_div, log_div);
 
     function update_count(): void {
         const other_buddy_count = buddy_list.get_buddies().filter(
@@ -135,21 +155,82 @@ export function plugin(context: PluginContext): Plugin {
         }
     }
 
+    // --- Local presence event log ---
+
+    let prev_online = new Set<string>();
+    const presence_log: PresenceLogEntry[] = [];
+    const MAX_LOG_ENTRIES = 20;
+
+    function diff_presence(presences: PresenceMap): void {
+        const now_online = new Set(Object.keys(presences));
+
+        // Detect who came online.
+        for (const uid of now_online) {
+            if (!prev_online.has(uid)) {
+                presence_log.push({
+                    user_id: parseInt(uid),
+                    event: "came online",
+                    time: new Date(),
+                });
+            }
+        }
+
+        // Detect who went offline.
+        for (const uid of prev_online) {
+            if (!now_online.has(uid)) {
+                presence_log.push({
+                    user_id: parseInt(uid),
+                    event: "went offline",
+                    time: new Date(),
+                });
+            }
+        }
+
+        // Trim to max size.
+        while (presence_log.length > MAX_LOG_ENTRIES) {
+            presence_log.shift();
+        }
+
+        prev_online = now_online;
+    }
+
+    function render_log(): void {
+        log_div.innerHTML = "";
+
+        if (presence_log.length === 0) return;
+
+        log_div.append(render_section_header("Presence activity"));
+
+        // Show newest first.
+        for (let i = presence_log.length - 1; i >= 0; i--) {
+            const entry = presence_log[i];
+            const row = document.createElement("div");
+            row.style.padding = "2px 0";
+            row.style.fontSize = "13px";
+            row.style.color = colors.text_muted;
+
+            const name = user_name_for(entry.user_id);
+            row.textContent = `${name} ${entry.event} — ${time_ago(entry.time)}`;
+            log_div.append(row);
+        }
+    }
+
     buddy_list.on_change(update_count);
     update_count();
 
-    // Fetch presence and build the list. Refresh every 60 seconds.
     async function refresh_presence() {
         try {
             const presences = await zulip_client.get_presence();
+            diff_presence(presences);
             rebuild_list(presences);
+            render_log();
         } catch {
             rebuild_list({});
         }
     }
 
     refresh_presence();
-    const interval = setInterval(refresh_presence, 60_000);
+    setInterval(refresh_presence, 60_000);
 
     return {
         div,
