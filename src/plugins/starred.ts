@@ -12,7 +12,7 @@
 //     list. For messages the user is done with entirely.
 
 import { APP } from "../app";
-import { DB, is_starred } from "../backend/database";
+import { is_starred } from "../backend/database";
 import type { Message } from "../backend/db_types";
 import type { ZulipEvent } from "../backend/event";
 import { EventFlavor } from "../backend/event";
@@ -23,27 +23,20 @@ import * as colors from "../colors";
 import { render_message_content } from "../message_content";
 import type { Plugin, PluginContext } from "../plugin_helper";
 import * as reading_list from "./reading_list";
+import {
+    ButtonState,
+    StarredPluginModel,
+    type StarredMessageState,
+} from "./starred_model";
 
-// Messages the user has explicitly dismissed (unstarred + hidden).
-const dismissed_ids = new Set<number>();
+// --- Rendering ---
 
-function get_starred_messages(): Message[] {
-    const result: Message[] = [];
-    for (const message of DB.message_map.values()) {
-        if (is_starred(message.id) && !dismissed_ids.has(message.id)) {
-            result.push(message);
-        }
-    }
-    result.sort((a, b) => b.timestamp - a.timestamp);
-    return result;
-}
-
-// Each rendered message manages its own button state so that unstar/restar
-// can update in place without a full list rebuild.
 function render_starred_message(
-    message: Message,
-    on_dismiss: () => void,
+    state: StarredMessageState,
+    model: StarredPluginModel,
+    on_rebuild: () => void,
 ): HTMLDivElement {
+    const message = state.message;
     const message_row = new MessageRow(message);
 
     const div = document.createElement("div");
@@ -51,13 +44,11 @@ function render_starred_message(
     div.style.paddingBottom = "8px";
     div.style.marginBottom = "8px";
 
-    // Content area (header + message body) dims on unstar;
-    // buttons stay at full opacity so they remain clearly clickable.
+    // Content area dims on unstar; buttons stay at full opacity.
     const content_area = document.createElement("div");
     content_area.style.transition = "opacity 0.3s ease";
     div.append(content_area);
 
-    // Header: sender, topic, time
     const header = document.createElement("div");
     header.style.fontWeight = "bold";
     header.style.color = colors.primary;
@@ -69,11 +60,8 @@ function render_starred_message(
     });
     header.innerText = `${message_row.sender_name()} — ${message_row.topic_link()} — ${time}`;
     content_area.append(header);
-
-    // Message content
     content_area.append(render_message_content(message_row.content()));
 
-    // Action buttons — managed as a row that swaps between states.
     const button_row = document.createElement("div");
     button_row.style.display = "flex";
     button_row.style.gap = "6px";
@@ -90,21 +78,17 @@ function render_starred_message(
         APP.add_navigator(message_row.address());
     });
 
-    // pending_event_id tracks which message_id we're waiting on for
-    // a MUTATE_STARRED confirmation. null means not waiting.
-    let pending_starred: boolean | null = null;
-
     function show_starred_buttons(): void {
         button_row.innerHTML = "";
         const unstar_button = new Button("Unstar", 80, () => {
-            pending_starred = false;
+            state.request_unstar();
             zulip_client.set_message_starred(message.id, false);
-            show_pending();
+            render_current_state();
         });
         const dismiss_button = new Button("Dismiss", 80, () => {
             zulip_client.set_message_starred(message.id, false);
-            dismissed_ids.add(message.id);
-            on_dismiss();
+            model.dismiss(message.id);
+            on_rebuild();
         });
         button_row.append(unstar_button.div, dismiss_button.div, view_topic_button.div);
     }
@@ -113,13 +97,13 @@ function render_starred_message(
         button_row.innerHTML = "";
         content_area.style.opacity = "0.5";
         const restar_button = new Button("Restar", 80, () => {
-            pending_starred = true;
+            state.request_restar();
             zulip_client.set_message_starred(message.id, true);
-            show_pending();
+            render_current_state();
         });
         const dismiss_button = new Button("Dismiss", 80, () => {
-            dismissed_ids.add(message.id);
-            on_dismiss();
+            model.dismiss(message.id);
+            on_rebuild();
         });
         button_row.append(restar_button.div, dismiss_button.div, view_topic_button.div);
     }
@@ -129,27 +113,24 @@ function render_starred_message(
         button_row.append(spinner);
     }
 
-    // Called by the plugin when a MUTATE_STARRED event arrives.
-    function handle_star_change(): void {
-        const starred = is_starred(message.id);
-
-        // Only react if we were waiting for this confirmation.
-        if (pending_starred === null) return;
-        if (starred !== pending_starred) return;
-
-        pending_starred = null;
-        if (starred) {
-            content_area.style.opacity = "1";
-            show_starred_buttons();
-        } else {
-            show_unstarred_buttons();
+    function render_current_state(): void {
+        switch (state.button_state) {
+            case ButtonState.STARRED:
+                content_area.style.opacity = "1";
+                show_starred_buttons();
+                break;
+            case ButtonState.PENDING:
+                show_pending();
+                break;
+            case ButtonState.UNSTARRED:
+                show_unstarred_buttons();
+                break;
         }
     }
 
-    // Initial state.
-    show_starred_buttons();
+    render_current_state();
 
-    return Object.assign(div, { handle_star_change });
+    return Object.assign(div, { render_current_state });
 }
 
 function build_empty_message(): HTMLDivElement {
@@ -161,7 +142,7 @@ function build_empty_message(): HTMLDivElement {
 }
 
 type StarredMessageDiv = HTMLDivElement & {
-    handle_star_change: () => void;
+    render_current_state: () => void;
 };
 
 function build_cat_tip(): HTMLDivElement {
@@ -211,20 +192,20 @@ function build_cat_tip(): HTMLDivElement {
     return div;
 }
 
-function build_stats(messages: Message[]): HTMLDivElement {
+function build_stats(model: StarredPluginModel): HTMLDivElement {
     const div = document.createElement("div");
     div.style.fontSize = "15px";
     div.style.color = colors.text_body;
     div.style.lineHeight = "1.8";
 
-    const starred_count = messages.filter((m) => is_starred(m.id)).length;
-    const unstarred_count = messages.length - starred_count;
+    const total = model.messages.length;
+    const starred_count = model.starred_count;
+    const unstarred_count = model.unstarred_count;
 
-    // Summary
     const summary = document.createElement("div");
     summary.style.marginBottom = "16px";
     summary.innerHTML = [
-        `<b>${messages.length}</b> starred message${messages.length === 1 ? "" : "s"}`,
+        `<b>${total}</b> starred message${total === 1 ? "" : "s"}`,
         starred_count > 0 ? `<b>${starred_count}</b> still starred` : "",
         unstarred_count > 0 ? `<b>${unstarred_count}</b> unstarred` : "",
     ]
@@ -232,16 +213,8 @@ function build_stats(messages: Message[]): HTMLDivElement {
         .join("<br>");
     div.append(summary);
 
-    // Breakdown by topic
-    const by_topic = new Map<string, number>();
-    for (const m of messages) {
-        if (!is_starred(m.id)) continue;
-        const row = new MessageRow(m);
-        const key = `#${row.stream_name()} > ${row.topic_name()}`;
-        by_topic.set(key, (by_topic.get(key) ?? 0) + 1);
-    }
-
-    if (by_topic.size > 0) {
+    const counts = model.counts_by_topic;
+    if (counts.length > 0) {
         const heading = document.createElement("div");
         heading.style.fontWeight = "bold";
         heading.style.color = colors.primary;
@@ -249,10 +222,9 @@ function build_stats(messages: Message[]): HTMLDivElement {
         heading.innerText = "By topic";
         div.append(heading);
 
-        const sorted = [...by_topic.entries()].sort((a, b) => b[1] - a[1]);
-        for (const [topic, count] of sorted) {
+        for (const { label, count } of counts) {
             const line = document.createElement("div");
-            line.innerText = `${topic}: ${count}`;
+            line.innerText = `${label}: ${count}`;
             div.append(line);
         }
     }
@@ -260,10 +232,13 @@ function build_stats(messages: Message[]): HTMLDivElement {
     return div;
 }
 
+// --- Plugin entry point ---
+
 export function plugin(context: PluginContext): Plugin {
     context.update_label("Starred");
 
-    // Two-pane layout: scrollable message list on the left, stats on the right.
+    const model = new StarredPluginModel();
+
     const div = document.createElement("div");
     div.style.display = "flex";
     div.style.gap = "20px";
@@ -283,28 +258,26 @@ export function plugin(context: PluginContext): Plugin {
 
     div.append(left_pane, right_pane);
 
-    // Track rendered message divs so we can notify them of star changes
-    // without rebuilding the entire list.
     let message_divs: StarredMessageDiv[] = [];
-    let current_messages: Message[] = [];
 
     function refresh_stats(): void {
         right_pane.innerHTML = "";
         right_pane.append(build_cat_tip());
-        right_pane.append(build_stats(current_messages));
+        right_pane.append(build_stats(model));
     }
 
     function rebuild(): void {
-        current_messages = get_starred_messages();
+        model.refresh();
 
         left_pane.innerHTML = "";
         message_divs = [];
-        if (current_messages.length === 0) {
+        if (model.message_states.length === 0) {
             left_pane.append(build_empty_message());
         } else {
-            for (const message of current_messages) {
+            for (const state of model.message_states) {
                 const msg_div = render_starred_message(
-                    message,
+                    state,
+                    model,
                     rebuild,
                 ) as StarredMessageDiv;
                 left_pane.append(msg_div);
@@ -317,21 +290,18 @@ export function plugin(context: PluginContext): Plugin {
 
     rebuild();
 
-    // When star state changes, notify each rendered message so it can
-    // update its buttons in place. Only rebuild for new stars (messages
-    // that weren't in our list before).
     function handle_zulip_event(event: ZulipEvent): void {
         if (event.flavor !== EventFlavor.MUTATE_STARRED) return;
 
-        // Notify existing message rows about the change.
-        for (const msg_div of message_divs) {
-            msg_div.handle_star_change();
+        for (let i = 0; i < model.message_states.length; i++) {
+            const changed = model.message_states[i].handle_star_event();
+            if (changed) {
+                message_divs[i].render_current_state();
+            }
         }
 
-        // Update stats to reflect the new star/unstar counts.
         refresh_stats();
 
-        // If new messages were starred (not by us), rebuild to include them.
         if (event.starred) {
             rebuild();
         }

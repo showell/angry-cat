@@ -7,5 +7,6 @@ import "./topic_map_test";
 import "./message_index_test";
 import "./reactions_test";
 import "./database_test";
+import "./starred_test";
 
 console.log("ALL TESTS PASSED!");
