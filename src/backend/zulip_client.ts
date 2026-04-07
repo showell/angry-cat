@@ -190,8 +190,8 @@ export async function get_presence(): Promise<Record<string, PresenceInfo>> {
     return data.presences ?? {};
 }
 
-export function send_presence(status: "active" | "idle"): void {
-    api_form_request("POST", "users/me/presence", {
+export async function send_presence(status: "active" | "idle"): Promise<void> {
+    await api_form_request("POST", "users/me/presence", {
         status,
     });
 }
