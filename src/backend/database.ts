@@ -63,6 +63,11 @@ export function label_for_address(address: Address): string {
         : `#${channel_name} > ${topic_name}`;
 }
 
+// Used by tests to inject a database without fetching from a server.
+export function set_db_for_testing(db: Database): void {
+    DB = db;
+}
+
 export async function fetch_original_data(): Promise<void> {
     DB = await fetch.fetch_model_data();
 }
