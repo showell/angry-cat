@@ -35,11 +35,9 @@ function fix_code_blocks(code_div: Element) {
         popup.pop({
             div,
             confirm_button_text: "Ok",
-            callback: () => {
-                // nothing to do
-            },
+            auto_focus: false,
+            callback: () => {},
         });
-
         code.focus();
 
         e.stopPropagation();

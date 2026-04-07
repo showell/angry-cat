@@ -173,6 +173,7 @@ export class ChannelInfo {
             div,
             confirm_button_text: "Save",
             cancel_button_text: "Cancel",
+            auto_focus: false,
             callback: () => {
                 zulip_client.update_stream_description(
                     this.stream_id,

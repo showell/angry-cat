@@ -45,6 +45,9 @@ type PopupOptions = {
     cancel_button_text?: string;
     // called when user confirms (not on cancel)
     callback: () => void;
+    // Set to false if the caller will manage focus itself
+    // (e.g. focusing a textarea inside the popup content).
+    auto_focus?: boolean;
 };
 
 export function pop(info: PopupOptions): Popup {
@@ -94,7 +97,9 @@ class Popup {
         flex_div.append(button_div);
 
         this.dialog_shell.invoke_with_custom_div(flex_div);
-        button.focus();
+        if (info.auto_focus !== false) {
+            button.focus();
+        }
     }
 
     finish(callback?: () => void) {

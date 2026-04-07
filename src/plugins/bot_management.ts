@@ -108,6 +108,7 @@ function render_bot_row(bot: Bot): HTMLDivElement {
             div: popup_div,
             confirm_button_text: "Save",
             cancel_button_text: "Cancel",
+            auto_focus: false,
             callback: async () => {
                 const new_name = input.value.trim();
                 if (new_name === "" || new_name === bot.full_name) return;

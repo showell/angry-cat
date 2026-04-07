@@ -59,6 +59,48 @@ import { get_last_focused, clear_focus_tracking, MockElement } from "./shims";
     assert.equal(focused!._innerText, "Delete");
 }
 
+// auto_focus: false skips the confirm button focus, so the caller
+// can focus a custom element (e.g. a textarea or code block).
+{
+    clear_focus_tracking();
+
+    const div = document.createElement("div") as unknown as HTMLDivElement;
+    const custom_input = document.createElement("input") as unknown as MockElement;
+
+    popup.pop({
+        div,
+        confirm_button_text: "Save",
+        auto_focus: false,
+        callback: () => {},
+    });
+
+    // Nothing should be focused by the popup itself.
+    const after_pop = get_last_focused();
+    assert(
+        after_pop === undefined || after_pop._innerText !== "Save",
+        "confirm button should NOT be focused when auto_focus is false",
+    );
+
+    // The caller focuses their own element.
+    custom_input.focus();
+    assert.equal(get_last_focused(), custom_input);
+}
+
+// auto_focus defaults to true (confirm focused).
+{
+    clear_focus_tracking();
+
+    const div = document.createElement("div") as unknown as HTMLDivElement;
+
+    popup.pop({
+        div,
+        confirm_button_text: "OK",
+        callback: () => {},
+    });
+
+    assert.equal(get_last_focused()!._innerText, "OK");
+}
+
 // finish() calls the callback.
 {
     const div = document.createElement("div") as unknown as HTMLDivElement;
