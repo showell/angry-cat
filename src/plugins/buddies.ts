@@ -1,11 +1,25 @@
 import { DB } from "../backend/database";
 import type { User } from "../backend/db_types";
 import * as model from "../backend/model";
+import * as zulip_client from "../backend/zulip_client";
 import * as buddy_list from "../buddy_list";
 import * as colors from "../colors";
 import type { Plugin, PluginContext } from "../plugin_helper";
 
-function render_user_row(user: User): HTMLDivElement {
+type PresenceMap = Record<string, { status: string }>;
+
+function presence_dot(status: string): string {
+    switch (status) {
+        case "active":
+            return "\u{1F7E2}"; // green circle
+        case "idle":
+            return "\u{1F7E1}"; // yellow circle
+        default:
+            return "\u26AA"; // white circle (offline)
+    }
+}
+
+function render_user_row(user: User, presences: PresenceMap): HTMLDivElement {
     const div = document.createElement("div");
     div.style.display = "flex";
     div.style.alignItems = "center";
@@ -19,10 +33,15 @@ function render_user_row(user: User): HTMLDivElement {
         buddy_list.toggle_buddy(user.id);
     });
 
+    const dot = document.createElement("span");
+    const userPresence = presences[String(user.id)];
+    dot.textContent = presence_dot(userPresence?.status ?? "offline");
+    dot.title = userPresence?.status ?? "offline";
+
     const name = document.createElement("span");
     name.innerText = user.full_name;
 
-    div.append(checkbox, name);
+    div.append(checkbox, dot, name);
     return div;
 }
 
@@ -40,20 +59,21 @@ function render_section_header(text: string): HTMLDivElement {
 function build_user_list(
     current_users: User[],
     other_users: User[],
+    presences: PresenceMap,
 ): HTMLDivElement {
     const div = document.createElement("div");
 
     if (current_users.length > 0) {
         div.append(render_section_header("Current users"));
         for (const user of current_users) {
-            div.append(render_user_row(user));
+            div.append(render_user_row(user, presences));
         }
     }
 
     if (other_users.length > 0) {
         div.append(render_section_header("Other users"));
         for (const user of other_users) {
-            div.append(render_user_row(user));
+            div.append(render_user_row(user, presences));
         }
     }
 
@@ -99,7 +119,7 @@ export function plugin(context: PluginContext): Plugin {
         count_div.innerText = `${other_buddy_count} other buddy${other_buddy_count === 1 ? "" : "s"} selected`;
     }
 
-    function rebuild_list(): void {
+    function rebuild_list(presences: PresenceMap): void {
         const me = DB.current_user_id;
         const users = buddy_list.get_all_users().filter((u) => u.id !== me);
         const sender_ids = buddy_list.get_message_sender_ids();
@@ -111,13 +131,30 @@ export function plugin(context: PluginContext): Plugin {
         if (users.length === 0) {
             list_div.append(build_empty_message());
         } else {
-            list_div.append(build_user_list(current_users, other_users));
+            list_div.append(build_user_list(current_users, other_users, presences));
         }
     }
 
     buddy_list.on_change(update_count);
     update_count();
-    rebuild_list();
 
-    return { div };
+    // Fetch presence and build the list. Refresh every 60 seconds.
+    async function refresh_presence() {
+        try {
+            const presences = await zulip_client.get_presence();
+            rebuild_list(presences);
+        } catch {
+            rebuild_list({});
+        }
+    }
+
+    refresh_presence();
+    const interval = setInterval(refresh_presence, 60_000);
+
+    return {
+        div,
+        refresh() {
+            refresh_presence();
+        },
+    };
 }

@@ -180,6 +180,16 @@ export function toggle_reaction_on_message(
     );
 }
 
+export type PresenceInfo = {
+    status: string;
+    timestamp: number;
+};
+
+export async function get_presence(): Promise<Record<string, PresenceInfo>> {
+    const data = await api_get("users/me/presence");
+    return data.presences ?? {};
+}
+
 export function send_presence(status: "active" | "idle"): void {
     api_form_request("POST", "users/me/presence", {
         status,
