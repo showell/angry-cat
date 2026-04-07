@@ -12,5 +12,6 @@ import "./plugins_test";
 import "./backend_test";
 import "./navigator_test";
 import "./page_test";
+import "./popup_test";
 
 console.log("ALL TESTS PASSED!");

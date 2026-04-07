@@ -124,12 +124,18 @@ class MockElement {
 
     removeEventListener(): void {}
 
-    // Fire all listeners of the given type.
+    // Fire all listeners of the given type. Provides a mock event
+    // with preventDefault/stopPropagation so handlers don't crash.
     _fire(type: string, event?: any): Function[] {
+        const mock_event = {
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            ...event,
+        };
         const called: Function[] = [];
         for (const l of this._listeners) {
             if (l.type === type) {
-                l.handler(event ?? {});
+                l.handler(mock_event);
                 called.push(l.handler);
             }
         }
@@ -148,7 +154,9 @@ class MockElement {
         delete this._attributes[name];
     }
 
-    focus(): void {}
+    focus(): void {
+        last_focused_element = this;
+    }
     showModal(): void {}
     close(): void {}
     remove(): void {}
@@ -200,6 +208,16 @@ class MockElement {
     }
 }
 
+let last_focused_element: MockElement | undefined;
+
+export function get_last_focused(): MockElement | undefined {
+    return last_focused_element;
+}
+
+export function clear_focus_tracking(): void {
+    last_focused_element = undefined;
+}
+
 function createElement(tag: string): MockElement {
     const el = new MockElement(tag);
 
@@ -235,6 +253,10 @@ const body = new MockElement("body");
 (globalThis as any).window = {
     location: { pathname: "/", search: "", origin: "http://localhost:8000" },
 };
+
+// requestAnimationFrame runs synchronously in tests so we can
+// assert on focus behavior immediately.
+(globalThis as any).requestAnimationFrame = (fn: () => void) => fn();
 
 // DOMParser mock — used only by parse.ts to detect code blocks,
 // images, and mentions in message HTML.

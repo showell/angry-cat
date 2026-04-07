@@ -144,6 +144,9 @@ function render_bot_row(bot: Bot): HTMLDivElement {
             },
         });
 
+        // showModal() sets up a focus trap that steals focus to the
+        // dialog. We need one frame for the browser to finish that
+        // setup before we can redirect focus to the input field.
         requestAnimationFrame(() => input.focus());
     });
 

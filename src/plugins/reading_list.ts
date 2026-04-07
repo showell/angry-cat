@@ -476,7 +476,7 @@ function maybe_show_import_banner(
     banner.append(button_row);
 
     container.prepend(banner);
-    requestAnimationFrame(() => import_button.focus());
+    import_button.focus();
 }
 
 // --- Right pane ---
