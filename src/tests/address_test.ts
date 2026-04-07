@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { parse_path } from "../address";
+import { can_navigate, parse_path } from "../address";
 
 // Full narrow URL with channel, topic, and message
 {
@@ -38,6 +38,26 @@ import { parse_path } from "../address";
     const info = parse_path("#narrow/channel/1-test/topic/hello")!;
     assert.equal(info.channel_id, 1);
     assert.equal(info.topic_name, "hello");
+}
+
+// can_navigate: channel-only is enough
+{
+    assert(can_navigate({ channel_id: 1, topic_id: undefined, message_id: undefined }));
+}
+
+// can_navigate: channel + topic is fine
+{
+    assert(can_navigate({ channel_id: 1, topic_id: 2, message_id: undefined }));
+}
+
+// can_navigate: message without topic is broken
+{
+    assert(!can_navigate({ channel_id: 1, topic_id: undefined, message_id: 42 }));
+}
+
+// can_navigate: no channel is not navigable
+{
+    assert(!can_navigate({ channel_id: undefined, topic_id: undefined, message_id: undefined }));
 }
 
 console.log("  address_test: OK");

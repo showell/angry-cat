@@ -30,6 +30,7 @@ class MockElement {
     _innerText = "";
     _textContent = "";
     _classList: Set<string> = new Set();
+    dataset: Record<string, string> = {};
 
     // style is a no-op bag — any property can be set without error.
     style: Record<string, string> = new Proxy(

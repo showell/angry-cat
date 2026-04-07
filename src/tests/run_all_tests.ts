@@ -8,5 +8,6 @@ import "./message_index_test";
 import "./reactions_test";
 import "./database_test";
 import "./starred_test";
+import "./plugins_test";
 
 console.log("ALL TESTS PASSED!");

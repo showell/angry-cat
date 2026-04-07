@@ -21,6 +21,17 @@ export type PathInfo = {
     message_id: number | undefined;
 };
 
+// An address is navigable if it has at least a channel. If it
+// references a message but we couldn't recover the topic (e.g.
+// message not in cache), the link is broken.
+export function can_navigate(address: Address): boolean {
+    if (address.channel_id === undefined) return false;
+    if (address.message_id !== undefined && address.topic_id === undefined) {
+        return false;
+    }
+    return true;
+}
+
 export function nada(): Address {
     return {
         channel_id: undefined,

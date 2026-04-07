@@ -2,7 +2,7 @@
 // or links to channels/topics/messages). Persisted to localStorage.
 
 import type { Address, DumpedAddress } from "../address";
-import { dump_address, load_address } from "../address";
+import { can_navigate, dump_address, load_address } from "../address";
 import { APP } from "../app";
 import { DB, is_starred, label_for_address } from "../backend/database";
 import { MessageRow } from "../backend/message_row";
@@ -71,16 +71,6 @@ function render_remove_button(on_click: () => void): HTMLButtonElement {
     button.style.padding = "2px 6px";
     button.addEventListener("click", on_click);
     return button;
-}
-
-function can_navigate(address: Address): boolean {
-    // We need at least a channel to navigate. If a message_id was
-    // stored but we couldn't recover the topic, the link is broken.
-    if (address.channel_id === undefined) return false;
-    if (address.message_id !== undefined && address.topic_id === undefined) {
-        return false;
-    }
-    return true;
 }
 
 function render_item_content(data: ItemData): HTMLElement {
