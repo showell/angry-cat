@@ -18,6 +18,56 @@ function get_realm_nickname_from_url(): string | undefined {
     return undefined;
 }
 
+// --- Invite redemption ---
+
+// Check if the URL has an ?invite=TOKEN param. If so, redeem it
+// against the server, store the credentials, and redirect to the
+// clean realm URL.
+async function try_redeem_invite(nickname: string): Promise<boolean> {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("invite");
+    if (!token) return false;
+
+    const realm_url = KNOWN_REALMS[nickname];
+
+    show_status("Redeeming invite...");
+
+    const response = await fetch(`${realm_url}/api/v1/invites/redeem`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ token }),
+    });
+    const data = await response.json();
+
+    if (data.result !== "success") {
+        show_status(`Invite failed: ${data.msg}`);
+        return true; // handled (even though it failed)
+    }
+
+    const new_realm: RealmConfig = {
+        nickname,
+        url: realm_url,
+        email: data.email,
+        api_key: data.api_key,
+    };
+
+    config.store_realm_config(new_realm);
+
+    // Redirect to the clean URL (without the invite param).
+    window.location.replace(import.meta.env.BASE_URL + nickname);
+    return true;
+}
+
+function show_status(message: string): void {
+    const div = document.createElement("div");
+    div.style.padding = "20px";
+    div.style.fontSize = "16px";
+    div.textContent = message;
+    document.body.append(div);
+}
+
+// --- Normal login ---
+
 class LoginManager {
     div: HTMLDivElement;
     content_div: HTMLDivElement;
@@ -142,19 +192,23 @@ function start_login_process(default_nickname?: string) {
     login_manager.start(default_nickname);
 }
 
-export function needs_to_login(): boolean {
+// needs_to_login is async because invite redemption requires a
+// network call. Returns true if the app should stop (login needed
+// or invite being processed).
+export async function needs_to_login(): Promise<boolean> {
     const nickname = get_realm_nickname_from_url();
 
     if (nickname === undefined) {
-        // No realm in URL — show login form so the user can pick one.
         start_login_process();
         return true;
     }
 
+    // Check for invite link before checking stored credentials.
+    const handled = await try_redeem_invite(nickname);
+    if (handled) return true;
+
     const realm_config = config.get_realm_config(nickname);
     if (realm_config === undefined) {
-        // Realm recognized but no stored credentials — show login form
-        // with the realm pre-selected.
         start_login_process(nickname);
         return true;
     }

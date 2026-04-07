@@ -44,7 +44,7 @@ async function run() {
         return;
     }
 
-    if (login_manager.needs_to_login()) {
+    if (await login_manager.needs_to_login()) {
         return;
     }
 
