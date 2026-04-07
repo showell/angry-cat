@@ -4,6 +4,11 @@ import * as popup from "./popup";
 
 export let StatusBar: StatusBarWidget;
 
+// Used by tests to inject a stub without creating a real DOM widget.
+export function set_status_bar_for_testing(stub: StatusBarWidget): void {
+    StatusBar = stub;
+}
+
 export function show_help(): void {
     const div = document.createElement("div");
     div.style.padding = "8px";

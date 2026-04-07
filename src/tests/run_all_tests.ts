@@ -10,5 +10,6 @@ import "./database_test";
 import "./starred_test";
 import "./plugins_test";
 import "./backend_test";
+import "./navigator_test";
 
 console.log("ALL TESTS PASSED!");

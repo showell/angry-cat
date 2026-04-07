@@ -197,6 +197,18 @@ class MockElement {
     }
 
     focus(): void {}
+    showModal(): void {}
+    close(): void {}
+    remove(): void {}
+
+    // For cloneNode (used by drag-and-drop).
+    cloneNode(_deep?: boolean): MockElement {
+        return new MockElement(this.tagName);
+    }
+
+    getBoundingClientRect() {
+        return { top: 0, left: 0, width: 100, height: 20 };
+    }
 
     // --- Internal ---
 
@@ -265,6 +277,8 @@ function createElement(tag: string): MockElement {
     return el;
 }
 
+const body = new MockElement("body");
+
 (globalThis as any).document = {
     hidden: false,
     addEventListener: () => {},
@@ -272,6 +286,7 @@ function createElement(tag: string): MockElement {
     querySelector: () => null,
     querySelectorAll: () => [],
     activeElement: null,
+    body,
 };
 
 (globalThis as any).window = {
@@ -313,6 +328,24 @@ function createElement(tag: string): MockElement {
         };
     }
 };
+
+// --- StatusBar stub ---
+// The key handlers call StatusBar.inform(), so we need a stub.
+import { set_status_bar_for_testing } from "../status_bar";
+
+const status_messages: string[] = [];
+
+set_status_bar_for_testing({
+    inform: (msg: string) => { status_messages.push(msg); },
+    scold: (msg: string) => { status_messages.push(msg); },
+    celebrate: (msg: string) => { status_messages.push(msg); },
+    persist: (msg: string) => { status_messages.push(msg); },
+    clear: () => {},
+} as any);
+
+export function get_last_status(): string | undefined {
+    return status_messages[status_messages.length - 1];
+}
 
 // Export MockElement so tests can use it for type assertions.
 export { MockElement };
