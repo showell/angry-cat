@@ -1,7 +1,7 @@
 import * as app from "./app";
 import * as database from "./backend/database";
 import { DB } from "./backend/database";
-import { EventFlavor, EventHandler, type ZulipEvent } from "./backend/event";
+import { EventHandler, type ZulipEvent } from "./backend/event";
 import * as event_queue from "./backend/event_queue";
 import * as zulip_client from "./backend/zulip_client";
 import * as config from "./backend/config";
@@ -84,15 +84,6 @@ async function run() {
         zulip_client.handle_event(event);
         database.handle_event(event);
         page.handle_zulip_event(event);
-
-        if (event.flavor === EventFlavor.PRESENCE) {
-            const name =
-                DB.user_map.get(event.user_id)?.full_name ??
-                `User ${event.user_id}`;
-            const verb =
-                event.status === "active" ? "came online" : "went offline";
-            StatusBar.inform(`${name} ${verb}`);
-        }
     });
 
     event_queue.start_polling(event_manager);

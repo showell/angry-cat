@@ -16,15 +16,8 @@ type PresenceLogEntry = {
     time: Date;
 };
 
-function presence_dot(status: string): string {
-    switch (status) {
-        case "active":
-            return "\u{1F7E2}"; // green circle
-        case "idle":
-            return "\u{1F7E1}"; // yellow circle
-        default:
-            return "\u26AA"; // white circle (offline)
-    }
+function presence_dot(is_online: boolean): string {
+    return is_online ? "\u{1F7E2}" : "\u26AA"; // green or white circle
 }
 
 function user_name_for(user_id: number): string {
@@ -54,9 +47,9 @@ function render_user_row(user: User, presences: PresenceMap): HTMLDivElement {
     });
 
     const dot = document.createElement("span");
-    const userPresence = presences[String(user.id)];
-    dot.textContent = presence_dot(userPresence?.status ?? "offline");
-    dot.title = userPresence?.status ?? "offline";
+    const is_online = String(user.id) in presences;
+    dot.textContent = presence_dot(is_online);
+    dot.title = is_online ? "online" : "offline";
 
     const name = document.createElement("span");
     name.innerText = user.full_name;
