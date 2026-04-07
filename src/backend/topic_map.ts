@@ -36,4 +36,11 @@ export class TopicMap {
     get_topic_id(channel_id: number, topic_name: string): number {
         return this.get_or_make_topic_for(channel_id, topic_name).topic_id;
     }
+
+    // Read-only lookup — returns undefined if the topic hasn't been
+    // seen yet (no messages fetched for it).
+    find_topic(channel_id: number, topic_name: string): Topic | undefined {
+        const key = `${channel_id},${topic_name}`;
+        return this.key_map.get(key);
+    }
 }

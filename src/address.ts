@@ -66,8 +66,15 @@ export function parse_path(path: string): PathInfo | undefined {
     return { channel_id, topic_name, message_id };
 }
 
-function topic_id_lookup(channel_id: number, topic_name: string): number {
-    return DB.topic_map.get_topic_id(channel_id, topic_name);
+// Look up a topic by name without creating it. Returns undefined if
+// the topic doesn't exist in our local data (e.g. a link to a topic
+// we haven't fetched any messages for yet).
+function topic_id_lookup(
+    channel_id: number,
+    topic_name: string,
+): number | undefined {
+    const topic = DB.topic_map.find_topic(channel_id, topic_name);
+    return topic?.topic_id;
 }
 
 // --- Persistence ---
@@ -141,6 +148,12 @@ export function get_address_from_path(path: string): Address | undefined {
         channel_id && topic_name
             ? topic_id_lookup(channel_id, topic_name)
             : undefined;
+
+    // If the link references a topic we don't have locally (no
+    // messages fetched for it), we can't navigate there.
+    if (topic_name && topic_id === undefined) {
+        return undefined;
+    }
 
     return {
         channel_id,
