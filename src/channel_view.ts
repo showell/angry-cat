@@ -1,4 +1,5 @@
 import { AddTopicPane } from "./add_topic_pane";
+import { is_unread } from "./backend/database";
 import type { Message } from "./backend/db_types";
 import * as model from "./backend/model";
 import { ChannelInfo } from "./channel_info";
@@ -137,7 +138,15 @@ export class ChannelView {
         if (topic_row) {
             return topic_row.unread_count();
         }
-        return this.channel_row.unread_count();
+        // When no topic is selected, compute the channel-level count
+        // live from DB.unread_ids rather than the stale channel_row
+        // snapshot. This ensures the tab label updates immediately
+        // when a MUTATE_UNREAD event arrives after mark_topic_read.
+        const channel_id = this.channel_row.stream_id();
+        const messages = model.filtered_messages({
+            predicate: (m) => m.stream_id === channel_id,
+        });
+        return messages.filter((m) => is_unread(m.id)).length;
     }
 
     get_message_view(): MessageView | undefined {
