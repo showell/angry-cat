@@ -19,7 +19,7 @@ import { get_test_deck } from "./test_deck";
 import {
     get_hint, find_rearrangement_plays, find_playable_hand_cards,
     find_split_for_set_plays, find_split_and_inject_plays,
-    find_peel_for_run_plays, find_pair_peel_plays,
+    find_peel_for_run_plays, find_pair_peel_plays, find_pair_dissolve_plays,
     HintLevel,
 } from "./hints";
 import { solve as graph_solve, STRATEGY_PREFER_RUNS } from "./reassemble_graph";
@@ -221,9 +221,10 @@ for (const st of stuck_turns) {
     const inject_plays = find_split_and_inject_plays(hand, st.board);
     const peel_run_plays = find_peel_for_run_plays(hand, st.board);
     const pair_plays = find_pair_peel_plays(hand, st.board);
+    const pair_dissolve = find_pair_dissolve_plays(hand, st.board);
     const rearrange_plays = find_rearrangement_plays(hand, st.board);
     const rearrange_hand_cards = rearrange_plays.map((p) => p.hand_card);
-    const all_expert = new Set([...split_plays, ...inject_plays, ...peel_run_plays, ...pair_plays, ...rearrange_hand_cards]);
+    const all_expert = new Set([...split_plays, ...inject_plays, ...peel_run_plays, ...pair_plays, ...pair_dissolve, ...rearrange_hand_cards]);
     const expert_plays = [...all_expert];
     const expert_labels = expert_plays.map(hc_str);
     const stuck_labels = hand

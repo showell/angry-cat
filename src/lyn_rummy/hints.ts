@@ -19,6 +19,7 @@ export enum HintLevel {
     SPLIT_AND_INJECT = "Split a run and inject your card at the split point.",
     PEEL_FOR_RUN = "Peel two board cards to form a run with your card.",
     PAIR_PEEL = "Peel a board card to complete a pair in your hand.",
+    PAIR_DISSOLVE = "Dissolve a set to complete a pair in your hand.",
     REARRANGE_PLAY = "Rearrange the board to make room for your card.",
     NO_MOVES = "No moves found. You'll draw cards.",
 }
@@ -37,6 +38,7 @@ export type Hint =
     | { level: HintLevel.SPLIT_AND_INJECT; playable_cards: HandCard[] }
     | { level: HintLevel.PEEL_FOR_RUN; playable_cards: HandCard[] }
     | { level: HintLevel.PAIR_PEEL; playable_cards: HandCard[] }
+    | { level: HintLevel.PAIR_DISSOLVE; playable_cards: HandCard[] }
     | { level: HintLevel.REARRANGE_PLAY; plays: RearrangePlay[] }
     | { level: HintLevel.NO_MOVES };
 
@@ -86,6 +88,12 @@ export function get_hint(
         return { level: HintLevel.PAIR_PEEL, playable_cards: pair_plays };
     }
 
+    // Level 5b: Pair in hand + dissolve a 3-set from board.
+    const pair_dissolve_plays = find_pair_dissolve_plays(hand_cards, board_stacks);
+    if (pair_dissolve_plays.length > 0) {
+        return { level: HintLevel.PAIR_DISSOLVE, playable_cards: pair_dissolve_plays };
+    }
+
     // Level 6: Board cleanup — join adjacent runs, then re-run
     // the peel-based checks. Merging two 3-card runs into one
     // 6-card run creates new middle-peel positions.
@@ -107,6 +115,10 @@ export function get_hint(
             const pair2 = find_pair_peel_plays(hand_cards, cleaned.board);
             if (pair2.length > 0) {
                 return { level: HintLevel.PAIR_PEEL, playable_cards: pair2 };
+            }
+            const pair_dissolve2 = find_pair_dissolve_plays(hand_cards, cleaned.board);
+            if (pair_dissolve2.length > 0) {
+                return { level: HintLevel.PAIR_DISSOLVE, playable_cards: pair_dissolve2 };
             }
         }
     }
@@ -1451,7 +1463,102 @@ export function find_pair_peel_plays(
     return [...playable];
 }
 
-// --- Level 5: Rearrangement plays (graph solver) ---
+// --- Level 5b: Pair + dissolve a 3-set ---
+//
+// Like pair-peel, but the needed third card lives in a 3-card set
+// instead of being peelable. To take it, we dissolve the set —
+// which is only legal if the OTHER two cards from the set each
+// find a home on an existing run (pure or rb, via left/right merge).
+
+// Can this card find a home on any run on the board?
+// Checks: left/right merge onto a run end, OR injection into the
+// middle of a run (split the run, card joins one half).
+function can_place_on_any_run(
+    card: Card,
+    board_stacks: CardStack[],
+    skip_index: number,
+): boolean {
+    const single_bc = new BoardCard(card, BoardCardState.FIRMLY_ON_BOARD);
+    const single = new CardStack([single_bc], DUMMY_LOC);
+
+    for (let i = 0; i < board_stacks.length; i++) {
+        if (i === skip_index) continue;
+        const stack = board_stacks[i];
+        const st = stack.get_stack_type();
+        if (st !== CardStackType.PURE_RUN && st !== CardStackType.RED_BLACK_RUN) continue;
+
+        // End merge.
+        if (stack.left_merge(single) || stack.right_merge(single)) {
+            return true;
+        }
+
+        // Injection: split the run, card joins one half.
+        const cards = stack.board_cards;
+        for (let split = 2; split <= cards.length - 2; split++) {
+            const left = new CardStack(cards.slice(0, split), DUMMY_LOC);
+            const right = new CardStack(cards.slice(split), DUMMY_LOC);
+            if (left.problematic() || right.problematic()) continue;
+
+            if (!left.incomplete() && right.left_merge(single)) return true;
+            if (!right.incomplete() && left.right_merge(single)) return true;
+        }
+    }
+    return false;
+}
+
+export function find_pair_dissolve_plays(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): HandCard[] {
+    const already_playable = new Set(
+        find_playable_hand_cards(hand_cards, board_stacks),
+    );
+    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    if (unplayable.length < 2) return [];
+
+    const pairs = find_hand_pairs(unplayable);
+    if (pairs.length === 0) return [];
+
+    // Find all 3-card sets on the board.
+    const sets_3: { stack: CardStack; index: number }[] = [];
+    for (let i = 0; i < board_stacks.length; i++) {
+        const s = board_stacks[i];
+        if (s.get_stack_type() === CardStackType.SET && s.size() === 3) {
+            sets_3.push({ stack: s, index: i });
+        }
+    }
+    if (sets_3.length === 0) return [];
+
+    const playable = new Set<HandCard>();
+
+    for (const pair of pairs) {
+        for (const need of pair.needed) {
+            // Check each 3-card set for the needed card.
+            for (const { stack, index } of sets_3) {
+                const cards = stack.get_cards();
+                const match_idx = cards.findIndex(
+                    (c) => c.value === need.value && c.suit === need.suit,
+                );
+                if (match_idx < 0) continue;
+
+                // The other two cards must each merge onto a run.
+                const others = cards.filter((_, i) => i !== match_idx);
+                const both_placed =
+                    can_place_on_any_run(others[0], board_stacks, index) &&
+                    can_place_on_any_run(others[1], board_stacks, index);
+
+                if (both_placed) {
+                    playable.add(pair.a);
+                    playable.add(pair.b);
+                }
+            }
+        }
+    }
+
+    return [...playable];
+}
+
+// --- Level 6: Rearrangement plays (graph solver) ---
 //
 // For each hand card that earlier levels couldn't place, scatter
 // the entire board + that card as singles, run the graph solver,

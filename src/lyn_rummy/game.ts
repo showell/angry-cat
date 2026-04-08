@@ -1862,7 +1862,8 @@ class EventManagerSingleton {
             case HintLevel.SPLIT_FOR_SET:
             case HintLevel.SPLIT_AND_INJECT:
             case HintLevel.PEEL_FOR_RUN:
-            case HintLevel.PAIR_PEEL: {
+            case HintLevel.PAIR_PEEL:
+            case HintLevel.PAIR_DISSOLVE: {
                 StatusBar.inform(hint.level);
                 PlayerArea.show_hints(new Set(hint.playable_cards));
                 break;
