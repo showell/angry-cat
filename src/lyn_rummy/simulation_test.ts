@@ -1,8 +1,10 @@
-// Simulation test with a fixed deck.
+// Simulation test — play through the entire fixed deck, trying to
+// place every card on the board. Measures hint quality and performance.
 //
-// Uses a pre-shuffled deck to run deterministic games and measure
-// hint system performance. The same deck produces the same results
-// every time, so we can benchmark and compare strategies.
+// A good player can usually play most or all cards. The simulation
+// alternates between two virtual players (though both share the same
+// hint engine). Each turn: play as many cards as possible using the
+// hint cascade, then draw according to the rules.
 
 import assert from "node:assert/strict";
 import { value_str } from "./card";
@@ -18,7 +20,6 @@ import { get_hint, HintLevel } from "./hints";
 import { get_test_deck } from "./test_deck";
 
 const loc: BoardLocation = { top: 0, left: 0 };
-
 const suit_letter: Record<number, string> = { 0: "C", 1: "D", 2: "S", 3: "H" };
 
 function card_str(hc: HandCard): string {
@@ -29,9 +30,8 @@ function card_str(hc: HandCard): string {
 
 {
     const deck = get_test_deck();
-    assert.equal(deck.length, 104, "double deck should have 104 cards");
+    assert.equal(deck.length, 104);
 
-    // Verify we have exactly 2 of each card (across both decks).
     const counts = new Map<string, number>();
     for (const card of deck) {
         const key = value_str(card.value) + suit_letter[card.suit];
@@ -40,10 +40,10 @@ function card_str(hc: HandCard): string {
     for (const [key, count] of counts) {
         assert.equal(count, 2, `expected 2 of ${key}, got ${count}`);
     }
-    assert.equal(counts.size, 52, "should have 52 unique card faces");
+    assert.equal(counts.size, 52);
 }
 
-// --- Simulate a single-player game using the hint cascade ---
+// --- Full game simulation ---
 
 {
     const deck = get_test_deck();
@@ -57,55 +57,55 @@ function card_str(hc: HandCard): string {
         return cards;
     }
 
-    // Start with the standard initial board stacks.
-    function initial_board(): CardStack[] {
-        // Simplified: start with an empty board. The player builds
-        // everything from scratch using hand stacks.
-        return [];
-    }
-
     let hand = draw(15);
-    let board = initial_board();
-    let total_played = 0;
-    let turns = 0;
-    const max_turns = 50;
-    let bfs_hits = 0;
+    let board: CardStack[] = [];
+    let total_cards_played = 0;
+    let total_turns = 0;
+    let total_draws = 0;
+    let times_stuck = 0;
+    let hand_empties = 0;
+    let max_hint_ms = 0;
+    let total_hint_ms = 0;
+    let hint_calls = 0;
 
-    const start = performance.now();
+    const HINT_TIMEOUT_MS = 200;
+    const MAX_TURNS = 200; // safety valve
 
-    while (turns < max_turns && hand.length > 0) {
-        turns++;
+    const game_start = performance.now();
+
+    while (total_turns < MAX_TURNS) {
+        total_turns++;
         let played_this_turn = 0;
 
-        // Keep applying hints until no more moves.
-        let made_progress = true;
-        while (made_progress) {
-            made_progress = false;
+        // Play as many cards as possible this turn.
+        let keep_going = true;
+        while (keep_going && hand.length > 0) {
+            keep_going = false;
+
+            const hint_start = performance.now();
             const hint = get_hint(hand, board);
+            const hint_ms = performance.now() - hint_start;
+            total_hint_ms += hint_ms;
+            hint_calls++;
+            if (hint_ms > max_hint_ms) max_hint_ms = hint_ms;
 
             switch (hint.level) {
                 case HintLevel.HAND_STACKS: {
-                    // Play the first complete stack from hand to board.
                     const hs = hint.hand_stacks[0];
                     const board_cards = hs.cards.map(
                         (hc) => new BoardCard(hc.card, BoardCardState.FRESHLY_PLAYED),
                     );
                     board.push(new CardStack(board_cards, loc));
-
-                    // Remove played cards from hand.
                     const played_set = new Set(hs.cards);
                     hand = hand.filter((hc) => !played_set.has(hc));
                     played_this_turn += hs.cards.length;
-                    made_progress = true;
+                    keep_going = true;
                     break;
                 }
 
                 case HintLevel.DIRECT_PLAY: {
-                    // Play the first playable card.
                     const hc = hint.playable_cards[0];
                     const single = CardStack.from_hand_card(hc, loc);
-
-                    // Find which stack it merges into and replace it.
                     for (let i = 0; i < board.length; i++) {
                         const merged =
                             board[i].left_merge(single) ??
@@ -115,21 +115,15 @@ function card_str(hc: HandCard): string {
                             break;
                         }
                     }
-
                     hand = hand.filter((h) => h !== hc);
                     played_this_turn += 1;
-                    made_progress = true;
+                    keep_going = true;
                     break;
                 }
 
                 case HintLevel.LOOSE_CARD_PLAY: {
-                    bfs_hits++;
                     const play = hint.plays[0];
-
-                    // Use the pre-computed board state after rearrangement.
                     board = play.resulting_board;
-
-                    // Now play the hand card onto the rearranged board.
                     const hc = play.playable_cards[0];
                     const single = CardStack.from_hand_card(hc, loc);
                     for (let i = 0; i < board.length; i++) {
@@ -141,10 +135,9 @@ function card_str(hc: HandCard): string {
                             break;
                         }
                     }
-
                     hand = hand.filter((h) => h !== hc);
                     played_this_turn += 1;
-                    made_progress = true;
+                    keep_going = true;
                     break;
                 }
 
@@ -153,24 +146,66 @@ function card_str(hc: HandCard): string {
             }
         }
 
-        total_played += played_this_turn;
+        total_cards_played += played_this_turn;
 
-        // Draw cards if nothing was played this turn.
+        // End-of-turn draw rules.
         if (played_this_turn === 0) {
-            hand = hand.concat(draw(3));
+            // Stuck — draw 3 penalty cards.
+            const drawn = draw(3);
+            hand = hand.concat(drawn);
+            total_draws += drawn.length;
+            times_stuck++;
+        } else if (hand.length === 0) {
+            // Emptied hand — draw 5 bonus cards.
+            hand_empties++;
+            const drawn = draw(5);
+            hand = hand.concat(drawn);
+            total_draws += drawn.length;
+        }
+        // Otherwise (played some but hand not empty): draw 0.
+
+        // Game ends when deck is empty and hand is empty.
+        if (deck_index >= deck.length && hand.length === 0) {
+            break;
+        }
+
+        // Also end if deck is empty and we're stuck.
+        if (deck_index >= deck.length && played_this_turn === 0) {
+            break;
         }
     }
 
-    const elapsed = performance.now() - start;
+    const game_ms = performance.now() - game_start;
+    const cards_on_board = board.reduce((sum, s) => sum + s.size(), 0);
+    const cards_in_hand = hand.length;
+    const cards_in_deck = deck.length - deck_index;
+    const avg_hint_ms = hint_calls > 0 ? total_hint_ms / hint_calls : 0;
 
-    console.log(`Simulation: ${turns} turns, ${total_played} cards played, ` +
-        `${hand.length} cards left in hand, ${board.length} board stacks, ` +
-        `${deck.length - deck_index} cards left in deck, ${bfs_hits} BFS hits, ` +
-        `${elapsed.toFixed(1)}ms`);
+    console.log(`\nFull game simulation:`);
+    console.log(`  Turns:          ${total_turns}`);
+    console.log(`  Cards played:   ${total_cards_played} / ${deck.length}`);
+    console.log(`  On board:       ${cards_on_board}`);
+    console.log(`  In hand:        ${cards_in_hand}`);
+    console.log(`  In deck:        ${cards_in_deck}`);
+    console.log(`  Hand empties:   ${hand_empties}`);
+    console.log(`  Times stuck:    ${times_stuck}`);
+    console.log(`  Hint calls:     ${hint_calls}`);
+    console.log(`  Avg hint:       ${avg_hint_ms.toFixed(1)}ms`);
+    console.log(`  Max hint:       ${max_hint_ms.toFixed(1)}ms`);
+    console.log(`  Total time:     ${game_ms.toFixed(0)}ms`);
 
-    // Basic sanity: the hint system should play at least some cards.
-    assert(total_played > 0, "should have played at least some cards");
-    assert(turns <= max_turns, "should finish within turn limit");
+    // Assertions.
+    assert(total_cards_played > 0, "should play at least some cards");
+    assert(max_hint_ms < HINT_TIMEOUT_MS,
+        `worst hint took ${max_hint_ms.toFixed(0)}ms, budget is ${HINT_TIMEOUT_MS}ms`);
+
+    // Report how close to a perfect game we got.
+    const unplayed = cards_in_hand + cards_in_deck;
+    if (unplayed === 0) {
+        console.log(`  ** PERFECT GAME — all ${deck.length} cards played! **`);
+    } else {
+        console.log(`  ${unplayed} cards unplayed (${(100 * total_cards_played / deck.length).toFixed(0)}% completion)`);
+    }
 }
 
-console.log("All simulation tests passed.");
+console.log("\nAll simulation tests passed.");
