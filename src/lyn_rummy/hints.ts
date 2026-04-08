@@ -5,6 +5,28 @@ import { solve as graph_solve, STRATEGY_PREFER_RUNS } from "./reassemble_graph";
 
 const DUMMY_LOC = { top: 0, left: 0 };
 
+// --- Shared helpers ---
+
+function get_unplayable(hand_cards: HandCard[], board_stacks: CardStack[]): HandCard[] {
+    const already = new Set(find_playable_hand_cards(hand_cards, board_stacks));
+    return hand_cards.filter((hc) => !already.has(hc));
+}
+
+function make_single_stack(card: Card): CardStack {
+    return new CardStack(
+        [new BoardCard(card, BoardCardState.FIRMLY_ON_BOARD)], DUMMY_LOC);
+}
+
+function opposite_color(c: CardColor): CardColor {
+    return c === CardColor.RED ? CardColor.BLACK : CardColor.RED;
+}
+
+function suits_of_color(color: CardColor): Suit[] {
+    return color === CardColor.RED
+        ? [Suit.HEART, Suit.DIAMOND]
+        : [Suit.SPADE, Suit.CLUB];
+}
+
 // --- Hint cascade ---
 //
 // get_hint returns the simplest available move. We only progress to
@@ -154,21 +176,14 @@ export function find_swap_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    // Only consider hand cards not directly playable.
-    const already_playable = new Set(
-        find_playable_hand_cards(hand_cards, board_stacks),
-    );
-    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
-    if (unplayable.length === 0) return [];
+    const unplayable = get_unplayable(hand_cards, board_stacks);
 
     const results: HandCard[] = [];
-
     for (const hc of unplayable) {
         if (find_swap_for_card(hc, board_stacks)) {
             results.push(hc);
         }
     }
-
     return results;
 }
 
@@ -176,12 +191,7 @@ function find_swap_for_card(
     hc: HandCard,
     board_stacks: CardStack[],
 ): boolean {
-    const hand_val = hc.card.value;
-    const hand_color = hc.card.color;
-    const hand_suit = hc.card.suit;
-
-    // Scan rb runs for a card with the same value and color but
-    // different suit — that's the swap candidate.
+    // Scan rb runs for a same-value, same-color, different-suit card.
     for (let si = 0; si < board_stacks.length; si++) {
         const stack = board_stacks[si];
         if (stack.get_stack_type() !== CardStackType.RED_BLACK_RUN) continue;
@@ -189,57 +199,18 @@ function find_swap_for_card(
         const cards = stack.get_cards();
         for (let ci = 0; ci < cards.length; ci++) {
             const bc = cards[ci];
-            if (bc.value !== hand_val) continue;
-            if (bc.color !== hand_color) continue;
-            if (bc.suit === hand_suit) continue; // same suit = dup, not a swap
+            if (bc.value !== hc.card.value) continue;
+            if (bc.color !== hc.card.color) continue;
+            if (bc.suit === hc.card.suit) continue;
 
-            // Found a swap candidate: bc has the same value+color
-            // but different suit. Can we kick bc out?
-
-            // First verify the hand card would actually fit in bc's
-            // position. Build the run with the hand card swapped in.
+            // Verify the hand card fits in this position.
             const swapped = cards.map((c, i) => i === ci ? hc.card : c);
-            const swapped_type = get_stack_type(swapped);
-            if (swapped_type !== CardStackType.RED_BLACK_RUN) continue;
+            if (get_stack_type(swapped) !== CardStackType.RED_BLACK_RUN) continue;
 
-            // Now check: can bc join a pure run or a set elsewhere?
-            const single = new CardStack(
-                [new BoardCard(bc, BoardCardState.FIRMLY_ON_BOARD)], DUMMY_LOC);
-
-            for (let ti = 0; ti < board_stacks.length; ti++) {
-                if (ti === si) continue;
-                const target = board_stacks[ti];
-
-                // Try merging. Only accept if the result is a pure
-                // run or a set — not another rb run.
-                for (const merged of [target.left_merge(single), target.right_merge(single)]) {
-                    if (!merged) continue;
-                    const mt = merged.get_stack_type();
-                    if (mt === CardStackType.PURE_RUN || mt === CardStackType.SET) {
-                        return true;
-                    }
-                }
-            }
-
-            // Also check: can bc inject into the middle of a pure run?
-            for (let ti = 0; ti < board_stacks.length; ti++) {
-                if (ti === si) continue;
-                const target = board_stacks[ti];
-                if (target.get_stack_type() !== CardStackType.PURE_RUN) continue;
-
-                const t_cards = target.board_cards;
-                for (let split = 2; split <= t_cards.length - 2; split++) {
-                    const left = new CardStack(t_cards.slice(0, split), DUMMY_LOC);
-                    const right = new CardStack(t_cards.slice(split), DUMMY_LOC);
-                    if (left.problematic() || right.problematic()) continue;
-
-                    if (!left.incomplete() && right.left_merge(single)) return true;
-                    if (!right.incomplete() && left.right_merge(single)) return true;
-                }
-            }
+            // Can the kicked card find a home on a pure run or set?
+            if (can_place_on_run_or_set(bc, board_stacks, si)) return true;
         }
     }
-
     return false;
 }
 
@@ -1095,50 +1066,20 @@ export function join_adjacent_runs(
     const stacks = [...board_stacks];
     let changed = false;
 
-    // Keep merging until no more joins found.
+    // Keep merging until no more joins found. Two directions
+    // suffice: i.right_merge(j) and j.right_merge(i).
     let progress = true;
     while (progress) {
         progress = false;
         for (let i = 0; i < stacks.length && !progress; i++) {
             for (let j = i + 1; j < stacks.length && !progress; j++) {
-                // Try merging i's right end → j's left end.
-                const merged_ij = stacks[i].right_merge(stacks[j]);
-                if (merged_ij) {
-                    stacks[i] = merged_ij;
+                const merged = stacks[i].right_merge(stacks[j])
+                            ?? stacks[j].right_merge(stacks[i]);
+                if (merged) {
+                    stacks[i] = merged;
                     stacks.splice(j, 1);
                     changed = true;
                     progress = true;
-                    continue;
-                }
-
-                // Try merging j's right end → i's left end.
-                const merged_ji = stacks[j].right_merge(stacks[i]);
-                if (merged_ji) {
-                    stacks[i] = merged_ji;
-                    stacks.splice(j, 1);
-                    changed = true;
-                    progress = true;
-                    continue;
-                }
-
-                // Try i on left of j.
-                const merged_li = stacks[j].left_merge(stacks[i]);
-                if (merged_li) {
-                    stacks[j] = merged_li;
-                    stacks.splice(i, 1);
-                    changed = true;
-                    progress = true;
-                    continue;
-                }
-
-                // Try j on left of i.
-                const merged_lj = stacks[i].left_merge(stacks[j]);
-                if (merged_lj) {
-                    stacks[i] = merged_lj;
-                    stacks.splice(j, 1);
-                    changed = true;
-                    progress = true;
-                    continue;
                 }
             }
         }
@@ -1206,10 +1147,7 @@ export function find_split_for_set_plays(
     board_stacks: CardStack[],
 ): HandCard[] {
     // Filter to hand cards not playable by earlier levels.
-    const already_playable = new Set(
-        find_playable_hand_cards(hand_cards, board_stacks),
-    );
-    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    const unplayable = get_unplayable(hand_cards, board_stacks);
     if (unplayable.length === 0) return [];
 
     const results: HandCard[] = [];
@@ -1276,10 +1214,7 @@ export function find_split_and_inject_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    const already_playable = new Set(
-        find_playable_hand_cards(hand_cards, board_stacks),
-    );
-    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    const unplayable = get_unplayable(hand_cards, board_stacks);
     if (unplayable.length === 0) return [];
 
     const results: HandCard[] = [];
@@ -1310,9 +1245,10 @@ export function find_split_and_inject_plays(
                 // Case 1: left is 3+ (valid), hand card extends right on the left.
                 // Right starts at cards[split]. Hand card must be predecessor,
                 // matching the run type.
+                const single = CardStack.from_hand_card(hc, DUMMY_LOC);
+
+                // Case 1: left is valid, hand card extends right on the left.
                 if (!left.incomplete()) {
-                    const right_first = cards[split].card;
-                    const single = CardStack.from_hand_card(hc, DUMMY_LOC);
                     const extended = right.left_merge(single);
                     if (extended && !extended.incomplete() && !extended.problematic()) {
                         found = true;
@@ -1320,10 +1256,8 @@ export function find_split_and_inject_plays(
                     }
                 }
 
-                // Case 2: right is 3+ (valid), hand card extends left on the right.
-                // Left ends at cards[split-1]. Hand card must be successor.
+                // Case 2: right is valid, hand card extends left on the right.
                 if (!right.incomplete()) {
-                    const single = CardStack.from_hand_card(hc, DUMMY_LOC);
                     const extended = left.right_merge(single);
                     if (extended && !extended.incomplete() && !extended.problematic()) {
                         found = true;
@@ -1375,10 +1309,7 @@ export function find_peel_for_run_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    const already_playable = new Set(
-        find_playable_hand_cards(hand_cards, board_stacks),
-    );
-    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    const unplayable = get_unplayable(hand_cards, board_stacks);
     if (unplayable.length === 0) return [];
 
     const peelable = find_peelable_cards(board_stacks);
@@ -1480,53 +1411,39 @@ function find_hand_pairs(hand: HandCard[]): { a: HandCard; b: HandCard; needed: 
                 }
             }
 
-            // Pure run pair: same suit, consecutive.
-            if (a.suit === b.suit && successor(a.value) === b.value) {
-                const needed: Card[] = [];
-                needed.push(new Card(predecessor(a.value), a.suit, a.origin_deck));
-                needed.push(new Card(successor(b.value), b.suit, b.origin_deck));
-                pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
-            }
-            if (a.suit === b.suit && successor(b.value) === a.value) {
-                const needed: Card[] = [];
-                needed.push(new Card(predecessor(b.value), b.suit, b.origin_deck));
-                needed.push(new Card(successor(a.value), a.suit, a.origin_deck));
-                pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
-            }
+            // Run pair: consecutive values. Normalize so lo < hi.
+            // Pure run: same suit. Red/black: opposite color.
+            {
+                let lo: Card | undefined;
+                let hi: Card | undefined;
+                if (successor(a.value) === b.value) { lo = a; hi = b; }
+                else if (successor(b.value) === a.value) { lo = b; hi = a; }
 
-            // Red/black run pair: opposite color, consecutive.
-            if (a.color !== b.color) {
-                if (successor(a.value) === b.value) {
-                    // [?, a, b] needs predecessor of a in opposite color from a.
-                    const pred_color = a.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
-                    // [a, b, ?] needs successor of b in opposite color from b.
-                    const succ_color = b.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
-                    const needed: Card[] = [];
-                    // Predecessor: must be opposite color from a, value = predecessor(a.value).
-                    // We don't know the exact suit, so add both suits of the needed color.
-                    for (const s of [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]) {
-                        const c = new Card(predecessor(a.value), s, a.origin_deck);
-                        if (c.color === pred_color) needed.push(c);
+                if (lo && hi) {
+                    const is_pure = lo.suit === hi.suit;
+                    const is_rb = lo.color !== hi.color;
+
+                    if (is_pure) {
+                        // Need predecessor/successor in same suit.
+                        pairs.push({
+                            a: hand[i], b: hand[j], kind: "run",
+                            needed: [
+                                new Card(predecessor(lo.value), lo.suit, lo.origin_deck),
+                                new Card(successor(hi.value), hi.suit, hi.origin_deck),
+                            ],
+                        });
+                    } else if (is_rb) {
+                        // Need predecessor of lo in opposite color,
+                        // successor of hi in opposite color.
+                        const needed: Card[] = [];
+                        for (const s of suits_of_color(opposite_color(lo.color))) {
+                            needed.push(new Card(predecessor(lo.value), s, lo.origin_deck));
+                        }
+                        for (const s of suits_of_color(opposite_color(hi.color))) {
+                            needed.push(new Card(successor(hi.value), s, hi.origin_deck));
+                        }
+                        pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
                     }
-                    for (const s of [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]) {
-                        const c = new Card(successor(b.value), s, b.origin_deck);
-                        if (c.color === succ_color) needed.push(c);
-                    }
-                    pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
-                }
-                if (successor(b.value) === a.value) {
-                    const pred_color = b.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
-                    const succ_color = a.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
-                    const needed: Card[] = [];
-                    for (const s of [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]) {
-                        const c = new Card(predecessor(b.value), s, b.origin_deck);
-                        if (c.color === pred_color) needed.push(c);
-                    }
-                    for (const s of [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]) {
-                        const c = new Card(successor(a.value), s, a.origin_deck);
-                        if (c.color === succ_color) needed.push(c);
-                    }
-                    pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
                 }
             }
         }
@@ -1540,10 +1457,7 @@ export function find_pair_peel_plays(
     board_stacks: CardStack[],
 ): HandCard[] {
     // Only consider hand cards not playable by earlier levels.
-    const already_playable = new Set(
-        find_playable_hand_cards(hand_cards, board_stacks),
-    );
-    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    const unplayable = get_unplayable(hand_cards, board_stacks);
     if (unplayable.length < 2) return [];
 
     const pairs = find_hand_pairs(unplayable);
@@ -1581,29 +1495,55 @@ export function find_pair_peel_plays(
 // which is only legal if the OTHER two cards from the set each
 // find a home on an existing run (pure or rb, via left/right merge).
 
-// Can this card find a home on any run on the board?
-// Checks: left/right merge onto a run end, OR injection into the
-// middle of a run (split the run, card joins one half).
+// Can this card find a home on any run (pure or rb) on the board?
+// Checks end merge and middle injection.
 function can_place_on_any_run(
     card: Card,
     board_stacks: CardStack[],
     skip_index: number,
 ): boolean {
-    const single_bc = new BoardCard(card, BoardCardState.FIRMLY_ON_BOARD);
-    const single = new CardStack([single_bc], DUMMY_LOC);
+    return can_place_on_board(card, board_stacks, skip_index,
+        [CardStackType.PURE_RUN, CardStackType.RED_BLACK_RUN]);
+}
+
+// Can this card find a home on a pure run or a set?
+// (Not rb runs — used by swap to avoid moving the problem.)
+function can_place_on_run_or_set(
+    card: Card,
+    board_stacks: CardStack[],
+    skip_index: number,
+): boolean {
+    return can_place_on_board(card, board_stacks, skip_index,
+        [CardStackType.PURE_RUN, CardStackType.SET]);
+}
+
+// Generic: can this card merge onto any stack of the given types,
+// or inject into the middle of a run of those types?
+function can_place_on_board(
+    card: Card,
+    board_stacks: CardStack[],
+    skip_index: number,
+    accept_types: CardStackType[],
+): boolean {
+    const single = make_single_stack(card);
 
     for (let i = 0; i < board_stacks.length; i++) {
         if (i === skip_index) continue;
         const stack = board_stacks[i];
-        const st = stack.get_stack_type();
-        if (st !== CardStackType.PURE_RUN && st !== CardStackType.RED_BLACK_RUN) continue;
 
-        // End merge.
-        if (stack.left_merge(single) || stack.right_merge(single)) {
-            return true;
+        // End merge — check the result type, not the target type,
+        // so incomplete stacks that become valid are accepted.
+        for (const merged of [stack.left_merge(single), stack.right_merge(single)]) {
+            if (merged && accept_types.includes(merged.get_stack_type())) {
+                return true;
+            }
         }
 
-        // Injection: split the run, card joins one half.
+        // Injection into middle of a run.
+        const st = stack.get_stack_type();
+        if (st !== CardStackType.PURE_RUN && st !== CardStackType.RED_BLACK_RUN) continue;
+        if (!accept_types.includes(st)) continue;
+
         const cards = stack.board_cards;
         for (let split = 2; split <= cards.length - 2; split++) {
             const left = new CardStack(cards.slice(0, split), DUMMY_LOC);
@@ -1621,10 +1561,7 @@ export function find_pair_dissolve_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    const already_playable = new Set(
-        find_playable_hand_cards(hand_cards, board_stacks),
-    );
-    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    const unplayable = get_unplayable(hand_cards, board_stacks);
     if (unplayable.length < 2) return [];
 
     const pairs = find_hand_pairs(unplayable);
@@ -1740,10 +1677,7 @@ export function find_rearrangement_plays(
     }
 
     // Filter to hand cards not already playable by earlier levels.
-    const already_playable = new Set(
-        find_playable_hand_cards(hand_cards, board_stacks),
-    );
-    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    const unplayable = get_unplayable(hand_cards, board_stacks);
     if (unplayable.length === 0) return [];
 
     const results: RearrangePlay[] = [];
