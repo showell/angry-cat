@@ -69,7 +69,14 @@ function card_str(hc: HandCard): string {
     let hint_calls = 0;
 
     const HINT_TIMEOUT_MS = 200;
-    const MAX_TURNS = 200; // safety valve
+    const MAX_TURNS = 200;
+
+    type StuckSnapshot = {
+        turn: number;
+        hand_labels: string[];
+        board_labels: string[][]; // each stack is an array of card labels
+    };
+    const stuck_snapshots: StuckSnapshot[] = [];
 
     const game_start = performance.now();
 
@@ -150,7 +157,15 @@ function card_str(hc: HandCard): string {
 
         // End-of-turn draw rules.
         if (played_this_turn === 0) {
-            // Stuck — draw 3 penalty cards.
+            // Stuck — capture the scenario for hard test cases.
+            stuck_snapshots.push({
+                turn: total_turns,
+                hand_labels: hand.map(card_str),
+                board_labels: board.map((s) =>
+                    s.get_cards().map((c) => value_str(c.value) + suit_letter[c.suit]),
+                ),
+            });
+
             const drawn = draw(3);
             hand = hand.concat(drawn);
             total_draws += drawn.length;
@@ -205,6 +220,30 @@ function card_str(hc: HandCard): string {
         console.log(`  ** PERFECT GAME — all ${deck.length} cards played! **`);
     } else {
         console.log(`  ${unplayed} cards unplayed (${(100 * total_cards_played / deck.length).toFixed(0)}% completion)`);
+    }
+
+    // Capture stuck scenarios as test-friendly snapshots.
+    // Each time we get stuck, dump the board and hand.
+    if (stuck_snapshots.length > 0) {
+        console.log(`\n  Captured ${stuck_snapshots.length} stuck scenarios.`);
+        // Print first 3 for analysis.
+        for (let i = 0; i < Math.min(3, stuck_snapshots.length); i++) {
+            const s = stuck_snapshots[i];
+            console.log(`\n  Stuck turn ${s.turn}:`);
+            console.log(`    Hand: ${s.hand_labels.join(", ")}`);
+            for (const stack of s.board_labels) {
+                console.log(`    Board: [${stack.join(" ")}]`);
+            }
+        }
+    }
+
+    if (cards_in_hand > 0) {
+        console.log(`\n  Final stuck cards: ${hand.map(card_str).join(", ")}`);
+        console.log(`  Final board:`);
+        for (const stack of board) {
+            const labels = stack.get_cards().map((c) => value_str(c.value) + suit_letter[c.suit]);
+            console.log(`    [${labels.join(" ")}] (${stack.get_stack_type()})`);
+        }
     }
 }
 
