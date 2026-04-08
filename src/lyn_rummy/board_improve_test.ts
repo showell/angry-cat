@@ -113,4 +113,33 @@ function bs(...labels: string[]): CardStack {
     console.log("  3-card set: no peel allowed ✓");
 }
 
+// Story: join enables promote. Two short spade runs that join
+// into one long run, then a card promotes from a set onto it.
+// Board: [4S 5S 6S] + [7S 8S 9S] + [6H 6S:D2 6D 6C] (4-set).
+// Step 1 (join): [4S 5S 6S 7S 8S 9S] (6-card pure run).
+// Step 2 (promote): 6S:D2 peels from set → but wait, [4S..9S]
+// already has 6S. That won't work.
+//
+// Better: [4S 5S 6S] + [7S 8S 9S] + [TS TD TC TH] (4-set).
+// Step 1 (join): [4S 5S 6S 7S 8S 9S].
+// Step 2 (promote): TS from set joins run → [4S 5S 6S 7S 8S 9S TS].
+// Old: run(4*100) + run(4*100) + set(2*60) = 400+400+120 = NO.
+// Stacks are 3 each: run(1*100)+run(1*100)+set(2*60)=100+100+120=320.
+// After join: run(4*100)=400, set stays 120, total=520. Delta=+100.
+// After promote: run(5*100)+set(1*60)=500+60=560. Delta=+40.
+{
+    const board = [bs("4S", "5S", "6S"), bs("7S", "8S", "9S"), bs("TS", "TD", "TC", "TH")];
+    const old_score = Score.for_stacks(board);
+    const result = do_obvious_board_improvements(board);
+    const new_score = Score.for_stacks(result.board);
+
+    assert(result.upgrades_applied >= 2, `Expected join+promote, got ${result.upgrades_applied}`);
+    assert(new_score > old_score, `Score should improve: ${old_score} → ${new_score}`);
+
+    // Check the joined+promoted run exists.
+    const long_run = result.board.find((s) => s.size() >= 7 && s.get_stack_type() === "pure run");
+    assert(long_run !== undefined, "Should have a 7-card pure spade run");
+    console.log(`  join→promote chain: ${old_score} → ${new_score} (+${new_score - old_score}), ${result.upgrades_applied} tricks ✓`);
+}
+
 console.log("\nAll board improvement tests passed.");
