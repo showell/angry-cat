@@ -434,6 +434,251 @@ function apply_loose_move(
     });
 }
 
+// --- Demand-driven search ---
+//
+// Instead of blind BFS over all possible board moves, we start from
+// the hand and work backwards:
+//
+//   1. For each unplayable hand card, compute what it needs (which
+//      value+suit on which end of which stack type).
+//   2. Scan the board for cards that match those needs.
+//   3. For each found card, determine how to free it:
+//      a. Already loose on an end → one move
+//      b. Buried in a run → one split exposes it, then one move
+//   4. Try targeted moves first. Fall back to BFS for remaining.
+
+type Demand = {
+    hand_card: HandCard;
+    needed_value: CardValue;
+    needed_suit?: Suit;         // for pure runs
+    needed_color?: CardColor;   // for red/black runs
+};
+
+// What does this hand card need on the board to become playable?
+function compute_demands(
+    hand_card: HandCard,
+    board_stacks: CardStack[],
+): Demand[] {
+    // The hand card wants to attach to a stack. For that stack to
+    // accept it, the stack's end must be the predecessor/successor
+    // of the hand card (for runs) or have the same value (for sets).
+    // But we invert: what board card, if it appeared as the end of
+    // a stack, would let our hand card play?
+    //
+    // Actually simpler: we want the board to have a stack that
+    // WANTS our hand card. compute_wanted_cards tells us what each
+    // stack wants. We already checked those and our card doesn't
+    // match. So we need to CHANGE the board so a stack wants our card.
+    //
+    // The demand is: "I need a board stack ending at value X so I
+    // can extend it." For a hand card with value V:
+    //   - A pure run ending at V-1 in our suit would want us.
+    //   - A red/black run ending at V-1 in opposite color would want us.
+    //   - A set of V with our suit missing would want us.
+    //
+    // So the "demanded board card" is one that, when placed at the
+    // end of some stack, creates a spot for our hand card. This means
+    // we're looking for V-1 in same suit (pure run) or V-1 in
+    // opposite color (red/black run), or another V in a different
+    // suit (to grow a set to where it needs us).
+
+    const demands: Demand[] = [];
+    const hc = hand_card.card;
+
+    // For runs: we need a stack that ends at predecessor(V) in
+    // matching suit/color. That card needs to exist on the board.
+    demands.push({
+        hand_card,
+        needed_value: predecessor(hc.value),
+        needed_suit: hc.suit,
+    });
+
+    // For red/black: predecessor with opposite color
+    const opp_color = hc.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
+    demands.push({
+        hand_card,
+        needed_value: predecessor(hc.value),
+        needed_color: opp_color,
+    });
+
+    // For extending a run from the left: we need successor(V) in
+    // matching suit/color at the start of a stack.
+    demands.push({
+        hand_card,
+        needed_value: successor(hc.value),
+        needed_suit: hc.suit,
+    });
+    demands.push({
+        hand_card,
+        needed_value: successor(hc.value),
+        needed_color: opp_color,
+    });
+
+    return demands;
+}
+
+type BoardCardLocation = {
+    stack: CardStack;
+    stack_index: number; // index within board_stacks
+    card_index: number;  // position within the stack
+    board_card: BoardCard;
+};
+
+function find_card_on_board(
+    board_stacks: CardStack[],
+    demand: Demand,
+): BoardCardLocation[] {
+    const results: BoardCardLocation[] = [];
+
+    for (let si = 0; si < board_stacks.length; si++) {
+        const stack = board_stacks[si];
+        const cards = stack.board_cards;
+
+        for (let ci = 0; ci < cards.length; ci++) {
+            const bc = cards[ci];
+            if (bc.card.value !== demand.needed_value) continue;
+            if (demand.needed_suit !== undefined && bc.card.suit !== demand.needed_suit) continue;
+            if (demand.needed_color !== undefined && bc.card.color !== demand.needed_color) continue;
+
+            results.push({
+                stack,
+                stack_index: si,
+                card_index: ci,
+                board_card: bc,
+            });
+        }
+    }
+
+    return results;
+}
+
+// Can this card be freed with a single action?
+// Returns the board state after freeing it, or undefined.
+function try_free_card(
+    loc: BoardCardLocation,
+    board_stacks: CardStack[],
+): { board: CardStack[]; move: BoardMove } | undefined {
+    const cards = loc.stack.board_cards;
+    const size = cards.length;
+
+    // Case 1: card is on the left end of a 4+ stack.
+    if (loc.card_index === 0 && size >= 4) {
+        const remaining = new CardStack(cards.slice(1), loc.stack.loc);
+        if (!remaining.incomplete() && !remaining.problematic()) {
+            // Find somewhere to put it.
+            const single = new CardStack(
+                [new BoardCard(loc.board_card.card, BoardCardState.FIRMLY_ON_BOARD)],
+                DUMMY_LOC,
+            );
+            for (const target of board_stacks) {
+                if (target === loc.stack) continue;
+                const merged = target.left_merge(single) ?? target.right_merge(single);
+                if (merged) {
+                    const new_board = board_stacks.map((s) => {
+                        if (s === loc.stack) return remaining;
+                        if (s === target) return merged;
+                        return s;
+                    });
+                    return {
+                        board: new_board,
+                        move: {
+                            card_label: card_label_for(loc.board_card),
+                            from: loc.stack.str(),
+                            to: target.str(),
+                            end: "left",
+                        },
+                    };
+                }
+            }
+        }
+    }
+
+    // Case 2: card is on the right end of a 4+ stack.
+    if (loc.card_index === size - 1 && size >= 4) {
+        const remaining = new CardStack(cards.slice(0, -1), loc.stack.loc);
+        if (!remaining.incomplete() && !remaining.problematic()) {
+            const single = new CardStack(
+                [new BoardCard(loc.board_card.card, BoardCardState.FIRMLY_ON_BOARD)],
+                DUMMY_LOC,
+            );
+            for (const target of board_stacks) {
+                if (target === loc.stack) continue;
+                const merged = target.left_merge(single) ?? target.right_merge(single);
+                if (merged) {
+                    const new_board = board_stacks.map((s) => {
+                        if (s === loc.stack) return remaining;
+                        if (s === target) return merged;
+                        return s;
+                    });
+                    return {
+                        board: new_board,
+                        move: {
+                            card_label: card_label_for(loc.board_card),
+                            from: loc.stack.str(),
+                            to: target.str(),
+                            end: "right",
+                        },
+                    };
+                }
+            }
+        }
+    }
+
+    // Case 3: card is buried in a run — split to expose it.
+    const st = loc.stack.get_stack_type();
+    if (st === CardStackType.PURE_RUN || st === CardStackType.RED_BLACK_RUN) {
+        // Split so this card ends up on an end of a 4+ half.
+        // Try splitting just to the right of this card (card on right end of left half).
+        if (loc.card_index >= 3 && size - (loc.card_index + 1) >= 3) {
+            const left = new CardStack(cards.slice(0, loc.card_index + 1), loc.stack.loc);
+            const right = new CardStack(cards.slice(loc.card_index + 1), DUMMY_LOC);
+            if (!left.incomplete() && !left.problematic() &&
+                !right.incomplete() && !right.problematic() &&
+                left.size() >= 4) {
+                // Card is now on the right end of the left half.
+                const new_board = board_stacks.flatMap((s) =>
+                    s === loc.stack ? [left, right] : [s],
+                );
+                return {
+                    board: new_board,
+                    move: {
+                        card_label: `split@${loc.card_index + 1}`,
+                        from: loc.stack.str(),
+                        to: `${left.str()} + ${right.str()}`,
+                        end: "right",
+                    },
+                };
+            }
+        }
+
+        // Try splitting just to the left (card on left end of right half).
+        if (loc.card_index >= 3 || (loc.card_index >= 0 && loc.card_index <= size - 4)) {
+            const split_at = loc.card_index;
+            if (split_at >= 3 && size - split_at >= 4) {
+                const left = new CardStack(cards.slice(0, split_at), loc.stack.loc);
+                const right = new CardStack(cards.slice(split_at), DUMMY_LOC);
+                if (!left.incomplete() && !left.problematic() &&
+                    !right.incomplete() && !right.problematic()) {
+                    const new_board = board_stacks.flatMap((s) =>
+                        s === loc.stack ? [left, right] : [s],
+                    );
+                    return {
+                        board: new_board,
+                        move: {
+                            card_label: `split@${split_at}`,
+                            from: loc.stack.str(),
+                            to: `${left.str()} + ${right.str()}`,
+                            end: "left",
+                        },
+                    };
+                }
+            }
+        }
+    }
+
+    return undefined;
+}
+
 export function find_loose_card_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
@@ -441,74 +686,83 @@ export function find_loose_card_plays(
     const already_playable = new Set(
         find_playable_hand_cards(hand_cards, board_stacks).map((hc) => hc),
     );
+    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
 
-    // BFS queue: each entry is a board state + the moves taken to get there.
-    type BFSEntry = {
-        board: CardStack[];
-        moves: BoardMove[];
-    };
+    if (unplayable.length === 0) return [];
 
-    const visited = new Set<string>();
-    visited.add(board_key(board_stacks));
+    // Phase 1: Demand-driven. For each unplayable hand card, find
+    // board cards that would enable it and try to free them.
+    for (const hc of unplayable) {
+        const demands = compute_demands(hc, board_stacks);
 
-    let queue: BFSEntry[] = [{ board: board_stacks, moves: [] }];
+        for (const demand of demands) {
+            const locations = find_card_on_board(board_stacks, demand);
 
-    for (let depth = 0; depth < MAX_BFS_DEPTH && queue.length > 0; depth++) {
-        if (visited.size >= MAX_BFS_STATES) break;
-        const next_queue: BFSEntry[] = [];
+            for (const loc of locations) {
+                const freed = try_free_card(loc, board_stacks);
+                if (!freed) continue;
 
-        for (const entry of queue) {
-            // Helper to check a new board state and enqueue if useful.
-            function try_board(new_board: CardStack[], moves: BoardMove[]): LooseCardPlay[] | undefined {
-                const key = board_key(new_board);
-                if (visited.has(key)) return undefined;
-                visited.add(key);
-
-                const now_playable = find_playable_hand_cards(hand_cards, new_board);
-                const new_plays = now_playable.filter((hc) => !already_playable.has(hc));
-
-                if (new_plays.length > 0) {
-                    return [{ moves, resulting_board: new_board, playable_cards: new_plays }];
+                // Check if the hand card is now playable on the modified board.
+                const now_playable = find_playable_hand_cards([hc], freed.board);
+                if (now_playable.length > 0) {
+                    return [{
+                        moves: [freed.move],
+                        resulting_board: freed.board,
+                        playable_cards: now_playable,
+                    }];
                 }
 
-                next_queue.push({ board: new_board, moves });
-                return undefined;
+                // The card was freed but our hand card still can't play.
+                // Try one more level: find loose cards on the modified
+                // board that might help.
+                const second_level = find_loose_cards(freed.board);
+                for (const loose of second_level) {
+                    for (const target of loose.target_stacks) {
+                        const board2 = apply_loose_move(freed.board, loose, target);
+                        if (!board2) continue;
+
+                        const playable2 = find_playable_hand_cards([hc], board2);
+                        if (playable2.length > 0) {
+                            return [{
+                                moves: [freed.move, {
+                                    card_label: card_label_for(loose.card),
+                                    from: loose.source_stack.str(),
+                                    to: target.str(),
+                                    end: loose.end,
+                                }],
+                                resulting_board: board2,
+                                playable_cards: playable2,
+                            }];
+                        }
+                    }
+                }
             }
+        }
+    }
 
-            // Action 1: Move a loose card from one stack to another.
-            const loose_cards = find_loose_cards(entry.board);
-            for (const loose of loose_cards) {
-                for (const target of loose.target_stacks) {
-                    const new_board = apply_loose_move(entry.board, loose, target);
-                    if (!new_board) continue;
+    // Phase 2: Fallback — try one level of untargeted loose card moves.
+    // This catches cases the demand analysis missed.
+    for (const loose of find_loose_cards(board_stacks)) {
+        for (const target of loose.target_stacks) {
+            const new_board = apply_loose_move(board_stacks, loose, target);
+            if (!new_board) continue;
 
-                    const move: BoardMove = {
+            const now_playable = find_playable_hand_cards(hand_cards, new_board);
+            const new_plays = now_playable.filter((hc) => !already_playable.has(hc));
+
+            if (new_plays.length > 0) {
+                return [{
+                    moves: [{
                         card_label: card_label_for(loose.card),
                         from: loose.source_stack.str(),
                         to: target.str(),
                         end: loose.end,
-                    };
-                    const result = try_board(new_board, [...entry.moves, move]);
-                    if (result) return result;
-                }
-            }
-
-            // Action 2: Split a long run into two valid halves.
-            const splits = find_valid_splits(entry.board);
-            for (const split of splits) {
-                const new_board = apply_split(entry.board, split);
-                const move: BoardMove = {
-                    card_label: `split@${split.split_point}`,
-                    from: split.source.str(),
-                    to: `${split.left_half.str()} + ${split.right_half.str()}`,
-                    end: "left", // not meaningful for splits
-                };
-                const result = try_board(new_board, [...entry.moves, move]);
-                if (result) return result;
+                    }],
+                    resulting_board: new_board,
+                    playable_cards: new_plays,
+                }];
             }
         }
-
-        queue = next_queue;
     }
 
     return [];
