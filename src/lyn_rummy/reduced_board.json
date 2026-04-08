@@ -1,0 +1,37 @@
+{
+  "source": "23-card board after leaf trimming",
+  "total_cards": 23,
+  "resolved_groups": [
+    {
+      "cards": [
+        "10D",
+        "JD",
+        "QD",
+        "KD",
+        "AD"
+      ],
+      "locked": "pr"
+    }
+  ],
+  "unresolved_cards": [
+    "KS",
+    "AS",
+    "2S",
+    "3S",
+    "2H",
+    "3H",
+    "4H",
+    "7S",
+    "7D",
+    "7C",
+    "AC",
+    "AH",
+    "2C",
+    "3D",
+    "4C",
+    "5H",
+    "6S",
+    "7H"
+  ],
+  "unresolved_count": 18
+}

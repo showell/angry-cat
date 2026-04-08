@@ -672,7 +672,8 @@ export const STRATEGY_MAX_CASCADE: BranchStrategy = {
     },
 };
 
-const MAX_NODES = 500;
+export let MAX_NODES = 500;
+export let DISABLE_PRUNING = false;
 
 function solve_recursive(
     g: Graph,
@@ -700,7 +701,7 @@ function solve_recursive(
         for (const e of n.edges) { if (e.alive) { has_edge = true; break; } }
         if (has_edge) upper += 100 * n.cards.length;
     }
-    if (upper <= best_score.value) return;
+    if (!DISABLE_PRUNING && upper <= best_score.value) return;
 
     // Pick pivot using strategy.
     let pivot: GNode | undefined;
