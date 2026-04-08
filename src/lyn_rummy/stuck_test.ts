@@ -305,8 +305,8 @@ console.log(`Expert play rate: ${(100 * total_rearrange_plays / total_hand_cards
 // Lock in the current counts as a regression test.
 console.log(`\nRegression check:`);
 assert.equal(stuck_turns.length, 22, "expected 22 stuck turns");
-assert.equal(total_rearrange_plays, 163,
-    "expected 163 expert plays (split + inject + peel_run + pair + rearrange)");
+assert.equal(total_rearrange_plays, 166,
+    "expected 166 expert plays (split + inject + peel_run + pair + rearrange)");
 console.log(`  Stuck turns: ${stuck_turns.length} ✓`);
 console.log(`  Expert plays: ${total_rearrange_plays} ✓`);
 

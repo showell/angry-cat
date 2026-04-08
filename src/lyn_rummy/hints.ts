@@ -1357,16 +1357,52 @@ function find_hand_pairs(hand: HandCard[]): { a: HandCard; b: HandCard; needed: 
                 }
             }
 
-            // Run pair: same suit, consecutive.
-            if (a.suit === b.suit) {
-                const lo = a.value < b.value ? a : b;
-                const hi = a.value < b.value ? b : a;
+            // Pure run pair: same suit, consecutive.
+            if (a.suit === b.suit && successor(a.value) === b.value) {
+                const needed: Card[] = [];
+                needed.push(new Card(predecessor(a.value), a.suit, a.origin_deck));
+                needed.push(new Card(successor(b.value), b.suit, b.origin_deck));
+                pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
+            }
+            if (a.suit === b.suit && successor(b.value) === a.value) {
+                const needed: Card[] = [];
+                needed.push(new Card(predecessor(b.value), b.suit, b.origin_deck));
+                needed.push(new Card(successor(a.value), a.suit, a.origin_deck));
+                pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
+            }
 
-                if (hi.value === successor(lo.value)) {
-                    // Consecutive pair. Need predecessor of lo OR successor of hi.
+            // Red/black run pair: opposite color, consecutive.
+            if (a.color !== b.color) {
+                if (successor(a.value) === b.value) {
+                    // [?, a, b] needs predecessor of a in opposite color from a.
+                    const pred_color = a.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
+                    // [a, b, ?] needs successor of b in opposite color from b.
+                    const succ_color = b.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
                     const needed: Card[] = [];
-                    needed.push(new Card(predecessor(lo.value), lo.suit, lo.origin_deck));
-                    needed.push(new Card(successor(hi.value), hi.suit, hi.origin_deck));
+                    // Predecessor: must be opposite color from a, value = predecessor(a.value).
+                    // We don't know the exact suit, so add both suits of the needed color.
+                    for (const s of [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]) {
+                        const c = new Card(predecessor(a.value), s, a.origin_deck);
+                        if (c.color === pred_color) needed.push(c);
+                    }
+                    for (const s of [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]) {
+                        const c = new Card(successor(b.value), s, b.origin_deck);
+                        if (c.color === succ_color) needed.push(c);
+                    }
+                    pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
+                }
+                if (successor(b.value) === a.value) {
+                    const pred_color = b.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
+                    const succ_color = a.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
+                    const needed: Card[] = [];
+                    for (const s of [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]) {
+                        const c = new Card(predecessor(b.value), s, b.origin_deck);
+                        if (c.color === pred_color) needed.push(c);
+                    }
+                    for (const s of [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]) {
+                        const c = new Card(successor(a.value), s, a.origin_deck);
+                        if (c.color === succ_color) needed.push(c);
+                    }
                     pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
                 }
             }
