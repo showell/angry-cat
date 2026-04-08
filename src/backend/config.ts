@@ -67,3 +67,9 @@ export function get_current_realm_nickname() {
 export function get_api_key_for_current_realm() {
     return current_realm_config?.api_key;
 }
+
+// Returns true when connected to an Angry Gopher server (vs. Zulip).
+// Gopher-only features (invites, etc.) check this before showing.
+export function is_gopher_realm(): boolean {
+    return current_realm_config?.nickname === "gopher";
+}

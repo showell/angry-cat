@@ -5,6 +5,7 @@
 // pressing ESC or Enter when Cancel is focused closes the dialog.
 
 import { APP } from "./app";
+import { is_gopher_realm } from "./backend/config";
 import * as model from "./backend/model";
 import { Button } from "./button";
 import * as dm from "./dm/plugin";
@@ -45,7 +46,9 @@ function get_all_plugins(): PluginEntry[] {
     ];
     if (model.current_user_is_admin()) {
         plugins.push({ name: "Admin", factory: admin.plugin });
-        plugins.push({ name: "Invite", factory: invite.plugin });
+        if (is_gopher_realm()) {
+            plugins.push({ name: "Invite", factory: invite.plugin });
+        }
     }
     return plugins;
 }

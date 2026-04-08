@@ -2,7 +2,7 @@
 // new users. The invitee clicks the link and is automatically
 // logged in with a fresh account, subscribed to public channels.
 
-import { api_form_request } from "../backend/api_helpers";
+import { gopher_form_request } from "../backend/api_helpers";
 import * as config from "../backend/config";
 import { Button } from "../button";
 import * as colors from "../colors";
@@ -131,7 +131,7 @@ export function plugin(context: PluginContext): Plugin {
     }
 
     async function create_invite(name: string, email: string): Promise<void> {
-        const result = await api_form_request("POST", "invites", {
+        const result = await gopher_form_request("POST", "invites", {
             full_name: name,
             email,
         });

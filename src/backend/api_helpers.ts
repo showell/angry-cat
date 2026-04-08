@@ -8,6 +8,11 @@ export function api_url(path: string): URL {
     return new URL(`/api/v1/${path}`, config.get_current_realm_url());
 }
 
+// For Gopher-only endpoints that don't exist in the Zulip API.
+export function gopher_url(path: string): URL {
+    return new URL(`/gopher/${path}`, config.get_current_realm_url());
+}
+
 export function get_headers(): Record<string, string> {
     const auth = btoa(
         `${config.get_email_for_current_realm()}:${config.get_api_key_for_current_realm()}`,
@@ -60,6 +65,22 @@ export async function api_form_request(
 ): Promise<{ result: string; msg?: string }> {
     const response = await with_retry(() =>
         fetch(api_url(path), {
+            method,
+            headers: form_headers(),
+            body: new URLSearchParams(params).toString(),
+        }),
+    );
+    return response.json();
+}
+
+// For Gopher-only POST endpoints.
+export async function gopher_form_request(
+    method: string,
+    path: string,
+    params: Record<string, string>,
+): Promise<{ result: string; msg?: string }> {
+    const response = await with_retry(() =>
+        fetch(gopher_url(path), {
             method,
             headers: form_headers(),
             body: new URLSearchParams(params).toString(),

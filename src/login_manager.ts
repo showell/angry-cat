@@ -32,7 +32,7 @@ async function try_redeem_invite(nickname: string): Promise<boolean> {
 
     show_status("Redeeming invite...");
 
-    const response = await fetch(`${realm_url}/api/v1/invites/redeem`, {
+    const response = await fetch(`${realm_url}/gopher/invites/redeem`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ token }),
