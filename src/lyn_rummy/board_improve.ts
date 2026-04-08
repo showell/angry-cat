@@ -10,12 +10,12 @@
 // that can be joined, and a join may create a longer run with new
 // promote opportunities.
 
-import { Card, CardColor } from "./card";
+import { Card, CardColor, CardValue, Suit, is_pair_of_dups } from "./card";
 import {
     BoardCard, BoardCardState, CardStack,
     type BoardLocation,
 } from "./card_stack";
-import { CardStackType, get_stack_type } from "./stack_type";
+import { CardStackType, get_stack_type, successor } from "./stack_type";
 import { Score } from "./score";
 import { can_extract, join_adjacent_runs } from "./hints";
 
@@ -725,15 +725,194 @@ export function do_board_improvements_with_six_to_four(board: CardStack[]): Impr
 
 // --- Main loop: join + promote until stable ---
 
+// --- Consecutive-sets dissolve: turn sets into runs ---
+//
+// Find 3+ 3-card sets with consecutive values. Dissolve them all
+// and try to form ONLY RUNS from the freed cards (no sets — that
+// would cycle back). Leftovers try to join existing board stacks.
+
+function find_consecutive_set_clusters(
+    stacks: CardStack[],
+): { indices: number[]; cards: Card[] }[] {
+    // Collect all 3-card sets indexed by value.
+    const sets_by_value = new Map<number, { index: number; cards: Card[] }>();
+    for (let i = 0; i < stacks.length; i++) {
+        const s = stacks[i];
+        if (s.get_stack_type() !== CardStackType.SET || s.size() !== 3) continue;
+        const val = s.get_cards()[0].value;
+        // If we already have a set for this value, skip (six-to-four handles that).
+        if (!sets_by_value.has(val)) {
+            sets_by_value.set(val, { index: i, cards: [...s.get_cards()] });
+        }
+    }
+
+    // Find runs of 3+ consecutive values.
+    const values = [...sets_by_value.keys()].sort((a, b) => a - b);
+    const clusters: { indices: number[]; cards: Card[] }[] = [];
+
+    let run_start = 0;
+    for (let i = 1; i <= values.length; i++) {
+        const consecutive = i < values.length && values[i] === successor(values[i - 1] as CardValue);
+        if (!consecutive) {
+            const run_len = i - run_start;
+            if (run_len >= 3) {
+                const indices: number[] = [];
+                const cards: Card[] = [];
+                for (let j = run_start; j < i; j++) {
+                    const entry = sets_by_value.get(values[j])!;
+                    indices.push(entry.index);
+                    cards.push(...entry.cards);
+                }
+                clusters.push({ indices, cards });
+            }
+            run_start = i;
+        }
+    }
+
+    return clusters;
+}
+
+function try_consecutive_sets_to_runs(stacks: CardStack[]): {
+    changed: boolean;
+    score_delta: number;
+} {
+    const clusters = find_consecutive_set_clusters(stacks);
+    if (clusters.length === 0) return { changed: false, score_delta: 0 };
+
+    for (const cluster of clusters) {
+        const old_score = cluster.indices.reduce(
+            (s, i) => s + Score.for_stack(stacks[i]), 0);
+
+        // Group the freed cards by suit to form pure runs.
+        const by_suit = new Map<Suit, Card[]>();
+        for (const c of cluster.cards) {
+            if (!by_suit.has(c.suit)) by_suit.set(c.suit, []);
+            by_suit.get(c.suit)!.push(c);
+        }
+
+        // Build pure runs from each suit group.
+        const new_stacks: CardStack[] = [];
+        const placed = new Set<Card>();
+
+        for (const [_suit, suited] of by_suit) {
+            suited.sort((a, b) => a.value - b.value);
+            // Find consecutive chains of 3+.
+            let chain: Card[] = [suited[0]];
+            for (let i = 1; i < suited.length; i++) {
+                if (suited[i].value === successor(chain[chain.length - 1].value as CardValue)) {
+                    chain.push(suited[i]);
+                } else {
+                    if (chain.length >= 3) {
+                        new_stacks.push(new CardStack(
+                            chain.map((c) => new BoardCard(c, BoardCardState.FIRMLY_ON_BOARD)), loc));
+                        for (const c of chain) placed.add(c);
+                    }
+                    chain = [suited[i]];
+                }
+            }
+            if (chain.length >= 3) {
+                new_stacks.push(new CardStack(
+                    chain.map((c) => new BoardCard(c, BoardCardState.FIRMLY_ON_BOARD)), loc));
+                for (const c of chain) placed.add(c);
+            }
+        }
+
+        // Leftover cards: try rb runs.
+        const leftovers = cluster.cards.filter((c) => !placed.has(c));
+        if (leftovers.length >= 3) {
+            leftovers.sort((a, b) => a.value - b.value);
+            // Try to form rb runs from leftovers.
+            const used = new Set<Card>();
+            for (let start = 0; start < leftovers.length; start++) {
+                if (used.has(leftovers[start])) continue;
+                const run: Card[] = [leftovers[start]];
+                let last = leftovers[start];
+                for (let j = start + 1; j < leftovers.length; j++) {
+                    if (used.has(leftovers[j])) continue;
+                    if (leftovers[j].value === successor(last.value as CardValue) &&
+                        leftovers[j].color !== last.color) {
+                        run.push(leftovers[j]);
+                        last = leftovers[j];
+                    }
+                }
+                if (run.length >= 3) {
+                    const st = get_stack_type(run);
+                    if (st === CardStackType.RED_BLACK_RUN) {
+                        new_stacks.push(new CardStack(
+                            run.map((c) => new BoardCard(c, BoardCardState.FIRMLY_ON_BOARD)), loc));
+                        for (const c of run) { placed.add(c); used.add(c); }
+                    }
+                }
+            }
+        }
+
+        // Remaining leftovers try to join existing board stacks.
+        const still_left = cluster.cards.filter((c) => !placed.has(c));
+        let leftover_gain = 0;
+        const leftover_targets: { card: Card; ti: number }[] = [];
+        const used_targets = new Set<number>();
+
+        for (const c of still_left) {
+            const single = new CardStack(
+                [new BoardCard(c, BoardCardState.FIRMLY_ON_BOARD)], loc);
+            for (let ti = 0; ti < stacks.length; ti++) {
+                if (cluster.indices.includes(ti)) continue;
+                if (used_targets.has(ti)) continue;
+                const merged = stacks[ti].left_merge(single) ?? stacks[ti].right_merge(single);
+                if (!merged) continue;
+                const gain = Score.for_stack(merged) - Score.for_stack(stacks[ti]);
+                if (gain > 0) {
+                    leftover_gain += gain;
+                    leftover_targets.push({ card: c, ti });
+                    used_targets.add(ti);
+                    placed.add(c);
+                    break;
+                }
+            }
+        }
+
+        const orphans = cluster.cards.filter((c) => !placed.has(c));
+        // If we have orphans, this attempt fails — can't leave singles.
+        // But we allow orphans that can form a set (falling back to sets
+        // only if we can't do better). Actually, to break cycles, just
+        // reject if orphans exist.
+        if (orphans.length > 0) continue;
+
+        const new_score = new_stacks.reduce((s, st) => s + Score.for_stack(st), 0) + leftover_gain;
+        const delta = new_score - old_score;
+
+        if (delta > 0) {
+            // Apply: remove old sets (highest index first), add new stacks.
+            const sorted_indices = [...cluster.indices].sort((a, b) => b - a);
+            for (const idx of sorted_indices) stacks.splice(idx, 1);
+            for (const s of new_stacks) stacks.push(s);
+            // Apply leftover placements (adjust indices).
+            for (const lt of leftover_targets) {
+                let ti = lt.ti;
+                for (const removed of sorted_indices) {
+                    if (ti > removed) ti--;
+                }
+                const single = new CardStack(
+                    [new BoardCard(lt.card, BoardCardState.FIRMLY_ON_BOARD)], loc);
+                const merged = stacks[ti].left_merge(single) ?? stacks[ti].right_merge(single);
+                if (merged) stacks[ti] = merged;
+            }
+            return { changed: true, score_delta: delta };
+        }
+    }
+
+    return { changed: false, score_delta: 0 };
+}
+
 export type ImprovementResult = {
     board: CardStack[];
     score_gained: number;
     upgrades_applied: number;
 };
 
-// Base loop: join + promote + swap + dissolve + six-to-four.
+// Base loop: join + promote + swap + dissolve + six-to-four + consecutive-sets.
 export function do_obvious_board_improvements(board: CardStack[]): ImprovementResult {
-    return improve_with_tricks(board, { use_swap: true, use_dissolve: true, use_six_to_four: true });
+    return improve_with_tricks(board, { use_swap: true, use_dissolve: true, use_six_to_four: true, use_consecutive_sets: true });
 }
 
 // Extended loop: join + promote + board-swap.
@@ -743,7 +922,7 @@ export function do_board_improvements_with_swap(board: CardStack[]): Improvement
 
 function improve_with_tricks(
     board: CardStack[],
-    options: { use_swap?: boolean; use_split_promote?: boolean; use_dissolve?: boolean; use_six_to_four?: boolean },
+    options: { use_swap?: boolean; use_split_promote?: boolean; use_dissolve?: boolean; use_six_to_four?: boolean; use_consecutive_sets?: boolean },
 ): ImprovementResult {
     const stacks = [...board];
     let total_gained = 0;
@@ -812,7 +991,18 @@ function improve_with_tricks(
             }
         }
 
-        // Trick 6: split-promote (optional).
+        // Trick 6: consecutive-sets to runs (optional).
+        if (options.use_consecutive_sets) {
+            const result = try_consecutive_sets_to_runs(stacks);
+            if (result.changed) {
+                total_gained += result.score_delta;
+                total_applied++;
+                progress = true;
+                continue;
+            }
+        }
+
+        // Trick 7: split-promote (optional).
         if (options.use_split_promote) {
             const sps = find_split_promotes(stacks);
             if (sps.length > 0 && apply_split_promote(stacks, sps[0])) {
