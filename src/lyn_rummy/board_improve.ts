@@ -523,6 +523,206 @@ export function do_board_improvements_with_dissolve(board: CardStack[]): Improve
     return improve_with_tricks(board, { use_swap: true, use_dissolve: true });
 }
 
+// --- Six-to-four: merge two 3-sets of the same value ---
+//
+// Two 3-card sets of the same value share at least 2 suits (pigeonhole).
+// The shared suits are dups. If both dups can join runs, merge the
+// remaining 4 distinct-suit cards into one 4-set.
+// Score: lose 2×60=120 (two 3-sets), gain 120 (4-set) + run extensions.
+// Net gain = run extensions only. Always positive if dups find homes.
+
+import { is_pair_of_dups } from "./card";
+
+type SixToFour = {
+    set_index_a: number;
+    set_index_b: number;
+    score_delta: number;
+};
+
+function find_six_to_fours(stacks: CardStack[]): SixToFour[] {
+    const results: SixToFour[] = [];
+
+    // Find all pairs of 3-card sets with the same value.
+    const sets_by_value = new Map<number, { index: number; stack: CardStack }[]>();
+    for (let i = 0; i < stacks.length; i++) {
+        const s = stacks[i];
+        if (s.get_stack_type() !== CardStackType.SET || s.size() !== 3) continue;
+        const val = s.get_cards()[0].value;
+        if (!sets_by_value.has(val)) sets_by_value.set(val, []);
+        sets_by_value.get(val)!.push({ index: i, stack: s });
+    }
+
+    for (const group of sets_by_value.values()) {
+        if (group.length < 2) continue;
+
+        for (let gi = 0; gi < group.length; gi++) {
+            for (let gj = gi + 1; gj < group.length; gj++) {
+                const a = group[gi];
+                const b = group[gj];
+                const a_cards = a.stack.get_cards();
+                const b_cards = b.stack.get_cards();
+
+                // Find distinct suits across both sets.
+                const all_suits = new Map<Suit, Card[]>();
+                for (const c of a_cards) {
+                    if (!all_suits.has(c.suit)) all_suits.set(c.suit, []);
+                    all_suits.get(c.suit)!.push(c);
+                }
+                for (const c of b_cards) {
+                    if (!all_suits.has(c.suit)) all_suits.set(c.suit, []);
+                    all_suits.get(c.suit)!.push(c);
+                }
+
+                // Need 4 distinct suits to form a 4-set.
+                if (all_suits.size < 4) continue;
+
+                // Identify dups: suits with 2 cards.
+                const dup_cards: Card[] = [];
+                const keep_cards: Card[] = [];
+                for (const [suit, cards] of all_suits) {
+                    if (cards.length === 2) {
+                        dup_cards.push(cards[1]); // keep cards[0], dup is cards[1]
+                        keep_cards.push(cards[0]);
+                    } else {
+                        keep_cards.push(cards[0]);
+                    }
+                }
+
+                // We should have exactly 2 dups and 4 keepers.
+                if (dup_cards.length !== 2 || keep_cards.length !== 4) continue;
+
+                // Can both dups join a run (pure or rb)?
+                let total_run_gain = 0;
+                let all_placed = true;
+
+                const used_targets = new Set<number>();
+                for (const dup of dup_cards) {
+                    const single = new CardStack(
+                        [new BoardCard(dup, BoardCardState.FIRMLY_ON_BOARD)], loc);
+                    let best_gain = 0;
+                    let best_ti = -1;
+
+                    for (let ti = 0; ti < stacks.length; ti++) {
+                        if (ti === a.index || ti === b.index) continue;
+                        if (used_targets.has(ti)) continue;
+
+                        const merged = stacks[ti].left_merge(single) ?? stacks[ti].right_merge(single);
+                        if (!merged) continue;
+                        const mt = merged.get_stack_type();
+                        if (mt !== CardStackType.PURE_RUN && mt !== CardStackType.RED_BLACK_RUN) continue;
+
+                        const gain = Score.for_stack(merged) - Score.for_stack(stacks[ti]);
+                        if (gain > best_gain) { best_gain = gain; best_ti = ti; }
+                    }
+
+                    if (best_ti < 0) { all_placed = false; break; }
+                    used_targets.add(best_ti);
+                    total_run_gain += best_gain;
+                }
+
+                if (!all_placed) continue;
+
+                // Score delta: old = 60 + 60 = 120. New = 120 (4-set) + run gains.
+                // Delta = run gains only.
+                const delta = total_run_gain;
+                if (delta > 0) {
+                    results.push({ set_index_a: a.index, set_index_b: b.index, score_delta: delta });
+                }
+            }
+        }
+    }
+
+    results.sort((a, b) => b.score_delta - a.score_delta);
+    return results;
+}
+
+function apply_six_to_four(stacks: CardStack[], stf: SixToFour): boolean {
+    const a = stacks[stf.set_index_a];
+    const b = stacks[stf.set_index_b];
+    const a_cards = a.get_cards();
+    const b_cards = b.get_cards();
+
+    // Rebuild: find dups and keepers.
+    const all_suits = new Map<Suit, Card[]>();
+    for (const c of a_cards) {
+        if (!all_suits.has(c.suit)) all_suits.set(c.suit, []);
+        all_suits.get(c.suit)!.push(c);
+    }
+    for (const c of b_cards) {
+        if (!all_suits.has(c.suit)) all_suits.set(c.suit, []);
+        all_suits.get(c.suit)!.push(c);
+    }
+
+    const dup_cards: Card[] = [];
+    const keep_cards: Card[] = [];
+    for (const [suit, cards] of all_suits) {
+        if (cards.length === 2) {
+            keep_cards.push(cards[0]);
+            dup_cards.push(cards[1]);
+        } else {
+            keep_cards.push(cards[0]);
+        }
+    }
+
+    // Place dups on runs.
+    const used_targets = new Set<number>();
+    const placements: { dup: Card; ti: number }[] = [];
+
+    for (const dup of dup_cards) {
+        const single = new CardStack(
+            [new BoardCard(dup, BoardCardState.FIRMLY_ON_BOARD)], loc);
+        let best_ti = -1;
+        let best_gain = 0;
+
+        for (let ti = 0; ti < stacks.length; ti++) {
+            if (ti === stf.set_index_a || ti === stf.set_index_b) continue;
+            if (used_targets.has(ti)) continue;
+
+            const merged = stacks[ti].left_merge(single) ?? stacks[ti].right_merge(single);
+            if (!merged) continue;
+            const mt = merged.get_stack_type();
+            if (mt !== CardStackType.PURE_RUN && mt !== CardStackType.RED_BLACK_RUN) continue;
+
+            const gain = Score.for_stack(merged) - Score.for_stack(stacks[ti]);
+            if (gain > best_gain) { best_gain = gain; best_ti = ti; }
+        }
+
+        if (best_ti < 0) return false;
+        used_targets.add(best_ti);
+        placements.push({ dup, ti: best_ti });
+    }
+
+    // Build the 4-set from keepers.
+    const four_set = new CardStack(
+        keep_cards.map((c) => new BoardCard(c, BoardCardState.FIRMLY_ON_BOARD)), loc);
+
+    // Remove the two old sets (higher index first).
+    const to_remove = [stf.set_index_a, stf.set_index_b].sort((a, b) => b - a);
+    for (const idx of to_remove) stacks.splice(idx, 1);
+
+    // Add the 4-set.
+    stacks.push(four_set);
+
+    // Place dups (adjust indices for removed stacks).
+    for (const p of placements) {
+        let ti = p.ti;
+        for (const removed of to_remove) {
+            if (ti > removed) ti--;
+        }
+        const single = new CardStack(
+            [new BoardCard(p.dup, BoardCardState.FIRMLY_ON_BOARD)], loc);
+        const merged = stacks[ti].left_merge(single) ?? stacks[ti].right_merge(single);
+        if (!merged) return false;
+        stacks[ti] = merged;
+    }
+
+    return true;
+}
+
+export function do_board_improvements_with_six_to_four(board: CardStack[]): ImprovementResult {
+    return improve_with_tricks(board, { use_swap: true, use_dissolve: true, use_six_to_four: true });
+}
+
 // --- Main loop: join + promote until stable ---
 
 export type ImprovementResult = {
@@ -531,9 +731,9 @@ export type ImprovementResult = {
     upgrades_applied: number;
 };
 
-// Base loop: join + promote + swap.
+// Base loop: join + promote + swap + dissolve + six-to-four.
 export function do_obvious_board_improvements(board: CardStack[]): ImprovementResult {
-    return improve_with_tricks(board, { use_swap: true });
+    return improve_with_tricks(board, { use_swap: true, use_dissolve: true, use_six_to_four: true });
 }
 
 // Extended loop: join + promote + board-swap.
@@ -543,7 +743,7 @@ export function do_board_improvements_with_swap(board: CardStack[]): Improvement
 
 function improve_with_tricks(
     board: CardStack[],
-    options: { use_swap?: boolean; use_split_promote?: boolean; use_dissolve?: boolean },
+    options: { use_swap?: boolean; use_split_promote?: boolean; use_dissolve?: boolean; use_six_to_four?: boolean },
 ): ImprovementResult {
     const stacks = [...board];
     let total_gained = 0;
@@ -601,7 +801,18 @@ function improve_with_tricks(
             }
         }
 
-        // Trick 5: split-promote (optional).
+        // Trick 5: six-to-four (optional).
+        if (options.use_six_to_four) {
+            const stfs = find_six_to_fours(stacks);
+            if (stfs.length > 0 && apply_six_to_four(stacks, stfs[0])) {
+                total_gained += stfs[0].score_delta;
+                total_applied++;
+                progress = true;
+                continue;
+            }
+        }
+
+        // Trick 6: split-promote (optional).
         if (options.use_split_promote) {
             const sps = find_split_promotes(stacks);
             if (sps.length > 0 && apply_split_promote(stacks, sps[0])) {
