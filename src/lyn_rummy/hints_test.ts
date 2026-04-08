@@ -8,7 +8,13 @@ import {
     HandCard,
     HandCardState,
 } from "./card_stack";
-import { find_playable_hand_cards, find_hand_stacks, type HandStack } from "./hints";
+import {
+    find_playable_hand_cards,
+    find_hand_stacks,
+    find_loose_cards,
+    type HandStack,
+    type LooseCard,
+} from "./hints";
 import { CardStackType } from "./stack_type";
 
 const D1 = OriginDeck.DECK_ONE;
@@ -159,6 +165,93 @@ function stack_labels(hs: HandStack): string[] {
     ];
     const stacks = find_hand_stacks(hand);
     assert(stacks.length >= 2, `expected at least 2 stacks, got ${stacks.length}`);
+}
+
+// === find_loose_cards tests ===
+
+function loose_card_label(lc: LooseCard): string {
+    return value_str(lc.card.card.value) + suit_letter[lc.card.card.suit];
+}
+
+// Steal the 8H from a 4-card run to extend a set of 8s.
+// Board: [5H 6H 7H 8H] and [8S 8D 8C]
+// The 8H is loose on the right — it can join the set.
+{
+    const stacks = [
+        board_stack("5H", "6H", "7H", "8H"),
+        board_stack("8S", "8D", "8C"),
+    ];
+    const loose = find_loose_cards(stacks);
+    const labels = loose.map(loose_card_label);
+    assert(labels.includes("8H"), `expected 8H to be loose, got ${labels}`);
+
+    const eight_h = loose.find(lc => loose_card_label(lc) === "8H")!;
+    assert.equal(eight_h.end, "right");
+    assert.equal(eight_h.target_stacks.length, 1);
+}
+
+// Steal the 5H from the left of a 4-card run.
+// Board: [5H 6H 7H 8H] and [5S 5D 5C]
+{
+    const stacks = [
+        board_stack("5H", "6H", "7H", "8H"),
+        board_stack("5S", "5D", "5C"),
+    ];
+    const loose = find_loose_cards(stacks);
+    const labels = loose.map(loose_card_label);
+    assert(labels.includes("5H"), `expected 5H to be loose, got ${labels}`);
+
+    const five_h = loose.find(lc => loose_card_label(lc) === "5H")!;
+    assert.equal(five_h.end, "left");
+}
+
+// No loose cards on a 3-card stack (minimum size, can't shrink).
+{
+    const stacks = [
+        board_stack("5H", "6H", "7H"),
+        board_stack("7S", "7D", "7C"),
+    ];
+    const loose = find_loose_cards(stacks);
+    assert.equal(loose.length, 0);
+}
+
+// No loose cards when end card has nowhere to go.
+{
+    const stacks = [
+        board_stack("5H", "6H", "7H", "8H"),
+        board_stack("AS", "AD", "AC"),
+    ];
+    // 8H can't join the set of Aces, and 5H can't either.
+    const loose = find_loose_cards(stacks);
+    assert.equal(loose.length, 0);
+}
+
+// Both ends are loose when both have targets.
+// Board: [5H 6H 7H 8H] and [5S 5D 5C] and [8S 8D 8C]
+{
+    const stacks = [
+        board_stack("5H", "6H", "7H", "8H"),
+        board_stack("5S", "5D", "5C"),
+        board_stack("8S", "8D", "8C"),
+    ];
+    const loose = find_loose_cards(stacks);
+    const labels = loose.map(loose_card_label).sort();
+    assert.deepEqual(labels, ["5H", "8H"]);
+}
+
+// Loose card from a set (4 of a kind → steal one to extend a run).
+// Board: [7H 7S 7D 7C] and [5H 6H]... wait, that's incomplete.
+// Better: [7H 7S 7D 7C] and [5S 6S] — also incomplete.
+// Need: [7H 7S 7D 7C] and [5H 6H 8H] — 7H could extend... no.
+// Use: [7H 7S 7D 7C] and [4H 5H 6H] — 7H from the set extends the run.
+{
+    const stacks = [
+        board_stack("7H", "7S", "7D", "7C"),
+        board_stack("4H", "5H", "6H"),
+    ];
+    const loose = find_loose_cards(stacks);
+    const labels = loose.map(loose_card_label);
+    assert(labels.includes("7H"), `expected 7H loose from set, got ${labels}`);
 }
 
 console.log("All hints tests passed.");

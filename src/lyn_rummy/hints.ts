@@ -1,5 +1,5 @@
 import { is_pair_of_dups } from "./card";
-import { CardStack, type HandCard } from "./card_stack";
+import { BoardCard, BoardCardState, CardStack, type HandCard } from "./card_stack";
 import { CardStackType, get_stack_type } from "./stack_type";
 
 const DUMMY_LOC = { top: 0, left: 0 };
@@ -139,6 +139,80 @@ function find_red_black_runs(hand_cards: HandCard[], results: HandStack[]): void
         }
     }
 }
+
+// --- Loose card detection ---
+
+// A loose card sits on the end of a board stack (4+ cards) and can
+// be removed without breaking the source stack, then placed on
+// another board stack. This is the simplest board manipulation —
+// no hand cards involved, just rearranging what's already there.
+
+export type LooseCard = {
+    card: BoardCard;
+    source_stack: CardStack;
+    remaining_stack: CardStack;
+    target_stacks: CardStack[];
+    end: "left" | "right";
+};
+
+export function find_loose_cards(board_stacks: CardStack[]): LooseCard[] {
+    const results: LooseCard[] = [];
+
+    for (const source of board_stacks) {
+        if (source.size() < 4) continue;
+
+        check_loose_end(source, "left", board_stacks, results);
+        check_loose_end(source, "right", board_stacks, results);
+    }
+
+    return results;
+}
+
+function check_loose_end(
+    source: CardStack,
+    end: "left" | "right",
+    all_stacks: CardStack[],
+    results: LooseCard[],
+): void {
+    const cards = source.board_cards;
+
+    const loose_card = end === "left" ? cards[0] : cards[cards.length - 1];
+    const remaining_cards =
+        end === "left" ? cards.slice(1) : cards.slice(0, -1);
+
+    // The remaining stack must still be valid (3+ cards, proper type).
+    const remaining = new CardStack(remaining_cards, source.loc);
+    if (remaining.incomplete() || remaining.problematic()) return;
+
+    // Build a single-card stack to test merges with other stacks.
+    const single = new CardStack(
+        [new BoardCard(loose_card.card, BoardCardState.FIRMLY_ON_BOARD)],
+        DUMMY_LOC,
+    );
+
+    const targets: CardStack[] = [];
+    for (const target of all_stacks) {
+        if (target === source) continue;
+        if (
+            target.left_merge(single) !== undefined ||
+            target.right_merge(single) !== undefined
+        ) {
+            targets.push(target);
+        }
+    }
+
+    if (targets.length > 0) {
+        results.push({
+            card: loose_card,
+            source_stack: source,
+            remaining_stack: remaining,
+            target_stacks: targets,
+            end,
+        });
+    }
+}
+
+// --- Helpers ---
 
 function emit_run(
     run: HandCard[],
