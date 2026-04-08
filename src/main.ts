@@ -40,22 +40,17 @@ function install_keyboard_handler(): void {
     });
 }
 
-function show_logout_option(): void {
-    const div = document.createElement("div");
-    div.style.padding = "20px";
-
-    const msg = document.createElement("div");
-    msg.style.marginBottom = "16px";
-    msg.style.fontSize = "16px";
-    msg.innerText =
-        "Could not connect to the server with your stored credentials. " +
-        "The server may have changed or your API key may be invalid.";
-    div.append(msg);
+function show_logout_option(screen: { add_line: (text: string) => void; element: HTMLElement }): void {
+    screen.add_line(
+        "Could not connect with your stored credentials. " +
+        "The server may have changed or your API key may be invalid.",
+    );
 
     const button = document.createElement("button");
     button.innerText = "Log out and clear credentials";
     button.style.fontSize = "16px";
     button.style.padding = "8px 16px";
+    button.style.marginTop = "16px";
     button.addEventListener("click", () => {
         const nickname = config.get_current_realm_nickname();
         if (nickname) {
@@ -63,9 +58,7 @@ function show_logout_option(): void {
         }
         window.location.reload();
     });
-    div.append(button);
-
-    document.body.append(div);
+    screen.element.append(button);
 }
 
 async function run() {
@@ -92,8 +85,7 @@ async function run() {
     try {
         await event_queue.register_queue();
     } catch (e) {
-        screen.add_line("Connection failed. Your credentials may be invalid.");
-        show_logout_option();
+        show_logout_option(screen);
         return;
     }
     screen.add_line("Connected!");

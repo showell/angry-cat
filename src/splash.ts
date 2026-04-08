@@ -15,7 +15,7 @@ import type { Database } from "./backend/database";
 const BACKFILL_THRESHOLD = 40_000;
 
 class Splash {
-    private element: HTMLDivElement;
+    element: HTMLDivElement;
     private log: HTMLDivElement;
 
     constructor() {
