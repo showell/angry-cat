@@ -10,6 +10,7 @@ import {
     do_obvious_board_improvements,
     do_board_improvements_with_swap,
     do_board_improvements_with_split,
+    do_board_improvements_with_dissolve,
 } from "./board_improve";
 
 const D1 = OriginDeck.DECK_ONE;
@@ -49,8 +50,7 @@ type Strategy = {
 
 const strategies: Strategy[] = [
     { name: "base", fn: do_obvious_board_improvements },
-    { name: "+swap", fn: do_board_improvements_with_swap },
-    { name: "+split", fn: do_board_improvements_with_split },
+    { name: "+dissolve", fn: do_board_improvements_with_dissolve },
 ];
 
 console.log(`Board improvement duel (${unique.length} boards)\n`);

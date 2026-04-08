@@ -383,6 +383,146 @@ export function do_board_improvements_with_split(board: CardStack[]): Improvemen
     return improve_with_tricks(board, { use_swap: false, use_split_promote: true });
 }
 
+// --- Dissolve-set: break a 3-card set, place all 3 on runs ---
+//
+// A 3-card set scores 60. If all 3 cards can join existing runs
+// (pure or rb, via end merge or inject), the set vanishes and the
+// runs get longer. Net gain = sum of run extensions - 60.
+
+type Dissolve = {
+    stack_index: number;
+    score_delta: number;
+};
+
+function find_dissolves(stacks: CardStack[]): Dissolve[] {
+    const results: Dissolve[] = [];
+
+    for (let si = 0; si < stacks.length; si++) {
+        const stack = stacks[si];
+        if (stack.get_stack_type() !== CardStackType.SET || stack.size() !== 3) continue;
+
+        const cards = stack.get_cards();
+
+        // For each card, find the best run it could join (pure or rb).
+        // Use backtracking to assign each card to a distinct target.
+        const card_targets: { ti: number; gain: number }[][] = [];
+
+        for (const card of cards) {
+            const single = new CardStack(
+                [new BoardCard(card, BoardCardState.FIRMLY_ON_BOARD)], loc);
+            const targets: { ti: number; gain: number }[] = [];
+
+            for (let ti = 0; ti < stacks.length; ti++) {
+                if (ti === si) continue;
+                const target = stacks[ti];
+                const merged = target.left_merge(single) ?? target.right_merge(single);
+                if (!merged) continue;
+                const mt = merged.get_stack_type();
+                if (mt !== CardStackType.PURE_RUN && mt !== CardStackType.RED_BLACK_RUN) continue;
+
+                const gain = Score.for_stack(merged) - Score.for_stack(target);
+                targets.push({ ti, gain });
+            }
+
+            card_targets.push(targets);
+        }
+
+        // Backtrack: assign each card to a distinct target run.
+        function backtrack(idx: number, used: Set<number>, total_gain: number): number {
+            if (idx === cards.length) return total_gain;
+            let best = -Infinity;
+            for (const t of card_targets[idx]) {
+                if (used.has(t.ti)) continue;
+                used.add(t.ti);
+                best = Math.max(best, backtrack(idx + 1, used, total_gain + t.gain));
+                used.delete(t.ti);
+            }
+            return best;
+        }
+
+        const best_gain = backtrack(0, new Set(), 0);
+        const delta = best_gain - Score.for_stack(stack); // gain from runs minus loss of set
+
+        if (delta > 0) {
+            results.push({ stack_index: si, score_delta: delta });
+        }
+    }
+
+    results.sort((a, b) => b.score_delta - a.score_delta);
+    return results;
+}
+
+function apply_dissolve(stacks: CardStack[], d: Dissolve): boolean {
+    const stack = stacks[d.stack_index];
+    const cards = stack.get_cards();
+
+    // Find the best assignment again and apply it.
+    const card_targets: { card: Card; ti: number; gain: number }[][] = [];
+
+    for (const card of cards) {
+        const single = new CardStack(
+            [new BoardCard(card, BoardCardState.FIRMLY_ON_BOARD)], loc);
+        const targets: { card: Card; ti: number; gain: number }[] = [];
+
+        for (let ti = 0; ti < stacks.length; ti++) {
+            if (ti === d.stack_index) continue;
+            const merged = stacks[ti].left_merge(single) ?? stacks[ti].right_merge(single);
+            if (!merged) continue;
+            const mt = merged.get_stack_type();
+            if (mt !== CardStackType.PURE_RUN && mt !== CardStackType.RED_BLACK_RUN) continue;
+            targets.push({ card, ti, gain: Score.for_stack(merged) - Score.for_stack(stacks[ti]) });
+        }
+        card_targets.push(targets);
+    }
+
+    // Find best assignment.
+    let best_assignment: { card: Card; ti: number }[] | undefined;
+    let best_gain = -Infinity;
+
+    function solve(idx: number, used: Set<number>, chosen: { card: Card; ti: number }[], gain: number): void {
+        if (idx === cards.length) {
+            if (gain > best_gain) { best_gain = gain; best_assignment = [...chosen]; }
+            return;
+        }
+        for (const t of card_targets[idx]) {
+            if (used.has(t.ti)) continue;
+            used.add(t.ti);
+            chosen.push({ card: t.card, ti: t.ti });
+            solve(idx + 1, used, chosen, gain + t.gain);
+            chosen.pop();
+            used.delete(t.ti);
+        }
+    }
+
+    solve(0, new Set(), [], 0);
+    if (!best_assignment) return false;
+
+    // Remove the set.
+    stacks.splice(d.stack_index, 1);
+
+    // Merge each card onto its target (adjust indices since we removed one stack).
+    // Sort by target index descending so splicing doesn't shift earlier indices.
+    const assignments = best_assignment.map((a) => ({
+        ...a,
+        ti: a.ti > d.stack_index ? a.ti - 1 : a.ti,
+    }));
+
+    for (const a of assignments) {
+        const single = new CardStack(
+            [new BoardCard(a.card, BoardCardState.FIRMLY_ON_BOARD)], loc);
+        const merged = stacks[a.ti].left_merge(single) ?? stacks[a.ti].right_merge(single);
+        if (!merged) return false;
+        stacks[a.ti] = merged;
+    }
+
+    return true;
+}
+
+// Extended loop with dissolve.
+export function do_board_improvements_with_dissolve(board: CardStack[]): ImprovementResult {
+    return improve_with_tricks(board, { use_swap: true, use_dissolve: true });
+}
+
 // --- Main loop: join + promote until stable ---
 
 export type ImprovementResult = {
@@ -403,7 +543,7 @@ export function do_board_improvements_with_swap(board: CardStack[]): Improvement
 
 function improve_with_tricks(
     board: CardStack[],
-    options: { use_swap?: boolean; use_split_promote?: boolean },
+    options: { use_swap?: boolean; use_split_promote?: boolean; use_dissolve?: boolean },
 ): ImprovementResult {
     const stacks = [...board];
     let total_gained = 0;
@@ -450,7 +590,18 @@ function improve_with_tricks(
             }
         }
 
-        // Trick 4: split-promote (optional).
+        // Trick 4: dissolve-set (optional).
+        if (options.use_dissolve) {
+            const dissolves = find_dissolves(stacks);
+            if (dissolves.length > 0 && apply_dissolve(stacks, dissolves[0])) {
+                total_gained += dissolves[0].score_delta;
+                total_applied++;
+                progress = true;
+                continue;
+            }
+        }
+
+        // Trick 5: split-promote (optional).
         if (options.use_split_promote) {
             const sps = find_split_promotes(stacks);
             if (sps.length > 0 && apply_split_promote(stacks, sps[0])) {
