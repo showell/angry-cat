@@ -6,9 +6,10 @@
 
 import assert from "node:assert/strict";
 import { Card, OriginDeck, Suit, value_str } from "./card";
-import { BoardCard, BoardCardState, CardStack, type BoardLocation } from "./card_stack";
+import { BoardCard, BoardCardState, CardStack, HandCard, HandCardState, type BoardLocation } from "./card_stack";
 import { Score } from "./score";
 import { do_board_improvements_with_six_to_four } from "./board_improve";
+import { find_six_to_four_plays, find_playable_hand_cards, get_hint, HintLevel } from "./hints";
 
 const D1 = OriginDeck.DECK_ONE;
 const D2 = OriginDeck.DECK_TWO;
@@ -134,6 +135,98 @@ function bs(deck: OriginDeck, ...labels: string[]): CardStack {
 
     // Only one dup can be placed. Trick fails.
     console.log("  Case 5: only one dup has a home — trick doesn't apply ✓");
+}
+
+// --- Hand card integration tests ---
+
+// Story: I have AH:D2 in my hand. The board has two ace sets
+// that share hearts and diamonds. No hearts run exists.
+// AH:D2 can't play anywhere — set already has hearts.
+// Six-to-four merges the sets: dups (AH:D2, AD:D2) go to runs.
+// The 4-set [AS AC AH:D1 AD:D1] now has AH:D1 loose. AH:D1
+// departs later (or the set shrinks), and... actually, after
+// six-to-four the 4-set has all 4 suits. AH:D2 still can't join
+// (hearts present). BUT: AH:D2 from the original set went to a
+// run. So the NEW 4-set has AH from D1. AH:D2 from hand still
+// blocked.
+//
+// The real case: hand has AC:D1. Set 1 has [AH AD AS]. Set 2
+// has [AH AD AC] — clubs present, so AC:D1 can't join set 2.
+// Set 1 doesn't have clubs. But AC:D1 can't join set 1 either
+// (only 3 cards, clubs not blocked, wait — AC CAN join set 1!)
+//
+// Simplest case: hand has 5S:D2. Board has [5H 5D 5S]:D1 and
+// [5H 5C 5S]:D2. Spade is in both sets. No spade run exists.
+// Six-to-four: dups are H and S. 5H goes to hearts run, 5S goes
+// to spade run. 4-set: [5D 5C 5H? 5S?]. Wait, we keep one of
+// each suit. Keep 5D:D1, 5C:D2, 5H:D1, 5S:D1 → 4-set. Dups:
+// 5H:D2 and 5S:D2 go to runs. But we need a spade run for 5S:D2!
+// If there's a spade run: 5S:D2 goes there. Now the 4-set has
+// 5S:D1 loose. Hand's 5S:D2... still can't join (spade present).
+//
+// Hmm. The trick enables hand play when the EXTENDED RUN accepts
+// the hand card. Let me use the run-extension case instead.
+//
+// Hand has 6H. Board has [5H 5D 5S]:D1 + [5H 5D 5C]:D2.
+// Six-to-four: 5H dup goes to [3H 4H] → [3H 4H 5H].
+// Now 6H extends [3H 4H 5H] → [3H 4H 5H 6H]. Direct play!
+{
+    const board = [
+        bs(D1, "5H", "5D", "5S"),
+        bs(D2, "5H", "5D", "5C"),
+        bs(D1, "3H", "4H"),        // incomplete, wants 5H
+        bs(D1, "3D", "4D"),        // incomplete, wants 5D
+    ];
+    const hand = [
+        new HandCard(Card.from("6H", D1), HandCardState.NORMAL),
+    ];
+
+    // 6H can't play: [3H 4H] is incomplete, no 5H endpoint yet.
+    const direct = find_playable_hand_cards(hand, board);
+    assert.equal(direct.length, 0, "6H should not have a direct play");
+
+    const plays = find_six_to_four_plays(hand, board);
+    assert.equal(plays.length, 1, "should find 6H playable via six-to-four");
+    assert.equal(cs(plays[0].card), "6H");
+
+    // get_hint might find a simpler trick first (loose card play),
+    // which is correct — the cascade picks the easiest move.
+    // The important thing is that six-to-four detection works.
+    console.log("  Case 6: hand 6H plays after six-to-four extends run ✓");
+}
+
+// Story: same setup but hand has 7H — needs TWO extensions.
+// Six-to-four extends [3H 4H] → [3H 4H 5H]. Then 7H still can't
+// play (needs 6H). So six-to-four alone doesn't help 7H.
+{
+    const board = [
+        bs(D1, "5H", "5D", "5S"),
+        bs(D2, "5H", "5D", "5C"),
+        bs(D1, "3H", "4H"),
+        bs(D1, "3D", "4D"),
+    ];
+    const hand = [
+        new HandCard(Card.from("7H", D1), HandCardState.NORMAL),
+    ];
+
+    const plays = find_six_to_four_plays(hand, board);
+    assert.equal(plays.length, 0, "7H needs 6H too — six-to-four not enough");
+    console.log("  Case 7: 7H too far from extended run — not playable ✓");
+}
+
+// Story: no six-to-four possible — only one set of that value.
+{
+    const board = [
+        bs(D1, "AH", "AD", "AS"),
+        bs(D1, "2H", "3H", "4H"),
+    ];
+    const hand = [
+        new HandCard(Card.from("AH", D2), HandCardState.NORMAL),
+    ];
+
+    const plays = find_six_to_four_plays(hand, board);
+    assert.equal(plays.length, 0, "no six-to-four with only one set");
+    console.log("  Case 8: no six-to-four with one set ✓");
 }
 
 console.log("\nAll six-to-four test cases validated.");

@@ -43,6 +43,7 @@ export enum HintLevel {
     PEEL_FOR_RUN = "Peel two board cards to form a run with your card.",
     PAIR_PEEL = "Peel a board card to complete a pair in your hand.",
     PAIR_DISSOLVE = "Dissolve a set to complete a pair in your hand.",
+    SIX_TO_FOUR = "Merge two sets and free a dup — your card takes its place!",
     REARRANGE_PLAY = "Rearrange the board to make room for your card.",
     NO_MOVES = "No moves found. You'll draw cards.",
 }
@@ -63,6 +64,7 @@ export type Hint =
     | { level: HintLevel.PEEL_FOR_RUN; playable_cards: HandCard[] }
     | { level: HintLevel.PAIR_PEEL; playable_cards: HandCard[] }
     | { level: HintLevel.PAIR_DISSOLVE; playable_cards: HandCard[] }
+    | { level: HintLevel.SIX_TO_FOUR; playable_cards: HandCard[] }
     | { level: HintLevel.REARRANGE_PLAY; plays: RearrangePlay[] }
     | { level: HintLevel.NO_MOVES };
 
@@ -122,6 +124,12 @@ export function get_hint(
     const pair_dissolve_plays = find_pair_dissolve_plays(hand_cards, board_stacks);
     if (pair_dissolve_plays.length > 0) {
         return { level: HintLevel.PAIR_DISSOLVE, playable_cards: pair_dissolve_plays };
+    }
+
+    // Level 5c: Six-to-four — merge two 3-sets, free dups, play hand card.
+    const six_to_four_plays = find_six_to_four_plays(hand_cards, board_stacks);
+    if (six_to_four_plays.length > 0) {
+        return { level: HintLevel.SIX_TO_FOUR, playable_cards: six_to_four_plays };
     }
 
     // Level 6: Board cleanup — join adjacent runs, then re-run
@@ -1660,6 +1668,135 @@ function relevant_board_cards(hc: HandCard, board_stacks: CardStack[]): Card[] {
         }
     }
     return result;
+}
+
+// --- Level 5c: Six-to-four + play hand card ---
+//
+// Two 3-card sets of the same value → one 4-set + 2 dups on runs.
+// The 4-set has 4 loose cards. After the six-to-four, check if any
+// hand card can now play:
+//   - Hand card's dup was in one of the old sets → dup moved to a
+//     run, hand card takes its place in the new 4-set (or the 3-set
+//     after the dup departed).
+//   - Hand card extends a run that got longer from a dup joining.
+//   - Hand card was blocked and the reshuffled board opens a spot.
+
+export function find_six_to_four_plays(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): HandCard[] {
+    const unplayable = get_unplayable(hand_cards, board_stacks);
+    if (unplayable.length === 0) return [];
+
+    // Find all pairs of 3-card sets with the same value.
+    const sets_by_value = new Map<CardValue, { index: number; stack: CardStack }[]>();
+    for (let i = 0; i < board_stacks.length; i++) {
+        const s = board_stacks[i];
+        if (s.get_stack_type() !== CardStackType.SET || s.size() !== 3) continue;
+        const val = s.get_cards()[0].value;
+        if (!sets_by_value.has(val)) sets_by_value.set(val, []);
+        sets_by_value.get(val)!.push({ index: i, stack: s });
+    }
+
+    const results = new Set<HandCard>();
+
+    for (const group of sets_by_value.values()) {
+        if (group.length < 2) continue;
+
+        for (let gi = 0; gi < group.length; gi++) {
+            for (let gj = gi + 1; gj < group.length; gj++) {
+                const a = group[gi];
+                const b = group[gj];
+
+                // Build the simulated board after six-to-four.
+                const sim_board = simulate_six_to_four(board_stacks, a, b);
+                if (!sim_board) continue;
+
+                // Check which unplayable hand cards are now playable.
+                const now_playable = find_playable_hand_cards(unplayable, sim_board);
+                for (const hc of now_playable) results.add(hc);
+
+                // Also check: after six-to-four, can any hand card
+                // use the other hint levels? (swap, split-for-set, etc.)
+                // For simplicity, just check direct play for now.
+                // The cascade will catch the rest on the next iteration.
+            }
+        }
+    }
+
+    return [...results];
+}
+
+// Simulate six-to-four without mutating the original board.
+// Returns the modified board, or undefined if the trick can't apply.
+function simulate_six_to_four(
+    board_stacks: CardStack[],
+    a: { index: number; stack: CardStack },
+    b: { index: number; stack: CardStack },
+): CardStack[] | undefined {
+    const a_cards = a.stack.get_cards();
+    const b_cards = b.stack.get_cards();
+
+    // Collect suits.
+    const all_suits = new Map<Suit, Card[]>();
+    for (const c of a_cards) {
+        if (!all_suits.has(c.suit)) all_suits.set(c.suit, []);
+        all_suits.get(c.suit)!.push(c);
+    }
+    for (const c of b_cards) {
+        if (!all_suits.has(c.suit)) all_suits.set(c.suit, []);
+        all_suits.get(c.suit)!.push(c);
+    }
+
+    if (all_suits.size < 4) return undefined;
+
+    const dup_cards: Card[] = [];
+    const keep_cards: Card[] = [];
+    for (const [_suit, cards] of all_suits) {
+        if (cards.length === 2) {
+            keep_cards.push(cards[0]);
+            dup_cards.push(cards[1]);
+        } else {
+            keep_cards.push(cards[0]);
+        }
+    }
+
+    if (dup_cards.length !== 2 || keep_cards.length !== 4) return undefined;
+
+    // Check that both dups can join runs.
+    const sim = [...board_stacks];
+    const used_targets = new Set<number>();
+
+    for (const dup of dup_cards) {
+        const single = make_single_stack(dup);
+        let placed = false;
+        for (let ti = 0; ti < sim.length; ti++) {
+            if (ti === a.index || ti === b.index) continue;
+            if (used_targets.has(ti)) continue;
+            const merged = sim[ti].left_merge(single) ?? sim[ti].right_merge(single);
+            if (!merged) continue;
+            const mt = merged.get_stack_type();
+            if (mt !== CardStackType.PURE_RUN && mt !== CardStackType.RED_BLACK_RUN) continue;
+            // Apply to sim.
+            sim[ti] = merged;
+            used_targets.add(ti);
+            placed = true;
+            break;
+        }
+        if (!placed) return undefined;
+    }
+
+    // Replace the two 3-sets with one 4-set.
+    const four_set = new CardStack(
+        keep_cards.map((c) => new BoardCard(c, BoardCardState.FIRMLY_ON_BOARD)),
+        DUMMY_LOC);
+
+    // Remove old sets (higher index first).
+    const to_remove = [a.index, b.index].sort((x, y) => y - x);
+    for (const idx of to_remove) sim.splice(idx, 1);
+
+    sim.push(four_set);
+    return sim;
 }
 
 export function find_rearrangement_plays(
