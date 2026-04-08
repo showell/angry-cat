@@ -21,6 +21,8 @@ import {
 } from "./hints";
 import { CardStackType, get_stack_type, predecessor, successor } from "./stack_type";
 import { is_pair_of_dups as is_dup } from "./card";
+import { do_obvious_board_improvements } from "./board_improve";
+import { Score } from "./score";
 
 const loc: BoardLocation = { top: 0, left: 0 };
 const suit_letter: Record<Suit, string> = {
@@ -429,7 +431,8 @@ for (let turn = 1; turn <= 200; turn++) {
     const p = (turn - 1) % 2;
     let played = 0;
 
-    // Board cleanup: join adjacent runs before looking for plays.
+    // Board cleanup: join adjacent runs to create longer stacks
+    // with more peel points. This runs before looking for plays.
     {
         const cleaned = join_adjacent_runs(board);
         if (cleaned.changed) {
@@ -552,6 +555,15 @@ for (let turn = 1; turn <= 200; turn++) {
         }
     }
 
+    // End-of-turn score optimization.
+    {
+        const improved = do_obvious_board_improvements(board);
+        if (improved.upgrades_applied > 0) {
+            board.length = 0;
+            for (const s of improved.board) board.push(s);
+        }
+    }
+
     maybe_record(snapshots, turn, p, "end", board, hands, deck.length);
 
     if (turn <= 10) {
@@ -572,6 +584,19 @@ for (let turn = 1; turn <= 200; turn++) {
 
     if (hands[0].length === 0 && hands[1].length === 0) break;
     if (consecutive_stuck >= 4) break;
+}
+
+// Final score optimization: now that all cards are placed, optimize
+// the board arrangement without worrying about future plays.
+{
+    const before = Score.for_stacks(board);
+    const improved = do_obvious_board_improvements(board);
+    if (improved.upgrades_applied > 0) {
+        board.length = 0;
+        for (const s of improved.board) board.push(s);
+        const after = Score.for_stacks(board);
+        console.log(`\nFinal optimization: ${improved.upgrades_applied} upgrades, score ${before} → ${after} (+${after - before})`);
+    }
 }
 
 // --- Summary ---
