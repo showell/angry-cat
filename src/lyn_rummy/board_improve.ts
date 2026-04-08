@@ -391,9 +391,9 @@ export type ImprovementResult = {
     upgrades_applied: number;
 };
 
-// Base loop: join + promote.
+// Base loop: join + promote + swap.
 export function do_obvious_board_improvements(board: CardStack[]): ImprovementResult {
-    return improve_with_tricks(board, { use_swap: false });
+    return improve_with_tricks(board, { use_swap: true });
 }
 
 // Extended loop: join + promote + board-swap.
