@@ -12,12 +12,8 @@ import {
 } from "./card_stack";
 import { get_test_deck } from "./test_deck";
 import {
-    find_playable_hand_cards, find_hand_stacks,
-    find_split_for_set_plays, find_split_and_inject_plays,
-    find_peel_for_run_plays, find_pair_peel_plays,
-    find_loose_card_plays, find_rearrangement_plays, can_extract,
-    join_adjacent_runs,
-    HintLevel, type HandStack, type LooseCardPlay,
+    get_hint, can_extract, join_adjacent_runs,
+    HintLevel,
 } from "./hints";
 import { CardStackType, get_stack_type, predecessor, successor } from "./stack_type";
 import { is_pair_of_dups as is_dup } from "./card";
@@ -431,8 +427,7 @@ for (let turn = 1; turn <= 200; turn++) {
     const p = (turn - 1) % 2;
     let played = 0;
 
-    // Board cleanup: join adjacent runs to create longer stacks
-    // with more peel points. This runs before looking for plays.
+    // Board cleanup before looking for plays.
     {
         const cleaned = join_adjacent_runs(board);
         if (cleaned.changed) {
@@ -441,118 +436,96 @@ for (let turn = 1; turn <= 200; turn++) {
         }
     }
 
-    // Keep playing as long as we find moves.
-    let progress = true;
-    while (progress && hands[p].length > 0) {
-        progress = false;
+    // Play loop: ask get_hint for the best move, execute it, repeat.
+    while (hands[p].length > 0) {
+        const hint = get_hint(hands[p], board);
 
-        // Level 1: Hand stacks.
-        {
-            const stacks = find_hand_stacks(hands[p]);
-            if (stacks.length > 0) {
-                const group = stacks[0];
+        if (hint.level === HintLevel.NO_MOVES ||
+            hint.level === HintLevel.REARRANGE_PLAY) {
+            // Human doesn't use the graph solver. Stop.
+            break;
+        }
+
+        let executed = false;
+
+        switch (hint.level) {
+            case HintLevel.HAND_STACKS: {
+                const group = hint.hand_stacks[0];
                 play_hand_stack(group, hands[p], board);
                 const used = new Set(group.cards);
                 hands[p] = hands[p].filter((hc) => !used.has(hc));
                 played += group.cards.length;
-                progress = true;
-                maybe_record(snapshots, turn, p, "hand_stack", board, hands, deck.length);
-                continue;
+                executed = true;
+                break;
             }
-        }
 
-        // Level 2: Direct play.
-        {
-            const playable = find_playable_hand_cards(hands[p], board);
-            if (playable.length > 0) {
-                const hc = playable[0];
+            case HintLevel.DIRECT_PLAY: {
+                const hc = hint.playable_cards[0];
                 play_direct(hc, board);
                 hands[p] = hands[p].filter((h) => h !== hc);
                 played++;
-                progress = true;
-                maybe_record(snapshots, turn, p, "direct", board, hands, deck.length);
-                continue;
+                executed = true;
+                break;
             }
-        }
 
-        // Level 3: Loose card play.
-        {
-            const loose = find_loose_card_plays(hands[p], board);
-            if (loose.length > 0) {
-                const hc = play_loose(loose[0], hands[p], board);
-                if (hc) {
-                    hands[p] = hands[p].filter((h) => h !== hc);
-                    played++;
-                    progress = true;
-                    maybe_record(snapshots, turn, p, "loose", board, hands, deck.length);
-                    continue;
-                }
-            }
-        }
-
-        // Levels 4-6: human-like heuristics. Detection is cheap,
-        // execution modifies the board mechanically.
-
-        // Level 4: Split for set.
-        {
-            const playable = find_split_for_set_plays(hands[p], board);
-            if (playable.length > 0) {
-                const hc = playable[0];
+            case HintLevel.SWAP:
+            case HintLevel.SPLIT_FOR_SET: {
+                const hc = hint.playable_cards[0];
                 if (execute_split_for_set(hc, hands[p], board)) {
                     hands[p] = hands[p].filter((h) => h !== hc);
                     played++;
-                    progress = true;
-                    maybe_record(snapshots, turn, p, "split_set", board, hands, deck.length);
-                    continue;
+                    executed = true;
                 }
+                break;
             }
-        }
 
-        // Level 4b: Split and inject.
-        {
-            const playable = find_split_and_inject_plays(hands[p], board);
-            if (playable.length > 0) {
-                const hc = playable[0];
+            case HintLevel.LOOSE_CARD_PLAY: {
+                const hc = play_loose(hint.plays[0], hands[p], board);
+                if (hc) {
+                    hands[p] = hands[p].filter((h) => h !== hc);
+                    played++;
+                    executed = true;
+                }
+                break;
+            }
+
+            case HintLevel.SPLIT_AND_INJECT: {
+                const hc = hint.playable_cards[0];
                 if (execute_split_and_inject(hc, board)) {
                     hands[p] = hands[p].filter((h) => h !== hc);
                     played++;
-                    progress = true;
-                    maybe_record(snapshots, turn, p, "inject", board, hands, deck.length);
-                    continue;
+                    executed = true;
                 }
+                break;
             }
-        }
 
-        // Level 4c: Peel for run.
-        {
-            const playable = find_peel_for_run_plays(hands[p], board);
-            if (playable.length > 0) {
-                const hc = playable[0];
+            case HintLevel.PEEL_FOR_RUN: {
+                const hc = hint.playable_cards[0];
                 if (execute_peel_for_run(hc, board)) {
                     hands[p] = hands[p].filter((h) => h !== hc);
                     played++;
-                    progress = true;
-                    maybe_record(snapshots, turn, p, "peel_run", board, hands, deck.length);
-                    continue;
+                    executed = true;
                 }
+                break;
             }
-        }
 
-        // Level 5: Pair peel.
-        {
-            const playable = find_pair_peel_plays(hands[p], board);
-            if (playable.length > 0) {
-                const played_cards = execute_pair_peel(playable, hands[p], board);
+            case HintLevel.PAIR_PEEL:
+            case HintLevel.PAIR_DISSOLVE:
+            case HintLevel.SIX_TO_FOUR: {
+                const played_cards = execute_pair_peel(hint.playable_cards, hands[p], board);
                 if (played_cards.length > 0) {
                     const used = new Set(played_cards);
                     hands[p] = hands[p].filter((h) => !used.has(h));
                     played += played_cards.length;
-                    progress = true;
-                    maybe_record(snapshots, turn, p, "pair_peel", board, hands, deck.length);
-                    continue;
+                    executed = true;
                 }
+                break;
             }
         }
+
+        if (!executed) break;
+
+        maybe_record(snapshots, turn, p, hint.level, board, hands, deck.length);
     }
 
     // End-of-turn score optimization.
