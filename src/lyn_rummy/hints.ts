@@ -1,4 +1,4 @@
-import { is_pair_of_dups } from "./card";
+import { is_pair_of_dups, value_str } from "./card";
 import { BoardCard, BoardCardState, CardStack, type HandCard } from "./card_stack";
 import { CardStackType, get_stack_type } from "./stack_type";
 
@@ -258,78 +258,131 @@ function check_loose_end(
     }
 }
 
-// --- Loose card + hand card combination ---
+// --- Board rearrangement search (BFS) ---
+//
+// Breadth-first search over board states. At each level, we try
+// every possible loose card move. After each move, we check if
+// any hand card becomes playable. If so, we return the sequence
+// of board moves that got us there.
+//
+// Max depth is capped to keep hints under 200ms. In practice,
+// depth 3-4 finds almost everything a human would try.
 
-// A move where you first rearrange the board (move one loose card),
-// which then opens up a spot for a hand card to be played.
-export type LooseCardPlay = {
-    loose: LooseCard;
-    target_stack: CardStack;       // which target the loose card goes to
-    merged_target: CardStack;      // the target after merging the loose card
-    playable_cards: HandCard[];    // hand cards that become playable after the move
+export type BoardMove = {
+    card_label: string;  // human-readable label of the moved card
+    from: string;        // description of source stack
+    to: string;          // description of target stack
+    end: "left" | "right";
 };
 
-// For each loose card move, simulate the board change and check
-// whether any hand cards become playable that weren't before.
-// Returns the first useful move found (does not recurse).
+export type LooseCardPlay = {
+    moves: BoardMove[];           // sequence of board rearrangements (for display)
+    resulting_board: CardStack[]; // the board after all moves (for execution)
+    playable_cards: HandCard[];   // hand cards that become playable after
+};
+
+const MAX_BFS_DEPTH = 4;
+
+// Normalize a board state to a string for dedup. We sort stack
+// representations so that board order doesn't matter.
+function board_key(stacks: CardStack[]): string {
+    return stacks.map((s) => s.str()).sort().join("|");
+}
+
+function card_label_for(bc: BoardCard): string {
+    const suit_letter: Record<number, string> = { 0: "C", 1: "D", 2: "S", 3: "H" };
+    return value_str(bc.card.value) + suit_letter[bc.card.suit];
+}
+
+// Apply one loose card move to a board, returning the new board.
+function apply_loose_move(
+    board: CardStack[],
+    loose: LooseCard,
+    target: CardStack,
+): CardStack[] | undefined {
+    const single = new CardStack(
+        [new BoardCard(loose.card.card, BoardCardState.FIRMLY_ON_BOARD)],
+        DUMMY_LOC,
+    );
+
+    const merged = target.left_merge(single) ?? target.right_merge(single);
+    if (!merged) return undefined;
+
+    return board.map((stack) => {
+        if (stack === loose.source_stack) return loose.remaining_stack;
+        if (stack === target) return merged;
+        return stack;
+    });
+}
+
 export function find_loose_card_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): LooseCardPlay[] {
-    // What's already playable before any rearranging.
     const already_playable = new Set(
         find_playable_hand_cards(hand_cards, board_stacks).map((hc) => hc),
     );
 
-    const results: LooseCardPlay[] = [];
+    // BFS queue: each entry is a board state + the moves taken to get there.
+    type BFSEntry = {
+        board: CardStack[];
+        moves: BoardMove[];
+    };
 
-    for (const loose of find_loose_cards(board_stacks)) {
-        for (const target of loose.target_stacks) {
-            // Build the single-card stack for merging.
-            const single = new CardStack(
-                [new BoardCard(loose.card.card, BoardCardState.FIRMLY_ON_BOARD)],
-                DUMMY_LOC,
-            );
+    const visited = new Set<string>();
+    visited.add(board_key(board_stacks));
 
-            // Try both merge directions.
-            const merged =
-                target.left_merge(single) ?? target.right_merge(single);
-            if (!merged) continue;
+    let queue: BFSEntry[] = [{ board: board_stacks, moves: [] }];
 
-            // Simulate the board after the move:
-            // - Replace source with remaining (the stack minus the loose card)
-            // - Replace target with merged (the target plus the loose card)
-            const simulated_board = board_stacks.map((stack) => {
-                if (stack === loose.source_stack) return loose.remaining_stack;
-                if (stack === target) return merged;
-                return stack;
-            });
+    for (let depth = 0; depth < MAX_BFS_DEPTH && queue.length > 0; depth++) {
+        const next_queue: BFSEntry[] = [];
 
-            // Check what's playable now.
-            const now_playable = find_playable_hand_cards(
-                hand_cards,
-                simulated_board,
-            );
+        for (const entry of queue) {
+            const loose_cards = find_loose_cards(entry.board);
 
-            // Find newly playable cards (weren't playable before).
-            const new_plays = now_playable.filter(
-                (hc) => !already_playable.has(hc),
-            );
+            for (const loose of loose_cards) {
+                for (const target of loose.target_stacks) {
+                    const new_board = apply_loose_move(entry.board, loose, target);
+                    if (!new_board) continue;
 
-            if (new_plays.length > 0) {
-                results.push({
-                    loose,
-                    target_stack: target,
-                    merged_target: merged,
-                    playable_cards: new_plays,
-                });
-                // Stop at the first useful move.
-                return results;
+                    const key = board_key(new_board);
+                    if (visited.has(key)) continue;
+                    visited.add(key);
+
+                    const move: BoardMove = {
+                        card_label: card_label_for(loose.card),
+                        from: loose.source_stack.str(),
+                        to: target.str(),
+                        end: loose.end,
+                    };
+                    const moves = [...entry.moves, move];
+
+                    // Check if this board state unlocks any hand plays.
+                    const now_playable = find_playable_hand_cards(
+                        hand_cards,
+                        new_board,
+                    );
+                    const new_plays = now_playable.filter(
+                        (hc) => !already_playable.has(hc),
+                    );
+
+                    if (new_plays.length > 0) {
+                        return [{
+                            moves,
+                            resulting_board: new_board,
+                            playable_cards: new_plays,
+                        }];
+                    }
+
+                    next_queue.push({ board: new_board, moves });
+                }
             }
         }
+
+        queue = next_queue;
     }
 
-    return results;
+    return [];
 }
 
 // --- Helpers ---

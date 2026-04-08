@@ -343,7 +343,8 @@ function loose_card_label(lc: LooseCard): string {
     assert.equal(plays.length, 1);
 
     const play = plays[0];
-    assert.equal(card_label_raw(play.loose.card), "7H");
+    assert.equal(play.moves.length, 1);
+    assert.equal(play.moves[0].card_label, "7H");
     assert.equal(play.playable_cards.length, 1);
     assert.equal(card_label(play.playable_cards[0]), "8H");
 }

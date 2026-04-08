@@ -69,6 +69,7 @@ function card_str(hc: HandCard): string {
     let total_played = 0;
     let turns = 0;
     const max_turns = 50;
+    let bfs_hits = 0;
 
     const start = performance.now();
 
@@ -122,19 +123,13 @@ function card_str(hc: HandCard): string {
                 }
 
                 case HintLevel.LOOSE_CARD_PLAY: {
-                    // Execute the board rearrangement, then play the hand card.
+                    bfs_hits++;
                     const play = hint.plays[0];
 
-                    // Move the loose card.
-                    board = board.map((stack) => {
-                        if (stack === play.loose.source_stack)
-                            return play.loose.remaining_stack;
-                        if (stack === play.target_stack)
-                            return play.merged_target;
-                        return stack;
-                    });
+                    // Use the pre-computed board state after rearrangement.
+                    board = play.resulting_board;
 
-                    // Now play the hand card (it should be directly playable).
+                    // Now play the hand card onto the rearranged board.
                     const hc = play.playable_cards[0];
                     const single = CardStack.from_hand_card(hc, loc);
                     for (let i = 0; i < board.length; i++) {
@@ -170,7 +165,8 @@ function card_str(hc: HandCard): string {
 
     console.log(`Simulation: ${turns} turns, ${total_played} cards played, ` +
         `${hand.length} cards left in hand, ${board.length} board stacks, ` +
-        `${deck.length - deck_index} cards left in deck, ${elapsed.toFixed(1)}ms`);
+        `${deck.length - deck_index} cards left in deck, ${bfs_hits} BFS hits, ` +
+        `${elapsed.toFixed(1)}ms`);
 
     // Basic sanity: the hint system should play at least some cards.
     assert(total_played > 0, "should have played at least some cards");
