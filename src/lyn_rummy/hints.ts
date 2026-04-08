@@ -1,6 +1,7 @@
-import { CardColor, CardValue, is_pair_of_dups, all_suits, Suit, value_str } from "./card";
+import { Card, CardColor, CardValue, is_pair_of_dups, Suit, value_str } from "./card";
 import { BoardCard, BoardCardState, CardStack, type HandCard } from "./card_stack";
 import { CardStackType, get_stack_type, successor, predecessor } from "./stack_type";
+import { solve as graph_solve, STRATEGY_PREFER_RUNS } from "./reassemble_graph";
 
 const DUMMY_LOC = { top: 0, left: 0 };
 
@@ -14,6 +15,11 @@ export enum HintLevel {
     HAND_STACKS = "You have a complete set or run in your hand!",
     DIRECT_PLAY = "You can play a card from your hand onto the board.",
     LOOSE_CARD_PLAY = "Move a board card, then play from your hand.",
+    SPLIT_FOR_SET = "Split a run to form a set with your card.",
+    SPLIT_AND_INJECT = "Split a run and inject your card at the split point.",
+    PEEL_FOR_RUN = "Peel two board cards to form a run with your card.",
+    PAIR_PEEL = "Peel a board card to complete a pair in your hand.",
+    REARRANGE_PLAY = "Rearrange the board to make room for your card.",
     NO_MOVES = "No moves found. You'll draw cards.",
 }
 
@@ -21,6 +27,11 @@ export type Hint =
     | { level: HintLevel.HAND_STACKS; hand_stacks: HandStack[] }
     | { level: HintLevel.DIRECT_PLAY; playable_cards: HandCard[] }
     | { level: HintLevel.LOOSE_CARD_PLAY; plays: LooseCardPlay[] }
+    | { level: HintLevel.SPLIT_FOR_SET; playable_cards: HandCard[] }
+    | { level: HintLevel.SPLIT_AND_INJECT; playable_cards: HandCard[] }
+    | { level: HintLevel.PEEL_FOR_RUN; playable_cards: HandCard[] }
+    | { level: HintLevel.PAIR_PEEL; playable_cards: HandCard[] }
+    | { level: HintLevel.REARRANGE_PLAY; playable_cards: HandCard[] }
     | { level: HintLevel.NO_MOVES };
 
 export function get_hint(
@@ -43,6 +54,61 @@ export function get_hint(
     const loose_plays = find_loose_card_plays(hand_cards, board_stacks);
     if (loose_plays.length > 0) {
         return { level: HintLevel.LOOSE_CARD_PLAY, plays: loose_plays };
+    }
+
+    // Level 4: Split a run to extract a card, form a set with hand card.
+    const split_plays = find_split_for_set_plays(hand_cards, board_stacks);
+    if (split_plays.length > 0) {
+        return { level: HintLevel.SPLIT_FOR_SET, playable_cards: split_plays };
+    }
+
+    // Level 4b: Split a run, inject hand card at the split point.
+    const inject_plays = find_split_and_inject_plays(hand_cards, board_stacks);
+    if (inject_plays.length > 0) {
+        return { level: HintLevel.SPLIT_AND_INJECT, playable_cards: inject_plays };
+    }
+
+    // Level 4c: Peel two board cards to form a run with hand card.
+    const peel_run_plays = find_peel_for_run_plays(hand_cards, board_stacks);
+    if (peel_run_plays.length > 0) {
+        return { level: HintLevel.PEEL_FOR_RUN, playable_cards: peel_run_plays };
+    }
+
+    // Level 5: Pair in hand + peel from board.
+    const pair_plays = find_pair_peel_plays(hand_cards, board_stacks);
+    if (pair_plays.length > 0) {
+        return { level: HintLevel.PAIR_PEEL, playable_cards: pair_plays };
+    }
+
+    // Level 6: Board cleanup — join adjacent runs, then re-run
+    // the peel-based checks. Merging two 3-card runs into one
+    // 6-card run creates new middle-peel positions.
+    {
+        const cleaned = join_adjacent_runs(board_stacks);
+        if (cleaned.changed) {
+            const split2 = find_split_for_set_plays(hand_cards, cleaned.board);
+            if (split2.length > 0) {
+                return { level: HintLevel.SPLIT_FOR_SET, playable_cards: split2 };
+            }
+            const inject2 = find_split_and_inject_plays(hand_cards, cleaned.board);
+            if (inject2.length > 0) {
+                return { level: HintLevel.SPLIT_AND_INJECT, playable_cards: inject2 };
+            }
+            const peel_run2 = find_peel_for_run_plays(hand_cards, cleaned.board);
+            if (peel_run2.length > 0) {
+                return { level: HintLevel.PEEL_FOR_RUN, playable_cards: peel_run2 };
+            }
+            const pair2 = find_pair_peel_plays(hand_cards, cleaned.board);
+            if (pair2.length > 0) {
+                return { level: HintLevel.PAIR_PEEL, playable_cards: pair2 };
+            }
+        }
+    }
+
+    // Level 7: Rearrange the board (expert-level, graph solver).
+    const rearrange_plays = find_rearrangement_plays(hand_cards, board_stacks);
+    if (rearrange_plays.length > 0) {
+        return { level: HintLevel.REARRANGE_PLAY, playable_cards: rearrange_plays };
     }
 
     return { level: HintLevel.NO_MOVES };
@@ -679,6 +745,117 @@ function try_free_card(
     return undefined;
 }
 
+// --- Set dissolution ---
+//
+// A set like [7H 7S 7D] can be dissolved if every card in it has a
+// distinct run on the board to merge into. After dissolution the set
+// is gone and each card extends a different run. This can unlock hand
+// cards that need the newly-extended runs.
+
+function try_set_dissolution(
+    unplayable: HandCard[],
+    board_stacks: CardStack[],
+): LooseCardPlay | undefined {
+    for (const set_stack of board_stacks) {
+        if (set_stack.get_stack_type() !== CardStackType.SET) continue;
+
+        const set_cards = set_stack.board_cards;
+        const other_stacks = board_stacks.filter((s) => s !== set_stack);
+
+        // Try to assign each set card to a distinct target stack.
+        const assignment = assign_set_cards_to_targets(set_cards, other_stacks);
+        if (!assignment) continue;
+
+        // Build the dissolved board: remove the set, apply all merges.
+        const new_board = apply_dissolution(other_stacks, assignment);
+
+        // Check if any unplayable hand card becomes playable.
+        const now_playable = find_playable_hand_cards(unplayable, new_board);
+        if (now_playable.length > 0) {
+            const moves: BoardMove[] = assignment.map((a) => ({
+                card_label: card_label_for(a.set_card),
+                from: set_stack.str(),
+                to: a.target.str(),
+                end: a.end,
+            }));
+            return {
+                moves,
+                resulting_board: new_board,
+                playable_cards: now_playable,
+            };
+        }
+    }
+
+    return undefined;
+}
+
+type SetCardAssignment = {
+    set_card: BoardCard;
+    target: CardStack;
+    merged: CardStack;
+    end: "left" | "right";
+};
+
+// Try every permutation of set cards → target stacks, requiring each
+// card to merge onto a distinct target. With at most 4 cards in a set
+// and typically few valid targets per card, the search space is tiny.
+function assign_set_cards_to_targets(
+    set_cards: BoardCard[],
+    targets: CardStack[],
+): SetCardAssignment[] | undefined {
+    const assignments: SetCardAssignment[] = [];
+    const used_targets = new Set<CardStack>();
+
+    function backtrack(index: number): boolean {
+        if (index === set_cards.length) return true;
+
+        const bc = set_cards[index];
+        const single = new CardStack(
+            [new BoardCard(bc.card, BoardCardState.FIRMLY_ON_BOARD)],
+            DUMMY_LOC,
+        );
+
+        for (const target of targets) {
+            if (used_targets.has(target)) continue;
+
+            const left = target.left_merge(single);
+            if (left) {
+                assignments.push({ set_card: bc, target, merged: left, end: "left" });
+                used_targets.add(target);
+                if (backtrack(index + 1)) return true;
+                assignments.pop();
+                used_targets.delete(target);
+            }
+
+            const right = target.right_merge(single);
+            if (right) {
+                assignments.push({ set_card: bc, target, merged: right, end: "right" });
+                used_targets.add(target);
+                if (backtrack(index + 1)) return true;
+                assignments.pop();
+                used_targets.delete(target);
+            }
+        }
+
+        return false;
+    }
+
+    return backtrack(0) ? assignments : undefined;
+}
+
+function apply_dissolution(
+    other_stacks: CardStack[],
+    assignments: SetCardAssignment[],
+): CardStack[] {
+    // Build a map from original target → merged result.
+    const merge_map = new Map<CardStack, CardStack>();
+    for (const a of assignments) {
+        merge_map.set(a.target, a.merged);
+    }
+
+    return other_stacks.map((s) => merge_map.get(s) ?? s);
+}
+
 export function find_loose_card_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
@@ -740,7 +917,14 @@ export function find_loose_card_plays(
         }
     }
 
-    // Phase 2: Fallback — try one level of untargeted loose card moves.
+    // Phase 2: Set dissolution. Break apart a set if every card has
+    // a distinct run to merge into, then check if a hand card plays.
+    {
+        const dissolution = try_set_dissolution(unplayable, board_stacks);
+        if (dissolution) return [dissolution];
+    }
+
+    // Phase 3: Fallback — try one level of untargeted loose card moves.
     // This catches cases the demand analysis missed.
     for (const loose of find_loose_cards(board_stacks)) {
         for (const target of loose.target_stacks) {
@@ -766,6 +950,568 @@ export function find_loose_card_plays(
     }
 
     return [];
+}
+
+// --- Board cleanup: join adjacent runs ---
+//
+// Scan for pairs of board stacks that can merge end-to-end.
+// Two pure runs of the same suit where one ends at value V and
+// the other starts at V+1. Two rb runs where the colors alternate
+// correctly at the join point. Return the cleaned board and
+// whether anything changed.
+
+export function join_adjacent_runs(
+    board_stacks: CardStack[],
+): { board: CardStack[]; changed: boolean } {
+    const stacks = [...board_stacks];
+    let changed = false;
+
+    // Keep merging until no more joins found.
+    let progress = true;
+    while (progress) {
+        progress = false;
+        for (let i = 0; i < stacks.length && !progress; i++) {
+            for (let j = i + 1; j < stacks.length && !progress; j++) {
+                // Try merging i's right end → j's left end.
+                const merged_ij = stacks[i].right_merge(stacks[j]);
+                if (merged_ij) {
+                    stacks[i] = merged_ij;
+                    stacks.splice(j, 1);
+                    changed = true;
+                    progress = true;
+                    continue;
+                }
+
+                // Try merging j's right end → i's left end.
+                const merged_ji = stacks[j].right_merge(stacks[i]);
+                if (merged_ji) {
+                    stacks[i] = merged_ji;
+                    stacks.splice(j, 1);
+                    changed = true;
+                    progress = true;
+                    continue;
+                }
+
+                // Try i on left of j.
+                const merged_li = stacks[j].left_merge(stacks[i]);
+                if (merged_li) {
+                    stacks[j] = merged_li;
+                    stacks.splice(i, 1);
+                    changed = true;
+                    progress = true;
+                    continue;
+                }
+
+                // Try j on left of i.
+                const merged_lj = stacks[i].left_merge(stacks[j]);
+                if (merged_lj) {
+                    stacks[i] = merged_lj;
+                    stacks.splice(j, 1);
+                    changed = true;
+                    progress = true;
+                    continue;
+                }
+            }
+        }
+    }
+
+    return { board: stacks, changed };
+}
+
+// --- Level 4: Split a run to form a set ---
+//
+// For each unplayable hand card with value V, scan the board for
+// cards of value V buried in runs. If we can extract 2+ of them
+// (by peeling from an end or splitting a long run), we form a set
+// of 3+ with the hand card.
+//
+// This is a cheap one-look-ahead: for each same-value board card,
+// can we remove it from its run and keep both halves valid?
+
+type Extractable = {
+    card: Card;
+    stack_index: number;
+    card_index: number;
+};
+
+// Can this card be extracted from its run without breaking it?
+// Returns true if the card is on an end of a 4+ run, or if
+// splitting the run at this card leaves two valid halves (3+ each).
+// A card is "peelable" if removing it leaves the stack valid.
+//
+// Three cases:
+// 1. End of a 4+ run: peel left or right, remaining 3+ run is valid.
+// 2. Middle of a 7+ run: removing the card leaves 3+ on each side.
+// 3. Any card in a 4-card set: remaining 3-card set is valid.
+export function can_extract(stack: CardStack, card_index: number): boolean {
+    const cards = stack.board_cards;
+    const size = cards.length;
+    const st = stack.get_stack_type();
+
+    // Sets: can peel any card from a 4-card set.
+    if (st === CardStackType.SET) {
+        return size >= 4;
+    }
+
+    // Runs: must be pure or red/black.
+    if (st !== CardStackType.PURE_RUN && st !== CardStackType.RED_BLACK_RUN) {
+        return false;
+    }
+
+    // End peel: left or right end of a 4+ run.
+    if (size >= 4 && (card_index === 0 || card_index === size - 1)) {
+        return true;
+    }
+
+    // Middle peel: both halves must be 3+.
+    // Left half: [0..card_index), right half: (card_index..size).
+    if (card_index >= 3 && (size - card_index - 1) >= 3) {
+        return true;
+    }
+
+    return false;
+}
+
+export function find_split_for_set_plays(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): HandCard[] {
+    // Filter to hand cards not playable by earlier levels.
+    const already_playable = new Set(
+        find_playable_hand_cards(hand_cards, board_stacks),
+    );
+    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    if (unplayable.length === 0) return [];
+
+    const results: HandCard[] = [];
+
+    for (const hc of unplayable) {
+        const v = hc.card.value;
+        const hc_suit = hc.card.suit;
+
+        // Find all extractable board cards with the same value but
+        // different suit (potential set members).
+        const extractable: Extractable[] = [];
+
+        for (let si = 0; si < board_stacks.length; si++) {
+            const stack = board_stacks[si];
+            const cards = stack.get_cards();
+
+            for (let ci = 0; ci < cards.length; ci++) {
+                const bc = cards[ci];
+                if (bc.value !== v) continue;
+                if (bc.suit === hc_suit) continue; // same suit = not a set member
+                if (is_pair_of_dups(bc, hc.card)) continue;
+
+                if (can_extract(stack, ci)) {
+                    extractable.push({ card: bc, stack_index: si, card_index: ci });
+                }
+            }
+        }
+
+        // We need at least 2 extractable cards (+ the hand card = 3 for a set).
+        // Also check they have distinct suits.
+        if (extractable.length < 2) continue;
+
+        const suits_available = new Set<Suit>();
+        suits_available.add(hc_suit);
+        let distinct_count = 1; // hand card
+        for (const ex of extractable) {
+            if (!suits_available.has(ex.card.suit)) {
+                suits_available.add(ex.card.suit);
+                distinct_count++;
+            }
+        }
+
+        if (distinct_count >= 3) {
+            results.push(hc);
+        }
+    }
+
+    return results;
+}
+
+// --- Level 4b: Split a run and inject hand card ---
+//
+// Find a run on the board that can be split into two valid halves
+// where the hand card extends one half to make it valid.
+//
+// Example: board has [2H 3H 4H 5H 6H], hand has 4H(D2).
+// Split at 4|5: left [2H 3H 4H] (valid), right [5H 6H] (only 2).
+// Hand card 4H extends right: [4H 5H 6H] (valid). Play it!
+//
+// The hand card must be the predecessor of the right half's first
+// card, or the successor of the left half's last card.
+
+export function find_split_and_inject_plays(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): HandCard[] {
+    const already_playable = new Set(
+        find_playable_hand_cards(hand_cards, board_stacks),
+    );
+    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    if (unplayable.length === 0) return [];
+
+    const results: HandCard[] = [];
+
+    for (const hc of unplayable) {
+        let found = false;
+
+        for (const stack of board_stacks) {
+            if (found) break;
+            const st = stack.get_stack_type();
+            if (st !== CardStackType.PURE_RUN && st !== CardStackType.RED_BLACK_RUN) {
+                continue;
+            }
+
+            const cards = stack.board_cards;
+            const size = cards.length;
+
+            // Try each split point. Left gets [0..split), right gets [split..size).
+            // Left must be 3+. Right must be 2+ (the hand card will make it 3).
+            // Or: left must be 2+ and hand card extends it to 3, right must be 3+.
+            for (let split = 2; split <= size - 2; split++) {
+                const left = new CardStack(cards.slice(0, split), stack.loc);
+                const right = new CardStack(cards.slice(split), DUMMY_LOC);
+
+                // Both halves must be valid run fragments (not bogus).
+                if (left.problematic() || right.problematic()) continue;
+
+                // Case 1: left is 3+ (valid), hand card extends right on the left.
+                // Right starts at cards[split]. Hand card must be predecessor,
+                // matching the run type.
+                if (!left.incomplete()) {
+                    const right_first = cards[split].card;
+                    const single = CardStack.from_hand_card(hc, DUMMY_LOC);
+                    const extended = right.left_merge(single);
+                    if (extended && !extended.incomplete() && !extended.problematic()) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                // Case 2: right is 3+ (valid), hand card extends left on the right.
+                // Left ends at cards[split-1]. Hand card must be successor.
+                if (!right.incomplete()) {
+                    const single = CardStack.from_hand_card(hc, DUMMY_LOC);
+                    const extended = left.right_merge(single);
+                    if (extended && !extended.incomplete() && !extended.problematic()) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (found) results.push(hc);
+    }
+
+    return results;
+}
+
+// --- Level 4c: Peel two board cards to form a run ---
+//
+// For each unplayable hand card, scan the board for peelable cards
+// that are adjacent in value. A "peelable" card is one that can be
+// extracted via can_extract. If we find two peelable cards
+// that, together with the hand card, form a valid 3-card run, the
+// hand card is playable.
+//
+// The human version: "I have 5H. I see a 4H peelable from a set
+// and a 6H peelable from the end of a run. I peel both and play
+// [4H 5H 6H]."
+
+type PeelableCard = {
+    card: Card;
+    stack_index: number;
+    card_index: number;
+};
+
+function find_peelable_cards(board_stacks: CardStack[]): PeelableCard[] {
+    const result: PeelableCard[] = [];
+    for (let si = 0; si < board_stacks.length; si++) {
+        const stack = board_stacks[si];
+        const cards = stack.get_cards();
+        for (let ci = 0; ci < cards.length; ci++) {
+            if (can_extract(stack, ci)) {
+                result.push({ card: cards[ci], stack_index: si, card_index: ci });
+            }
+        }
+    }
+    return result;
+}
+
+export function find_peel_for_run_plays(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): HandCard[] {
+    const already_playable = new Set(
+        find_playable_hand_cards(hand_cards, board_stacks),
+    );
+    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    if (unplayable.length === 0) return [];
+
+    const peelable = find_peelable_cards(board_stacks);
+    if (peelable.length < 2) return [];
+
+    const results: HandCard[] = [];
+
+    for (const hc of unplayable) {
+        const v = hc.card.value;
+        const s = hc.card.suit;
+        const c = hc.card.color;
+        const prev = predecessor(v);
+        const next = successor(v);
+
+        // Collect peelable cards that could be run-neighbors.
+        // For a 3-card run [A, hc, B], we need:
+        //   pure run: A = prev same suit, B = next same suit
+        //   rb run: A = prev opposite color, B = next opposite color
+        // Or the hand card could be on either end:
+        //   [hc, A, B] or [A, B, hc]
+        // For simplicity: find all peelable cards with value prev
+        // or next, then check if any pair + hc forms a valid 3-card stack.
+
+        const neighbors: PeelableCard[] = [];
+        for (const p of peelable) {
+            if (is_pair_of_dups(p.card, hc.card)) continue;
+            if (p.card.value === prev || p.card.value === next) {
+                neighbors.push(p);
+            }
+        }
+
+        if (neighbors.length < 2) continue;
+
+        // Try all pairs of peelable neighbors.
+        let found = false;
+        for (let i = 0; i < neighbors.length && !found; i++) {
+            for (let j = i + 1; j < neighbors.length && !found; j++) {
+                const a = neighbors[i];
+                const b = neighbors[j];
+
+                // Must be from different stacks (can't peel two from same stack
+                // if it would break it — but actually they could be from the same
+                // long stack at different positions. For safety, skip same stack.)
+                if (a.stack_index === b.stack_index) continue;
+
+                // Sort the three cards by value and check if they form a valid stack.
+                const triple = [a.card, hc.card, b.card].sort(
+                    (x, y) => x.value - y.value,
+                );
+                const st = get_stack_type(triple);
+                if (st === CardStackType.PURE_RUN ||
+                    st === CardStackType.RED_BLACK_RUN) {
+                    found = true;
+                }
+            }
+        }
+
+        if (found) results.push(hc);
+    }
+
+    return results;
+}
+
+// --- Level 4c: Hand pair + board peel ---
+//
+// Find pairs in the hand that are 2/3 of a set or run. For each
+// pair, compute the third card(s) that would complete them. Check
+// if any of those cards are peelable from the board (end of a 4+
+// stack or extractable by splitting a long run).
+//
+// This catches the common human trick: "I have 8H and 9H, and
+// there's a 7H on the end of that long run — I'll peel it and
+// play [7H 8H 9H]."
+
+function find_hand_pairs(hand: HandCard[]): { a: HandCard; b: HandCard; needed: Card[]; kind: "set" | "run" }[] {
+    const pairs: { a: HandCard; b: HandCard; needed: Card[]; kind: "set" | "run" }[] = [];
+
+    for (let i = 0; i < hand.length; i++) {
+        for (let j = i + 1; j < hand.length; j++) {
+            const a = hand[i].card;
+            const b = hand[j].card;
+
+            if (is_pair_of_dups(a, b)) continue;
+
+            // Set pair: same value, different suit.
+            if (a.value === b.value && a.suit !== b.suit) {
+                // Need any card of same value in a suit not already used.
+                const used_suits = new Set([a.suit, b.suit]);
+                const needed: Card[] = [];
+                for (const s of [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]) {
+                    if (!used_suits.has(s)) {
+                        // We don't know which deck, so create a D1 target.
+                        // The board scan will match by value+suit regardless.
+                        needed.push(new Card(a.value, s, a.origin_deck));
+                    }
+                }
+                if (needed.length > 0) {
+                    pairs.push({ a: hand[i], b: hand[j], needed, kind: "set" });
+                }
+            }
+
+            // Run pair: same suit, consecutive.
+            if (a.suit === b.suit) {
+                const lo = a.value < b.value ? a : b;
+                const hi = a.value < b.value ? b : a;
+
+                if (hi.value === successor(lo.value)) {
+                    // Consecutive pair. Need predecessor of lo OR successor of hi.
+                    const needed: Card[] = [];
+                    needed.push(new Card(predecessor(lo.value), lo.suit, lo.origin_deck));
+                    needed.push(new Card(successor(hi.value), hi.suit, hi.origin_deck));
+                    pairs.push({ a: hand[i], b: hand[j], needed, kind: "run" });
+                }
+            }
+        }
+    }
+
+    return pairs;
+}
+
+export function find_pair_peel_plays(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): HandCard[] {
+    // Only consider hand cards not playable by earlier levels.
+    const already_playable = new Set(
+        find_playable_hand_cards(hand_cards, board_stacks),
+    );
+    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    if (unplayable.length < 2) return [];
+
+    const pairs = find_hand_pairs(unplayable);
+    if (pairs.length === 0) return [];
+
+    const playable = new Set<HandCard>();
+
+    for (const pair of pairs) {
+        // For each needed card, check if it's extractable from the board.
+        for (const need of pair.needed) {
+            for (let si = 0; si < board_stacks.length; si++) {
+                const stack = board_stacks[si];
+                const cards = stack.get_cards();
+
+                for (let ci = 0; ci < cards.length; ci++) {
+                    const bc = cards[ci];
+                    if (bc.value !== need.value || bc.suit !== need.suit) continue;
+
+                    if (can_extract(stack, ci)) {
+                        playable.add(pair.a);
+                        playable.add(pair.b);
+                    }
+                }
+            }
+        }
+    }
+
+    return [...playable];
+}
+
+// --- Level 5: Rearrangement plays (graph solver) ---
+//
+// For each hand card that earlier levels couldn't place, scatter
+// the entire board + that card as singles, run the graph solver,
+// and check if the card ends up in a valid group. If so, there
+// exists some rearrangement of the board that accommodates it.
+//
+// This is expert-level play: set dissolutions, multi-step moves,
+// chain rearrangements — whatever it takes.
+
+// A hand card is an obvious orphan if the board has no card that
+// could be in the same group: no same-value card (for sets), no
+// same-suit ±1 (for pure runs), no opposite-color ±1 (for rb runs).
+function is_hand_card_orphan(hc: HandCard, board_cards: Card[]): boolean {
+    const v = hc.card.value;
+    const s = hc.card.suit;
+    const c = hc.card.color;
+    const prev = predecessor(v);
+    const next = successor(v);
+
+    for (const bc of board_cards) {
+        // Set neighbor: same value, different suit.
+        if (bc.value === v && bc.suit !== s) return false;
+        // Pure run neighbor: same suit, ±1 value.
+        if (bc.suit === s && (bc.value === prev || bc.value === next)) return false;
+        // Red/black neighbor: opposite color, ±1 value.
+        if (bc.color !== c && (bc.value === prev || bc.value === next)) return false;
+    }
+
+    return true;
+}
+
+// Collect board cards from stacks that could interact with a hand
+// card. A stack is relevant if any of its cards have a value within
+// ±2 of the hand card (run co-members) or the same value (set).
+// We include the entire stack because peeling one card requires
+// the rest to survive as a valid stack.
+function relevant_board_cards(hc: HandCard, board_stacks: CardStack[]): Card[] {
+    const nearby = new Set<CardValue>();
+    nearby.add(hc.card.value);
+    let v = hc.card.value;
+    for (let i = 0; i < 2; i++) { v = predecessor(v); nearby.add(v); }
+    v = hc.card.value;
+    for (let i = 0; i < 2; i++) { v = successor(v); nearby.add(v); }
+
+    const result: Card[] = [];
+    for (const stack of board_stacks) {
+        const cards = stack.get_cards();
+        const dominated = cards.some((bc) => nearby.has(bc.value));
+        if (dominated) {
+            for (const bc of cards) result.push(bc);
+        }
+    }
+    return result;
+}
+
+export function find_rearrangement_plays(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): HandCard[] {
+    if (board_stacks.length === 0) return [];
+
+    // Collect all board cards for orphan check.
+    const all_board_cards: Card[] = [];
+    for (const stack of board_stacks) {
+        for (const c of stack.get_cards()) {
+            all_board_cards.push(c);
+        }
+    }
+
+    // Filter to hand cards not already playable by earlier levels.
+    const already_playable = new Set(
+        find_playable_hand_cards(hand_cards, board_stacks),
+    );
+    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    if (unplayable.length === 0) return [];
+
+    const results: HandCard[] = [];
+
+    for (const hc of unplayable) {
+        // Quick orphan check: does the board have ANY neighbor?
+        if (is_hand_card_orphan(hc, all_board_cards)) continue;
+
+        // Build a reduced pool: only board cards from relevant stacks.
+        const pool = [...relevant_board_cards(hc, board_stacks), hc.card];
+
+        const solution = graph_solve(pool, STRATEGY_PREFER_RUNS);
+
+        // Check if the hand card ended up in a scoring group.
+        let is_grouped = false;
+        for (const group of solution.groups) {
+            if (group.cards.some((c) => c === hc.card)) {
+                is_grouped = true;
+                break;
+            }
+        }
+
+        if (is_grouped) {
+            results.push(hc);
+        }
+    }
+
+    return results;
 }
 
 // --- Helpers ---

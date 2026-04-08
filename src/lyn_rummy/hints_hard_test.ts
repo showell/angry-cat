@@ -113,4 +113,88 @@ function card_label(hc: HandCard): string {
     }
 }
 
+// --- Case 3: Set dissolution ---
+//
+// The set [7H 7S 7D] can be dissolved by sending each card to the
+// end of a matching run. This frees up board space and (in this case)
+// allows 8H from the hand to play onto the extended hearts run.
+//
+// Board: [4H 5H 6H], [4S 5S 6S], [4D 5D 6D], [7H 7S 7D]
+// Hand: [8H]
+// After dissolution: [4H 5H 6H 7H], [4S 5S 6S 7S], [4D 5D 6D 7D]
+// Then 8H plays on the hearts run.
+{
+    const board = [
+        board_stack(D1, "4H", "5H", "6H"),
+        board_stack(D1, "4S", "5S", "6S"),
+        board_stack(D1, "4D", "5D", "6D"),
+        board_stack(D1, "7H", "7S", "7D"),
+    ];
+    const hand = [hand_card("8H", D2)];
+
+    const hint = get_hint(hand, board);
+
+    assert.notEqual(
+        hint.level, HintLevel.NO_MOVES,
+        `Expected a move after dissolving [7H 7S 7D], got NO_MOVES`,
+    );
+
+    if (hint.level === HintLevel.DIRECT_PLAY) {
+        // Shouldn't be direct — 8H has no direct target.
+        assert.fail("8H should not be directly playable before dissolution");
+    }
+
+    if (hint.level === HintLevel.LOOSE_CARD_PLAY) {
+        const labels = hint.plays[0].playable_cards.map(card_label);
+        assert(labels.includes("8H"), `8H should be playable after dissolution, got: ${labels}`);
+    }
+}
+
+// --- Case 4: Set dissolution with 4-card set ---
+//
+// Same idea but the set has 4 cards. All 4 must find homes.
+// Board: [4H 5H 6H], [4S 5S 6S], [4D 5D 6D], [4C 5C 6C], [7H 7S 7D 7C]
+// Hand: [8C]
+{
+    const board = [
+        board_stack(D1, "4H", "5H", "6H"),
+        board_stack(D1, "4S", "5S", "6S"),
+        board_stack(D1, "4D", "5D", "6D"),
+        board_stack(D1, "4C", "5C", "6C"),
+        board_stack(D1, "7H", "7S", "7D", "7C"),
+    ];
+    const hand = [hand_card("8C", D2)];
+
+    const hint = get_hint(hand, board);
+
+    assert.notEqual(
+        hint.level, HintLevel.NO_MOVES,
+        `Expected a move after dissolving [7H 7S 7D 7C], got NO_MOVES`,
+    );
+}
+
+// --- Case 5: Set dissolution impossible for old engine, but graph
+// solver can rearrange ---
+//
+// [7H 7S 7D] but only one run accepts a 7. The old engine couldn't
+// dissolve the set (7S and 7D have nowhere to go as a set). But the
+// graph solver can rearrange: pull 7H out of the set, extend [4H 5H
+// 6H 7H 8H], and leave 7S+7D ungrouped. The rearrangement level
+// finds that 8H is playable.
+{
+    const board = [
+        board_stack(D1, "4H", "5H", "6H"),  // can extend to 7H 8H
+        board_stack(D1, "9S", "TS", "JS"),   // doesn't want a 7
+        board_stack(D1, "7H", "7S", "7D"),
+    ];
+    const hand = [hand_card("8H", D2)];
+
+    const hint = get_hint(hand, board);
+
+    assert.equal(
+        hint.level, HintLevel.REARRANGE_PLAY,
+        `Expected REARRANGE_PLAY for 8H via graph solver`,
+    );
+}
+
 console.log("All hard hints tests passed.");

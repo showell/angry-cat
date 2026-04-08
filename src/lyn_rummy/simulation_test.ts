@@ -68,7 +68,7 @@ function card_str(hc: HandCard): string {
     let total_hint_ms = 0;
     let hint_calls = 0;
 
-    const HINT_TIMEOUT_MS = 200;
+    const HINT_TIMEOUT_MS = 500; // raised for graph solver (REARRANGE_PLAY level)
     const MAX_TURNS = 200;
 
     type StuckSnapshot = {

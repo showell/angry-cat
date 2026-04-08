@@ -5,4 +5,5 @@ import "./score_test";
 import "./player_turn_test";
 import "./hints_test";
 import "./hints_hard_test";
+import "./rearrange_hint_test";
 import "./simulation_test";
