@@ -212,6 +212,80 @@ function check_loose_end(
     }
 }
 
+// --- Loose card + hand card combination ---
+
+// A move where you first rearrange the board (move one loose card),
+// which then opens up a spot for a hand card to be played.
+export type LooseCardPlay = {
+    loose: LooseCard;
+    target_stack: CardStack;       // which target the loose card goes to
+    merged_target: CardStack;      // the target after merging the loose card
+    playable_cards: HandCard[];    // hand cards that become playable after the move
+};
+
+// For each loose card move, simulate the board change and check
+// whether any hand cards become playable that weren't before.
+// Returns the first useful move found (does not recurse).
+export function find_loose_card_plays(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): LooseCardPlay[] {
+    // What's already playable before any rearranging.
+    const already_playable = new Set(
+        find_playable_hand_cards(hand_cards, board_stacks).map((hc) => hc),
+    );
+
+    const results: LooseCardPlay[] = [];
+
+    for (const loose of find_loose_cards(board_stacks)) {
+        for (const target of loose.target_stacks) {
+            // Build the single-card stack for merging.
+            const single = new CardStack(
+                [new BoardCard(loose.card.card, BoardCardState.FIRMLY_ON_BOARD)],
+                DUMMY_LOC,
+            );
+
+            // Try both merge directions.
+            const merged =
+                target.left_merge(single) ?? target.right_merge(single);
+            if (!merged) continue;
+
+            // Simulate the board after the move:
+            // - Replace source with remaining (the stack minus the loose card)
+            // - Replace target with merged (the target plus the loose card)
+            const simulated_board = board_stacks.map((stack) => {
+                if (stack === loose.source_stack) return loose.remaining_stack;
+                if (stack === target) return merged;
+                return stack;
+            });
+
+            // Check what's playable now.
+            const now_playable = find_playable_hand_cards(
+                hand_cards,
+                simulated_board,
+            );
+
+            // Find newly playable cards (weren't playable before).
+            const new_plays = now_playable.filter(
+                (hc) => !already_playable.has(hc),
+            );
+
+            if (new_plays.length > 0) {
+                results.push({
+                    loose,
+                    target_stack: target,
+                    merged_target: merged,
+                    playable_cards: new_plays,
+                });
+                // Stop at the first useful move.
+                return results;
+            }
+        }
+    }
+
+    return results;
+}
+
 // --- Helpers ---
 
 function emit_run(

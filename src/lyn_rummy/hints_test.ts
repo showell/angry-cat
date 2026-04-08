@@ -12,6 +12,7 @@ import {
     find_playable_hand_cards,
     find_hand_stacks,
     find_loose_cards,
+    find_loose_card_plays,
     type HandStack,
     type LooseCard,
 } from "./hints";
@@ -252,6 +253,130 @@ function loose_card_label(lc: LooseCard): string {
     const loose = find_loose_cards(stacks);
     const labels = loose.map(loose_card_label);
     assert(labels.includes("7H"), `expected 7H loose from set, got ${labels}`);
+}
+
+// === find_loose_card_plays tests ===
+
+// Classic scenario: steal 8H from a run to join a set, which
+// shortens the run so my 4H can now extend it on the left.
+//
+// Board: [5H 6H 7H 8H], [8S 8D 8C]
+// Hand: [4H]
+//
+// Without the move: 4H can't play (the run starts at 5H, and 4H
+// goes on the left, but it's already playable... wait, let me
+// think. 4H CAN left-merge with [5H 6H 7H 8H]. So this isn't
+// a good example. Let me construct one where the hand card is
+// truly blocked.
+//
+// Better: Board: [5H 6H 7H 8H], [8S 8D 8C]
+// Hand: [9H]
+// 9H can right-merge with the run → already playable. Not useful.
+//
+// The right scenario: the loose card move creates a NEW stack type
+// that my hand card fits into.
+//
+// Board: [5H 6H 7H 8H], [8S 8D 8C]
+// Hand: [8C] — wait, we have 8C on board already.
+//
+// Let me think differently. The point is: after moving the loose
+// card, the remaining stack or the merged target is something my
+// hand card can extend, but couldn't before.
+//
+// Scenario: Board has [4S 5S 6S 7S] and [7H 7D 7C].
+// Hand has [3S].
+// Currently: 3S can left-merge with [4S 5S 6S 7S]. Already playable!
+//
+// Real scenario where the move helps:
+// Board: [4H 5H 6H 7H] and [4S 4D 4C].
+// Hand: [3H].
+// Currently: 3H can left-extend the run [4H...7H] → already playable.
+//
+// I need a scenario where NO direct play exists but a loose card
+// move creates one. Here's one:
+//
+// Board: [4H 5H 6H 7H] and [7S 7D 7C].
+// Hand: [8S].
+// 8S can't play anywhere directly. But if we steal 7H from the run
+// and add it to the set [7S 7D 7C 7H], the run becomes [4H 5H 6H].
+// Now... 8S still can't extend [4H 5H 6H]. Wrong card.
+//
+// Board: [4H 5H 6H 7H] and [7S 7D 7C].
+// Hand: [3H].
+// 3H CAN extend the run on the left even without the move. Blocked.
+//
+// Board: [4S 4D 4H 4C] and [3H 5H 6H].
+// Wait, [3H 5H 6H] is bogus (not consecutive).
+//
+// Let me use a set-based example:
+// Board: [7H 7S 7D 7C] and [5H 6H 8H].
+// Wait, that's not valid either (5 6 8 skips 7).
+//
+// Simple correct example:
+// Board: [7H 7S 7D 7C] and [4H 5H 6H].
+// Hand: [8H].
+// 8H cannot play anywhere directly:
+//   - [7H 7S 7D 7C] is a set, 8H doesn't match value
+//   - [4H 5H 6H] ends at 6, 8H needs 7H first
+// Move: steal 7H from the set → [7S 7D 7C] (still valid 3-set)
+// Board becomes: [7S 7D 7C] and [4H 5H 6H]
+// Now 7H merges into the run → [4H 5H 6H 7H]
+// But wait — who plays the 7H? It's the loose card. After the
+// move, the run is [4H 5H 6H 7H]. NOW 8H can right-extend it!
+//
+// That's the one!
+
+{
+    const stacks = [
+        board_stack("7H", "7S", "7D", "7C"),
+        board_stack("4H", "5H", "6H"),
+    ];
+    const hand = [hand_card("8H")];
+
+    // 8H is NOT directly playable.
+    assert.deepEqual(playable_labels(hand, stacks), []);
+
+    // But after moving 7H from the set to the run...
+    const plays = find_loose_card_plays(hand, stacks);
+    assert.equal(plays.length, 1);
+
+    const play = plays[0];
+    assert.equal(card_label_raw(play.loose.card), "7H");
+    assert.equal(play.playable_cards.length, 1);
+    assert.equal(card_label(play.playable_cards[0]), "8H");
+}
+
+// No combination helps — hand card is truly unplayable.
+{
+    const stacks = [
+        board_stack("7H", "7S", "7D", "7C"),
+        board_stack("4H", "5H", "6H"),
+    ];
+    const hand = [hand_card("QS")];
+
+    assert.deepEqual(playable_labels(hand, stacks), []);
+    const plays = find_loose_card_plays(hand, stacks);
+    assert.equal(plays.length, 0);
+}
+
+// Hand card is already directly playable — no need for loose card play.
+{
+    const stacks = [
+        board_stack("7H", "7S", "7D", "7C"),
+        board_stack("4H", "5H", "6H"),
+    ];
+    const hand = [hand_card("7H")]; // can extend the run (wait, 7H right-extends [4H 5H 6H]? No, 7 follows 6 in same suit → yes!)
+
+    // 7H is already playable directly.
+    assert.deepEqual(playable_labels(hand, stacks), ["7H"]);
+
+    // find_loose_card_plays should return empty since 7H is already playable.
+    const plays = find_loose_card_plays(hand, stacks);
+    assert.equal(plays.length, 0);
+}
+
+function card_label_raw(bc: BoardCard): string {
+    return value_str(bc.card.value) + suit_letter[bc.card.suit];
 }
 
 console.log("All hints tests passed.");
