@@ -1853,6 +1853,12 @@ class EventManagerSingleton {
                 break;
             }
 
+            case HintLevel.SWAP: {
+                StatusBar.inform(hint.level);
+                PlayerArea.show_hints(new Set(hint.playable_cards));
+                break;
+            }
+
             case HintLevel.LOOSE_CARD_PLAY: {
                 StatusBar.inform(hint.level);
                 PlayerArea.show_hints(new Set(hint.plays[0].playable_cards));

@@ -14,6 +14,7 @@ const DUMMY_LOC = { top: 0, left: 0 };
 export enum HintLevel {
     HAND_STACKS = "You have a complete set or run in your hand!",
     DIRECT_PLAY = "You can play a card from your hand onto the board.",
+    SWAP = "Swap a same-color card out of a run and take its place!",
     LOOSE_CARD_PLAY = "Move a board card, then play from your hand.",
     SPLIT_FOR_SET = "Split a run to form a set with your card.",
     SPLIT_AND_INJECT = "Split a run and inject your card at the split point.",
@@ -33,6 +34,7 @@ export type RearrangePlay = {
 export type Hint =
     | { level: HintLevel.HAND_STACKS; hand_stacks: HandStack[] }
     | { level: HintLevel.DIRECT_PLAY; playable_cards: HandCard[] }
+    | { level: HintLevel.SWAP; playable_cards: HandCard[] }
     | { level: HintLevel.LOOSE_CARD_PLAY; plays: LooseCardPlay[] }
     | { level: HintLevel.SPLIT_FOR_SET; playable_cards: HandCard[] }
     | { level: HintLevel.SPLIT_AND_INJECT; playable_cards: HandCard[] }
@@ -56,6 +58,12 @@ export function get_hint(
     const playable = find_playable_hand_cards(hand_cards, board_stacks);
     if (playable.length > 0) {
         return { level: HintLevel.DIRECT_PLAY, playable_cards: playable };
+    }
+
+    // Level 2b: Swap — replace a same-color card in an rb run.
+    const swap_plays = find_swap_plays(hand_cards, board_stacks);
+    if (swap_plays.length > 0) {
+        return { level: HintLevel.SWAP, playable_cards: swap_plays };
     }
 
     // Level 3: Move one board card, then play one hand card.
@@ -130,6 +138,109 @@ export function get_hint(
     }
 
     return { level: HintLevel.NO_MOVES };
+}
+
+// --- Level 2b: Swap (same-color substitution in rb runs) ---
+//
+// In a red/black run, each position only needs the right COLOR.
+// If 4D (red) sits in an rb run and the hand has 4H (also red),
+// 4H can take 4D's place — IF 4D has somewhere else to go.
+//
+// "Somewhere else" = a pure run that wants 4D, or a set that
+// has room for diamond. NOT another rb run (that just moves the
+// problem). The kicked card must join via left/right merge.
+
+export function find_swap_plays(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): HandCard[] {
+    // Only consider hand cards not directly playable.
+    const already_playable = new Set(
+        find_playable_hand_cards(hand_cards, board_stacks),
+    );
+    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
+    if (unplayable.length === 0) return [];
+
+    const results: HandCard[] = [];
+
+    for (const hc of unplayable) {
+        if (find_swap_for_card(hc, board_stacks)) {
+            results.push(hc);
+        }
+    }
+
+    return results;
+}
+
+function find_swap_for_card(
+    hc: HandCard,
+    board_stacks: CardStack[],
+): boolean {
+    const hand_val = hc.card.value;
+    const hand_color = hc.card.color;
+    const hand_suit = hc.card.suit;
+
+    // Scan rb runs for a card with the same value and color but
+    // different suit — that's the swap candidate.
+    for (let si = 0; si < board_stacks.length; si++) {
+        const stack = board_stacks[si];
+        if (stack.get_stack_type() !== CardStackType.RED_BLACK_RUN) continue;
+
+        const cards = stack.get_cards();
+        for (let ci = 0; ci < cards.length; ci++) {
+            const bc = cards[ci];
+            if (bc.value !== hand_val) continue;
+            if (bc.color !== hand_color) continue;
+            if (bc.suit === hand_suit) continue; // same suit = dup, not a swap
+
+            // Found a swap candidate: bc has the same value+color
+            // but different suit. Can we kick bc out?
+
+            // First verify the hand card would actually fit in bc's
+            // position. Build the run with the hand card swapped in.
+            const swapped = cards.map((c, i) => i === ci ? hc.card : c);
+            const swapped_type = get_stack_type(swapped);
+            if (swapped_type !== CardStackType.RED_BLACK_RUN) continue;
+
+            // Now check: can bc join a pure run or a set elsewhere?
+            const single = new CardStack(
+                [new BoardCard(bc, BoardCardState.FIRMLY_ON_BOARD)], DUMMY_LOC);
+
+            for (let ti = 0; ti < board_stacks.length; ti++) {
+                if (ti === si) continue;
+                const target = board_stacks[ti];
+
+                // Try merging. Only accept if the result is a pure
+                // run or a set — not another rb run.
+                for (const merged of [target.left_merge(single), target.right_merge(single)]) {
+                    if (!merged) continue;
+                    const mt = merged.get_stack_type();
+                    if (mt === CardStackType.PURE_RUN || mt === CardStackType.SET) {
+                        return true;
+                    }
+                }
+            }
+
+            // Also check: can bc inject into the middle of a pure run?
+            for (let ti = 0; ti < board_stacks.length; ti++) {
+                if (ti === si) continue;
+                const target = board_stacks[ti];
+                if (target.get_stack_type() !== CardStackType.PURE_RUN) continue;
+
+                const t_cards = target.board_cards;
+                for (let split = 2; split <= t_cards.length - 2; split++) {
+                    const left = new CardStack(t_cards.slice(0, split), DUMMY_LOC);
+                    const right = new CardStack(t_cards.slice(split), DUMMY_LOC);
+                    if (left.problematic() || right.problematic()) continue;
+
+                    if (!left.incomplete() && right.left_merge(single)) return true;
+                    if (!right.incomplete() && left.right_merge(single)) return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 // --- Level 2: Direct plays ---
