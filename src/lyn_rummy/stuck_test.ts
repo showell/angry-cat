@@ -222,7 +222,8 @@ for (const st of stuck_turns) {
     const peel_run_plays = find_peel_for_run_plays(hand, st.board);
     const pair_plays = find_pair_peel_plays(hand, st.board);
     const rearrange_plays = find_rearrangement_plays(hand, st.board);
-    const all_expert = new Set([...split_plays, ...inject_plays, ...peel_run_plays, ...pair_plays, ...rearrange_plays]);
+    const rearrange_hand_cards = rearrange_plays.map((p) => p.hand_card);
+    const all_expert = new Set([...split_plays, ...inject_plays, ...peel_run_plays, ...pair_plays, ...rearrange_hand_cards]);
     const expert_plays = [...all_expert];
     const expert_labels = expert_plays.map(hc_str);
     const stuck_labels = hand
@@ -273,7 +274,7 @@ console.log(`Expert play rate: ${(100 * total_rearrange_plays / total_hand_cards
         // Pair peel needs the full hand context (looks for pairs).
         const pair_peel = find_pair_peel_plays(t40.hand, t40.board);
         const in_pair_peel = pair_peel.some((pp) => pp === hc);
-        const rearrange = find_rearrangement_plays([hc], t40.board);
+        const rearrange = find_rearrangement_plays([hc], t40.board).map((p) => p.hand_card);
 
         const status = direct.length > 0 ? "DIRECT" :
                        split_set.length > 0 ? "SPLIT_SET" :

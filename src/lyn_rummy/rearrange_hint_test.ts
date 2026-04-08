@@ -12,7 +12,12 @@ import {
 } from "./card_stack";
 import {
     get_hint, find_rearrangement_plays, HintLevel,
+    type RearrangePlay,
 } from "./hints";
+
+function rearrange_hand_cards(plays: RearrangePlay[]): HandCard[] {
+    return plays.map((p) => p.hand_card);
+}
 
 const D1 = OriginDeck.DECK_ONE;
 const D2 = OriginDeck.DECK_TWO;
@@ -52,7 +57,7 @@ function hand_card(label: string, deck: OriginDeck = D1): HandCard {
     ];
     const hand = [hand_card("8H", D2)];
 
-    const playable = find_rearrangement_plays(hand, board);
+    const playable = rearrange_hand_cards(find_rearrangement_plays(hand, board));
     const labels = playable.map(card_label);
     assert(labels.includes("8H"), `8H should be playable via rearrangement, got: ${labels}`);
 
@@ -74,7 +79,7 @@ function hand_card(label: string, deck: OriginDeck = D1): HandCard {
     ];
     const hand = [hand_card("8H"), hand_card("8S"), hand_card("KD")];
 
-    const playable = find_rearrangement_plays(hand, board);
+    const playable = rearrange_hand_cards(find_rearrangement_plays(hand, board));
     const labels = playable.map(card_label);
 
     assert(labels.includes("8H"), `8H should be playable, got: ${labels}`);
@@ -92,7 +97,7 @@ function hand_card(label: string, deck: OriginDeck = D1): HandCard {
     ];
     const hand = [hand_card("KS")];
 
-    const playable = find_rearrangement_plays(hand, board);
+    const playable = rearrange_hand_cards(find_rearrangement_plays(hand, board));
     assert.equal(playable.length, 0, `KS should not be playable`);
 
     const hint = get_hint(hand, board);
@@ -120,7 +125,7 @@ function hand_card(label: string, deck: OriginDeck = D1): HandCard {
     const valid_board = board.filter((s) => s.size() >= 3 && !s.incomplete());
     const hand = [hand_card("8S", D2), hand_card("QD"), hand_card("KS", D2)];
 
-    const playable = find_rearrangement_plays(hand, valid_board);
+    const playable = rearrange_hand_cards(find_rearrangement_plays(hand, valid_board));
     const labels = playable.map(card_label);
 
     // At least 8S should be playable (extend spade run after
@@ -171,7 +176,7 @@ function hand_card(label: string, deck: OriginDeck = D1): HandCard {
     ];
 
     const start = performance.now();
-    const playable = find_rearrangement_plays(hand, valid_board);
+    const playable = rearrange_hand_cards(find_rearrangement_plays(hand, valid_board));
     const ms = performance.now() - start;
 
     const labels = playable.map(card_label);

@@ -23,6 +23,12 @@ export enum HintLevel {
     NO_MOVES = "No moves found. You'll draw cards.",
 }
 
+export type RearrangePlay = {
+    hand_card: HandCard;
+    destination_cards: Card[];      // the cards in the group (including hand card)
+    destination_type: CardStackType; // set, pure run, or red/black
+};
+
 export type Hint =
     | { level: HintLevel.HAND_STACKS; hand_stacks: HandStack[] }
     | { level: HintLevel.DIRECT_PLAY; playable_cards: HandCard[] }
@@ -31,7 +37,7 @@ export type Hint =
     | { level: HintLevel.SPLIT_AND_INJECT; playable_cards: HandCard[] }
     | { level: HintLevel.PEEL_FOR_RUN; playable_cards: HandCard[] }
     | { level: HintLevel.PAIR_PEEL; playable_cards: HandCard[] }
-    | { level: HintLevel.REARRANGE_PLAY; playable_cards: HandCard[] }
+    | { level: HintLevel.REARRANGE_PLAY; plays: RearrangePlay[] }
     | { level: HintLevel.NO_MOVES };
 
 export function get_hint(
@@ -108,7 +114,7 @@ export function get_hint(
     // Level 7: Rearrange the board (expert-level, graph solver).
     const rearrange_plays = find_rearrangement_plays(hand_cards, board_stacks);
     if (rearrange_plays.length > 0) {
-        return { level: HintLevel.REARRANGE_PLAY, playable_cards: rearrange_plays };
+        return { level: HintLevel.REARRANGE_PLAY, plays: rearrange_plays };
     }
 
     return { level: HintLevel.NO_MOVES };
@@ -1468,7 +1474,7 @@ function relevant_board_cards(hc: HandCard, board_stacks: CardStack[]): Card[] {
 export function find_rearrangement_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
-): HandCard[] {
+): RearrangePlay[] {
     if (board_stacks.length === 0) return [];
 
     // Collect all board cards for orphan check.
@@ -1486,7 +1492,7 @@ export function find_rearrangement_plays(
     const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
     if (unplayable.length === 0) return [];
 
-    const results: HandCard[] = [];
+    const results: RearrangePlay[] = [];
 
     for (const hc of unplayable) {
         // Quick orphan check: does the board have ANY neighbor?
@@ -1498,16 +1504,15 @@ export function find_rearrangement_plays(
         const solution = graph_solve(pool, STRATEGY_PREFER_RUNS);
 
         // Check if the hand card ended up in a scoring group.
-        let is_grouped = false;
         for (const group of solution.groups) {
             if (group.cards.some((c) => c === hc.card)) {
-                is_grouped = true;
+                results.push({
+                    hand_card: hc,
+                    destination_cards: group.cards,
+                    destination_type: group.type,
+                });
                 break;
             }
-        }
-
-        if (is_grouped) {
-            results.push(hc);
         }
     }
 

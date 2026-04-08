@@ -1869,10 +1869,14 @@ class EventManagerSingleton {
             }
 
             case HintLevel.REARRANGE_PLAY: {
+                const play = hint.plays[0];
+                const dest_labels = play.destination_cards
+                    .map((c) => value_str(c.value) + suit_emoji_str(c.suit))
+                    .join(" ");
                 StatusBar.inform(
-                    "An expert rearrangement can get a card on the board.",
+                    `Rearrange the board! Your card can join [${dest_labels}] (${play.destination_type}).`,
                 );
-                PlayerArea.show_hints(new Set(hint.playable_cards));
+                PlayerArea.show_hints(new Set([play.hand_card]));
                 break;
             }
 
