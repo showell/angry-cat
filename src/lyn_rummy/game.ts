@@ -34,7 +34,7 @@ export type {
 } from "./card_stack";
 export { CardStack } from "./card_stack";
 
-import { find_playable_hand_cards } from "./hints";
+import { get_hint, HintLevel } from "./hints";
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "./score";
 
@@ -1829,20 +1829,57 @@ class EventManagerSingleton {
     }
 
     show_hints(): void {
-        const playable = find_playable_hand_cards(
+        const hint = get_hint(
             ActivePlayer.hand.hand_cards,
             CurrentBoard.card_stacks,
         );
-        if (playable.length === 0) {
-            StatusBar.scold(
-                "No obvious moves. You may need to get creative and rearrange the board.",
-            );
-        } else {
-            const count = playable.length;
-            StatusBar.inform(
-                `${count} hand card${count === 1 ? "" : "s"} may be playable to the board.`,
-            );
-            PlayerArea.show_hints(new Set(playable));
+
+        switch (hint.level) {
+            case HintLevel.HAND_STACKS: {
+                const count = hint.hand_stacks[0].cards.length;
+                StatusBar.inform(
+                    `You have ${count} cards that form a ${hint.hand_stacks[0].stack_type} in your hand!`,
+                );
+                PlayerArea.show_hints(new Set(hint.hand_stacks[0].cards));
+                break;
+            }
+
+            case HintLevel.DIRECT_PLAY: {
+                const count = hint.playable_cards.length;
+                StatusBar.inform(
+                    `${count} card${count === 1 ? "" : "s"} can play directly onto the board.`,
+                );
+                PlayerArea.show_hints(new Set(hint.playable_cards));
+                break;
+            }
+
+            case HintLevel.LOOSE_CARD_PLAY: {
+                StatusBar.inform(hint.level);
+                PlayerArea.show_hints(new Set(hint.plays[0].playable_cards));
+                break;
+            }
+
+            case HintLevel.SPLIT_FOR_SET:
+            case HintLevel.SPLIT_AND_INJECT:
+            case HintLevel.PEEL_FOR_RUN:
+            case HintLevel.PAIR_PEEL: {
+                StatusBar.inform(hint.level);
+                PlayerArea.show_hints(new Set(hint.playable_cards));
+                break;
+            }
+
+            case HintLevel.REARRANGE_PLAY: {
+                StatusBar.inform(
+                    "An expert rearrangement can get a card on the board.",
+                );
+                PlayerArea.show_hints(new Set(hint.playable_cards));
+                break;
+            }
+
+            case HintLevel.NO_MOVES: {
+                StatusBar.scold(hint.level);
+                break;
+            }
         }
     }
 
