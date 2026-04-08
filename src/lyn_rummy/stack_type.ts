@@ -9,7 +9,39 @@ export enum CardStackType {
     RED_BLACK_RUN = "red/black alternating",
 }
 
-function successor(val: CardValue): CardValue {
+export function predecessor(val: CardValue): CardValue {
+    // The inverse of successor. A→K, 2→A, etc.
+    switch (val) {
+        case CardValue.ACE:
+            return CardValue.KING;
+        case CardValue.TWO:
+            return CardValue.ACE;
+        case CardValue.THREE:
+            return CardValue.TWO;
+        case CardValue.FOUR:
+            return CardValue.THREE;
+        case CardValue.FIVE:
+            return CardValue.FOUR;
+        case CardValue.SIX:
+            return CardValue.FIVE;
+        case CardValue.SEVEN:
+            return CardValue.SIX;
+        case CardValue.EIGHT:
+            return CardValue.SEVEN;
+        case CardValue.NINE:
+            return CardValue.EIGHT;
+        case CardValue.TEN:
+            return CardValue.NINE;
+        case CardValue.JACK:
+            return CardValue.TEN;
+        case CardValue.QUEEN:
+            return CardValue.JACK;
+        case CardValue.KING:
+            return CardValue.QUEEN;
+    }
+}
+
+export function successor(val: CardValue): CardValue {
     // This is hopefully straightforward code.  Note
     // K, A, 2 is a valid run in LynRummy, because
     // KING has ACE as its successor and ACE has TWO

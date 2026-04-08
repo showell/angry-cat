@@ -1,6 +1,6 @@
-import { is_pair_of_dups, value_str } from "./card";
+import { CardColor, CardValue, is_pair_of_dups, all_suits, Suit, value_str } from "./card";
 import { BoardCard, BoardCardState, CardStack, type HandCard } from "./card_stack";
-import { CardStackType, get_stack_type } from "./stack_type";
+import { CardStackType, get_stack_type, successor, predecessor } from "./stack_type";
 
 const DUMMY_LOC = { top: 0, left: 0 };
 
@@ -49,19 +49,75 @@ export function get_hint(
 }
 
 // --- Level 2: Direct plays ---
+//
+// Instead of testing each hand card against each stack with merge
+// simulation, we precompute what each stack "wants" — the specific
+// value+suit combinations that would extend it — and intersect
+// with the hand. This is O(stacks + hand) instead of O(stacks × hand).
+
+// A wanted card specification. For runs, we know the exact suit or
+// color needed. For sets, we know the value and which suits are missing.
+type WantedCard = {
+    value: CardValue;
+    suit?: Suit;        // exact suit needed (pure runs)
+    color?: CardColor;  // color needed (red/black runs)
+    excluded_suits?: Set<Suit>; // suits already in the set
+};
+
+// Compute all cards that the board stacks want at their ends.
+export function compute_wanted_cards(board_stacks: CardStack[]): WantedCard[] {
+    const wanted: WantedCard[] = [];
+
+    for (const stack of board_stacks) {
+        const cards = stack.get_cards();
+        const st = stack.get_stack_type();
+
+        if (st === CardStackType.PURE_RUN) {
+            const first = cards[0];
+            const last = cards[cards.length - 1];
+            // Left end wants the predecessor in the same suit.
+            wanted.push({ value: predecessor(first.value), suit: first.suit });
+            // Right end wants the successor in the same suit.
+            wanted.push({ value: successor(last.value), suit: last.suit });
+        } else if (st === CardStackType.RED_BLACK_RUN) {
+            const first = cards[0];
+            const last = cards[cards.length - 1];
+            // Left end wants predecessor with opposite color.
+            const left_color = first.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
+            wanted.push({ value: predecessor(first.value), color: left_color });
+            // Right end wants successor with opposite color.
+            const right_color = last.color === CardColor.RED ? CardColor.BLACK : CardColor.RED;
+            wanted.push({ value: successor(last.value), color: right_color });
+        } else if (st === CardStackType.SET) {
+            // Set wants same value, any suit not already present.
+            const present_suits = new Set(cards.map((c) => c.suit));
+            if (present_suits.size < 4) {
+                wanted.push({ value: cards[0].value, excluded_suits: present_suits });
+            }
+        }
+    }
+
+    return wanted;
+}
+
+function card_matches_wanted(hc: HandCard, w: WantedCard): boolean {
+    if (hc.card.value !== w.value) return false;
+    if (w.suit !== undefined && hc.card.suit !== w.suit) return false;
+    if (w.color !== undefined && hc.card.color !== w.color) return false;
+    if (w.excluded_suits !== undefined && w.excluded_suits.has(hc.card.suit)) return false;
+    return true;
+}
 
 export function find_playable_hand_cards(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    return hand_cards.filter((hand_card) => {
-        const single = CardStack.from_hand_card(hand_card, DUMMY_LOC);
-        return board_stacks.some(
-            (stack) =>
-                stack.left_merge(single) !== undefined ||
-                stack.right_merge(single) !== undefined,
-        );
-    });
+    const wanted = compute_wanted_cards(board_stacks);
+    if (wanted.length === 0) return [];
+
+    return hand_cards.filter((hc) =>
+        wanted.some((w) => card_matches_wanted(hc, w)),
+    );
 }
 
 // A group of hand cards that form a valid stack and can be played
@@ -281,7 +337,8 @@ export type LooseCardPlay = {
     playable_cards: HandCard[];   // hand cards that become playable after
 };
 
-const MAX_BFS_DEPTH = 4;
+const MAX_BFS_DEPTH = 2;
+const MAX_BFS_STATES = 75; // cap total states to keep hints under 200ms average
 
 // Normalize a board state to a string for dedup. We sort stack
 // representations so that board order doesn't matter.
@@ -292,6 +349,68 @@ function board_key(stacks: CardStack[]): string {
 function card_label_for(bc: BoardCard): string {
     const suit_letter: Record<number, string> = { 0: "C", 1: "D", 2: "S", 3: "H" };
     return value_str(bc.card.value) + suit_letter[bc.card.suit];
+}
+
+// --- Mid-stack splits ---
+//
+// A stack of 7+ cards (run type) can be split into two valid halves
+// where both sides are 3+ cards. This exposes interior cards as new
+// loose ends on the resulting shorter stacks. Splits of 6-card stacks
+// into 3+3 also work but neither half has a loose card (need 4+), so
+// they're only useful if a subsequent split or move opens things up.
+
+type SplitAction = {
+    source: CardStack;
+    left_half: CardStack;
+    right_half: CardStack;
+    split_point: number; // how many cards on the left
+};
+
+function find_valid_splits(board_stacks: CardStack[]): SplitAction[] {
+    const results: SplitAction[] = [];
+
+    for (const source of board_stacks) {
+        // Only runs can be meaningfully split. Sets of 4 split into
+        // groups that are too small (max set is 4 → 3+1 invalid).
+        const st = source.get_stack_type();
+        if (st !== CardStackType.PURE_RUN && st !== CardStackType.RED_BLACK_RUN) {
+            continue;
+        }
+
+        const cards = source.board_cards;
+        if (cards.length < 6) continue; // both halves need 3+
+
+        for (let i = 3; i <= cards.length - 3; i++) {
+            const left = new CardStack(cards.slice(0, i), source.loc);
+            const right = new CardStack(cards.slice(i), DUMMY_LOC);
+
+            // Both halves must be valid.
+            if (left.incomplete() || left.problematic()) continue;
+            if (right.incomplete() || right.problematic()) continue;
+
+            results.push({
+                source,
+                left_half: left,
+                right_half: right,
+                split_point: i,
+            });
+        }
+    }
+
+    return results;
+}
+
+function apply_split(board: CardStack[], split: SplitAction): CardStack[] {
+    const new_board: CardStack[] = [];
+    for (const stack of board) {
+        if (stack === split.source) {
+            new_board.push(split.left_half);
+            new_board.push(split.right_half);
+        } else {
+            new_board.push(stack);
+        }
+    }
+    return new_board;
 }
 
 // Apply one loose card move to a board, returning the new board.
@@ -335,19 +454,33 @@ export function find_loose_card_plays(
     let queue: BFSEntry[] = [{ board: board_stacks, moves: [] }];
 
     for (let depth = 0; depth < MAX_BFS_DEPTH && queue.length > 0; depth++) {
+        if (visited.size >= MAX_BFS_STATES) break;
         const next_queue: BFSEntry[] = [];
 
         for (const entry of queue) {
-            const loose_cards = find_loose_cards(entry.board);
+            // Helper to check a new board state and enqueue if useful.
+            function try_board(new_board: CardStack[], moves: BoardMove[]): LooseCardPlay[] | undefined {
+                const key = board_key(new_board);
+                if (visited.has(key)) return undefined;
+                visited.add(key);
 
+                const now_playable = find_playable_hand_cards(hand_cards, new_board);
+                const new_plays = now_playable.filter((hc) => !already_playable.has(hc));
+
+                if (new_plays.length > 0) {
+                    return [{ moves, resulting_board: new_board, playable_cards: new_plays }];
+                }
+
+                next_queue.push({ board: new_board, moves });
+                return undefined;
+            }
+
+            // Action 1: Move a loose card from one stack to another.
+            const loose_cards = find_loose_cards(entry.board);
             for (const loose of loose_cards) {
                 for (const target of loose.target_stacks) {
                     const new_board = apply_loose_move(entry.board, loose, target);
                     if (!new_board) continue;
-
-                    const key = board_key(new_board);
-                    if (visited.has(key)) continue;
-                    visited.add(key);
 
                     const move: BoardMove = {
                         card_label: card_label_for(loose.card),
@@ -355,27 +488,23 @@ export function find_loose_card_plays(
                         to: target.str(),
                         end: loose.end,
                     };
-                    const moves = [...entry.moves, move];
-
-                    // Check if this board state unlocks any hand plays.
-                    const now_playable = find_playable_hand_cards(
-                        hand_cards,
-                        new_board,
-                    );
-                    const new_plays = now_playable.filter(
-                        (hc) => !already_playable.has(hc),
-                    );
-
-                    if (new_plays.length > 0) {
-                        return [{
-                            moves,
-                            resulting_board: new_board,
-                            playable_cards: new_plays,
-                        }];
-                    }
-
-                    next_queue.push({ board: new_board, moves });
+                    const result = try_board(new_board, [...entry.moves, move]);
+                    if (result) return result;
                 }
+            }
+
+            // Action 2: Split a long run into two valid halves.
+            const splits = find_valid_splits(entry.board);
+            for (const split of splits) {
+                const new_board = apply_split(entry.board, split);
+                const move: BoardMove = {
+                    card_label: `split@${split.split_point}`,
+                    from: split.source.str(),
+                    to: `${split.left_half.str()} + ${split.right_half.str()}`,
+                    end: "left", // not meaningful for splits
+                };
+                const result = try_board(new_board, [...entry.moves, move]);
+                if (result) return result;
             }
         }
 
