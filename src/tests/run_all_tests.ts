@@ -14,5 +14,6 @@ import "./navigator_test";
 import "./page_test";
 import "./popup_test";
 import "./n_key_unread_test";
+import "./login_test";
 
 console.log("ALL TESTS PASSED!");
