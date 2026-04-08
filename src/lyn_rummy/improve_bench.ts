@@ -6,7 +6,11 @@ import * as fs from "fs";
 import { Card, OriginDeck } from "./card";
 import { BoardCard, BoardCardState, CardStack, type BoardLocation } from "./card_stack";
 import { Score } from "./score";
-import { do_obvious_board_improvements } from "./board_improve";
+import {
+    do_obvious_board_improvements,
+    do_board_improvements_with_swap,
+    do_board_improvements_with_split,
+} from "./board_improve";
 
 const D1 = OriginDeck.DECK_ONE;
 const loc: BoardLocation = { top: 0, left: 0 };
@@ -38,51 +42,63 @@ for (const snap of snapshots) {
     }
 }
 
-console.log(`Board improvement benchmark (${unique.length} boards)\n`);
-console.log(
-    "Turn".padStart(4) +
-    "Cards".padStart(6) +
-    "Before".padStart(7) +
-    "After".padStart(7) +
-    "Gain".padStart(6) +
-    "Tricks".padStart(7) +
-    "  Time"
-);
-console.log("-".repeat(50));
+type Strategy = {
+    name: string;
+    fn: (board: CardStack[]) => { board: CardStack[]; score_gained: number; upgrades_applied: number };
+};
 
-let total_gain = 0;
-let total_tricks = 0;
-let boards_improved = 0;
+const strategies: Strategy[] = [
+    { name: "base", fn: do_obvious_board_improvements },
+    { name: "+swap", fn: do_board_improvements_with_swap },
+    { name: "+split", fn: do_board_improvements_with_split },
+];
+
+console.log(`Board improvement duel (${unique.length} boards)\n`);
+
+// Header.
+const header = "Turn".padStart(4) + "Cards".padStart(6) + "Before".padStart(7) +
+    strategies.map((s) => s.name.padStart(8)).join("") + "  best";
+console.log(header);
+console.log("-".repeat(header.length));
+
+const totals = strategies.map(() => ({ gain: 0, improved: 0, tricks: 0 }));
 
 for (const snap of unique) {
     const board = load_board(snap);
     const before = Score.for_stacks(board);
 
-    const start = performance.now();
-    const result = do_obvious_board_improvements(board);
-    const ms = performance.now() - start;
+    const results = strategies.map((s) => {
+        const fresh = load_board(snap); // fresh copy each time
+        return s.fn(fresh);
+    });
 
-    const after = Score.for_stacks(result.board);
-    const gain = after - before;
+    const gains = results.map((r) => Score.for_stacks(r.board) - before);
+    const best_gain = Math.max(...gains);
 
-    if (gain > 0) boards_improved++;
-    total_gain += gain;
-    total_tricks += result.upgrades_applied;
-
-    const gain_str = gain > 0 ? `+${gain}` : "—";
-    console.log(
-        String(snap.turn).padStart(4) +
+    let row = String(snap.turn).padStart(4) +
         String(snap.cards_on_board).padStart(6) +
-        String(before).padStart(7) +
-        String(after).padStart(7) +
-        gain_str.padStart(6) +
-        String(result.upgrades_applied).padStart(7) +
-        `  ${ms.toFixed(1)}ms`
-    );
+        String(before).padStart(7);
+
+    for (let i = 0; i < gains.length; i++) {
+        const g = gains[i];
+        const marker = g === best_gain && g > 0 ? "*" : " ";
+        row += (marker + (g > 0 ? `+${g}` : "—")).padStart(8);
+        totals[i].gain += g;
+        if (g > 0) totals[i].improved++;
+        totals[i].tricks += results[i].upgrades_applied;
+    }
+
+    // Show winner when strategies disagree.
+    const winners = strategies.filter((_, i) => gains[i] === best_gain && best_gain > 0);
+    if (best_gain > 0 && winners.length < strategies.length) {
+        row += "  " + winners.map((s) => s.name).join(",");
+    }
+
+    console.log(row);
 }
 
-console.log(`\nSummary:`);
-console.log(`  Boards tested: ${unique.length}`);
-console.log(`  Boards improved: ${boards_improved}`);
-console.log(`  Total score gain: +${total_gain}`);
-console.log(`  Total tricks applied: ${total_tricks}`);
+console.log(`\nSummary:\n`);
+for (let i = 0; i < strategies.length; i++) {
+    const t = totals[i];
+    console.log(`  ${strategies[i].name.padEnd(8)} gain: +${t.gain}, improved: ${t.improved}/${unique.length}, tricks: ${t.tricks}`);
+}
