@@ -7,6 +7,10 @@ export function get(key: string): string | null {
     return localStorage.getItem(namespaced_key_for(key));
 }
 
+export function remove(key: string) {
+    localStorage.removeItem(namespaced_key_for(key));
+}
+
 export function set(key: string, obj: Record<string, unknown>) {
     localStorage.setItem(namespaced_key_for(key), JSON.stringify(obj));
 }

@@ -5,6 +5,7 @@ import { EventHandler, type ZulipEvent } from "./backend/event";
 import * as event_queue from "./backend/event_queue";
 import * as zulip_client from "./backend/zulip_client";
 import * as config from "./backend/config";
+import * as local_storage from "./localstorage";
 import * as login_manager from "./login_manager";
 import * as game from "./lyn_rummy/game";
 import { Page } from "./page";
@@ -39,6 +40,34 @@ function install_keyboard_handler(): void {
     });
 }
 
+function show_logout_option(): void {
+    const div = document.createElement("div");
+    div.style.padding = "20px";
+
+    const msg = document.createElement("div");
+    msg.style.marginBottom = "16px";
+    msg.style.fontSize = "16px";
+    msg.innerText =
+        "Could not connect to the server with your stored credentials. " +
+        "The server may have changed or your API key may be invalid.";
+    div.append(msg);
+
+    const button = document.createElement("button");
+    button.innerText = "Log out and clear credentials";
+    button.style.fontSize = "16px";
+    button.style.padding = "8px 16px";
+    button.addEventListener("click", () => {
+        const nickname = config.get_current_realm_nickname();
+        if (nickname) {
+            local_storage.remove(nickname);
+        }
+        window.location.reload();
+    });
+    div.append(button);
+
+    document.body.append(div);
+}
+
 async function run() {
     if (is_lyn_rummy_user()) {
         game.gui();
@@ -60,7 +89,13 @@ async function run() {
     const screen = splash.create();
 
     screen.add_line("Connecting to Zulip...");
-    await event_queue.register_queue();
+    try {
+        await event_queue.register_queue();
+    } catch (e) {
+        screen.add_line("Connection failed. Your credentials may be invalid.");
+        show_logout_option();
+        return;
+    }
     screen.add_line("Connected!");
 
     await database.fetch_original_data();
