@@ -13,6 +13,8 @@ import {
     find_hand_stacks,
     find_loose_cards,
     find_loose_card_plays,
+    get_hint,
+    HintLevel,
     type HandStack,
     type LooseCard,
 } from "./hints";
@@ -377,6 +379,55 @@ function loose_card_label(lc: LooseCard): string {
 
 function card_label_raw(bc: BoardCard): string {
     return value_str(bc.card.value) + suit_letter[bc.card.suit];
+}
+
+// === get_hint cascade tests ===
+
+// Hand has a complete set → level 1 (don't even check board plays).
+{
+    const stacks = [board_stack("AH", "2H", "3H")];
+    const hand = [
+        hand_card("7H"), hand_card("7S"), hand_card("7D"),
+        hand_card("4H"), // also directly playable
+    ];
+
+    const hint = get_hint(hand, stacks);
+    // Should return HAND_STACKS, not DIRECT_PLAY, even though
+    // 4H is directly playable. Easiest move wins.
+    assert.equal(hint.level, HintLevel.HAND_STACKS);
+}
+
+// Hand card directly playable, but no complete stacks in hand → level 2.
+{
+    const stacks = [board_stack("AH", "2H", "3H")];
+    const hand = [hand_card("4H"), hand_card("KS")];
+
+    const hint = get_hint(hand, stacks);
+    assert.equal(hint.level, HintLevel.DIRECT_PLAY);
+    if (hint.level === HintLevel.DIRECT_PLAY) {
+        assert.equal(hint.playable_cards.length, 1);
+    }
+}
+
+// No direct play, but a loose card move opens one → level 3.
+{
+    const stacks = [
+        board_stack("7H", "7S", "7D", "7C"),
+        board_stack("4H", "5H", "6H"),
+    ];
+    const hand = [hand_card("8H")];
+
+    const hint = get_hint(hand, stacks);
+    assert.equal(hint.level, HintLevel.LOOSE_CARD_PLAY);
+}
+
+// Nothing works → level 4 (no moves).
+{
+    const stacks = [board_stack("AH", "2H", "3H")];
+    const hand = [hand_card("QS"), hand_card("9D")];
+
+    const hint = get_hint(hand, stacks);
+    assert.equal(hint.level, HintLevel.NO_MOVES);
 }
 
 console.log("All hints tests passed.");

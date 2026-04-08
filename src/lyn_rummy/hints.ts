@@ -4,6 +4,52 @@ import { CardStackType, get_stack_type } from "./stack_type";
 
 const DUMMY_LOC = { top: 0, left: 0 };
 
+// --- Hint cascade ---
+//
+// get_hint returns the simplest available move. We only progress to
+// harder hints when the easier ones find nothing — just like an
+// experienced player coaching a newbie.
+
+export enum HintLevel {
+    HAND_STACKS = "You have a complete set or run in your hand!",
+    DIRECT_PLAY = "You can play a card from your hand onto the board.",
+    LOOSE_CARD_PLAY = "Move a board card, then play from your hand.",
+    NO_MOVES = "No moves found. You'll draw cards.",
+}
+
+export type Hint =
+    | { level: HintLevel.HAND_STACKS; hand_stacks: HandStack[] }
+    | { level: HintLevel.DIRECT_PLAY; playable_cards: HandCard[] }
+    | { level: HintLevel.LOOSE_CARD_PLAY; plays: LooseCardPlay[] }
+    | { level: HintLevel.NO_MOVES };
+
+export function get_hint(
+    hand_cards: HandCard[],
+    board_stacks: CardStack[],
+): Hint {
+    // Level 1: Complete sets or runs in the hand.
+    const hand_stacks = find_hand_stacks(hand_cards);
+    if (hand_stacks.length > 0) {
+        return { level: HintLevel.HAND_STACKS, hand_stacks };
+    }
+
+    // Level 2: A hand card that directly merges onto a board stack.
+    const playable = find_playable_hand_cards(hand_cards, board_stacks);
+    if (playable.length > 0) {
+        return { level: HintLevel.DIRECT_PLAY, playable_cards: playable };
+    }
+
+    // Level 3: Move one board card, then play one hand card.
+    const loose_plays = find_loose_card_plays(hand_cards, board_stacks);
+    if (loose_plays.length > 0) {
+        return { level: HintLevel.LOOSE_CARD_PLAY, plays: loose_plays };
+    }
+
+    return { level: HintLevel.NO_MOVES };
+}
+
+// --- Level 2: Direct plays ---
+
 export function find_playable_hand_cards(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
