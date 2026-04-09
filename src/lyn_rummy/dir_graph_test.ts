@@ -714,6 +714,132 @@ function full_cascade(g: DirGraph): { pruned: number; committed: number } {
     return { pruned: total_pruned, committed: total_committed };
 }
 
+// --- Branching: speculatively commit edges on remaining graph ---
+//
+// After the cascade, pick an edge, clone the graph, commit it,
+// run cascade on the clone. If it produces a better score than
+// skipping that edge, keep it. Otherwise try the next edge.
+
+function clone_dir_graph(g: DirGraph): DirGraph {
+    // Deep copy edges, shallow copy card refs (cards are immutable).
+    const new_edges = g.edges.map((e) => ({ ...e }));
+
+    const outgoing = new Map<string, DirEdge[]>();
+    const incoming = new Map<string, DirEdge[]>();
+    for (const c of g.cards) {
+        outgoing.set(card_key(c), []);
+        incoming.set(card_key(c), []);
+    }
+    for (const e of new_edges) {
+        outgoing.get(card_key(e.a))!.push(e);
+        incoming.get(card_key(e.b))!.push(e);
+    }
+
+    return {
+        cards: g.cards,
+        edges: new_edges,
+        outgoing,
+        incoming,
+        set_pool: new Map(g.set_pool),
+    };
+}
+
+// Count committed cards (cards whose only alive edge is a committed one —
+// actually, committed edges are marked dead. So committed cards have
+// zero alive edges but were part of a commit. Track separately.)
+type SolveResult = {
+    committed_edges: { a: Card; b: Card; kind: string }[];
+    orphans: Card[];
+    remaining_edges: number;
+};
+
+function solve_with_branching(
+    g: DirGraph,
+    max_depth: number,
+): SolveResult {
+    // Run cascade first.
+    const cascade_result = full_cascade(g);
+
+    const committed: { a: Card; b: Card; kind: string }[] = [];
+    const orphans: Card[] = [];
+
+    // Collect committed pairs from the cascade.
+    // (We don't track these yet — TODO. For now just count remaining.)
+
+    const remaining = g.edges.filter((e) => e.alive).length;
+    if (remaining === 0 || max_depth === 0) {
+        // Count orphans.
+        for (const c of g.cards) {
+            if (card_degree(g, c) === 0) orphans.push(c);
+        }
+        return { committed_edges: committed, orphans, remaining_edges: remaining };
+    }
+
+    // Find the best edge to branch on: lowest-degree node, highest chain.
+    let best_edge: DirEdge | undefined;
+    let best_score = -Infinity;
+
+    for (const c of g.cards) {
+        const deg = card_degree(g, c);
+        if (deg < 2) continue; // degree 0 = orphan, degree 1 = should have been committed
+
+        const key = card_key(c);
+        const all_edges: DirEdge[] = [];
+        for (const e of g.outgoing.get(key) ?? []) { if (e.alive) all_edges.push(e); }
+        for (const e of g.incoming.get(key) ?? []) { if (e.alive) all_edges.push(e); }
+
+        for (const e of all_edges) {
+            // Score: prefer low degree (constrained) + high chain length.
+            const score = chain_len(e) * 100 - deg * 10;
+            if (score > best_score) {
+                best_score = score;
+                best_edge = e;
+            }
+        }
+    }
+
+    if (!best_edge) {
+        for (const c of g.cards) {
+            if (card_degree(g, c) === 0) orphans.push(c);
+        }
+        return { committed_edges: committed, orphans, remaining_edges: remaining };
+    }
+
+    // Try committing the best edge.
+    const g_commit = clone_dir_graph(g);
+    const cloned_edge = g_commit.edges[best_edge.id];
+    commit_edge(g_commit, cloned_edge);
+    const commit_result = solve_with_branching(g_commit, max_depth - 1);
+
+    // Try skipping this specific edge (kill just this edge).
+    const g_skip = clone_dir_graph(g);
+    kill_edge(g_skip, g_skip.edges[best_edge.id]);
+    const skip_result = solve_with_branching(g_skip, max_depth - 1);
+
+    // Pick whichever has fewer orphans.
+    return commit_result.orphans.length <= skip_result.orphans.length
+        ? commit_result : skip_result;
+}
+
+// Test branching on the 18-card reduced board.
+{
+    const data = JSON.parse(fs.readFileSync("src/lyn_rummy/reduced_board.json", "utf-8"));
+    const cards = data.unresolved_cards.map((l: string) => parse_card(l));
+
+    console.log("\n--- Branching on 18-card board ---\n");
+
+    for (const depth of [0, 1, 2, 3, 5]) {
+        const g = build_dir_graph(cards);
+        compute_all_reaches(g);
+
+        const start = performance.now();
+        const result = solve_with_branching(g, depth);
+        const ms = performance.now() - start;
+
+        console.log(`  depth=${depth}: orphans=${result.orphans.length} remaining=${result.remaining_edges} ${ms.toFixed(0)}ms`);
+    }
+}
+
 // --- Scale up: full cascade on all game boards ---
 
 {
