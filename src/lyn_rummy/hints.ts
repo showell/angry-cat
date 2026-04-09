@@ -21,6 +21,21 @@ function opposite_color(c: CardColor): CardColor {
     return c === CardColor.RED ? CardColor.BLACK : CardColor.RED;
 }
 
+// Check if 3 cards form a valid run (pure or rb), handling K→A wrap.
+function is_valid_run_triple(a: Card, b: Card, c: Card): boolean {
+    const cards = [a, b, c];
+    const sorted = [...cards].sort((x, y) => x.value - y.value);
+    const st = get_stack_type(sorted);
+    if (st === CardStackType.PURE_RUN || st === CardStackType.RED_BLACK_RUN) return true;
+    // Try wrap: K first.
+    if (sorted[sorted.length - 1].value === 13 && sorted[0].value === 1) {
+        const rotated = [sorted[sorted.length - 1], ...sorted.slice(0, -1)];
+        const rt = get_stack_type(rotated);
+        if (rt === CardStackType.PURE_RUN || rt === CardStackType.RED_BLACK_RUN) return true;
+    }
+    return false;
+}
+
 function suits_of_color(color: CardColor): Suit[] {
     return color === CardColor.RED
         ? [Suit.HEART, Suit.DIAMOND]
@@ -363,10 +378,9 @@ function find_pure_runs(hand_cards: HandCard[], results: HandStack[]): void {
             const prev = run[run.length - 1].card.value;
             const curr = sorted[i].card.value;
 
-            if (curr === prev + 1 || (prev === 13 && curr === 1)) {
+            if (curr === prev + 1) {
                 run.push(sorted[i]);
             } else if (curr === prev) {
-                // Duplicate value from double deck — skip.
                 continue;
             } else {
                 if (run.length >= 3) emit_run(run, CardStackType.PURE_RUN, results);
@@ -374,6 +388,32 @@ function find_pure_runs(hand_cards: HandCard[], results: HandStack[]): void {
             }
         }
         if (run.length >= 3) emit_run(run, CardStackType.PURE_RUN, results);
+
+        // Check for K→A wrap: if the chain ending at K and the
+        // chain starting at A can join, they form a longer run.
+        if (sorted.length >= 3 &&
+            sorted[sorted.length - 1].card.value === 13 &&
+            sorted[0].card.value === 1) {
+            // Build the wrap run: cards ending at K + cards starting at A.
+            const tail: HandCard[] = [];
+            for (let i = sorted.length - 1; i >= 0; i--) {
+                if (i === sorted.length - 1 || sorted[i].card.value === sorted[i + 1].card.value - 1) {
+                    tail.unshift(sorted[i]);
+                } else break;
+            }
+            const head: HandCard[] = [];
+            for (let i = 0; i < sorted.length; i++) {
+                if (i === 0 || sorted[i].card.value === sorted[i - 1].card.value + 1) {
+                    head.push(sorted[i]);
+                } else break;
+            }
+            // Avoid double-counting: only emit if the wrap creates
+            // a LONGER run than what we already found.
+            const wrap_run = [...tail, ...head];
+            if (wrap_run.length >= 3 && wrap_run.length > tail.length && wrap_run.length > head.length) {
+                emit_run(wrap_run, CardStackType.PURE_RUN, results);
+            }
+        }
     }
 }
 
@@ -395,14 +435,24 @@ function find_red_black_runs(hand_cards: HandCard[], results: HandStack[]): void
             if (used.has(sorted[j])) continue;
             const curr = sorted[j];
 
-            const isNext =
-                curr.card.value === last.card.value + 1 ||
-                (last.card.value === 13 && curr.card.value === 1);
-            const alternates = curr.card.color !== last.card.color;
-
-            if (isNext && alternates) {
+            if (curr.card.value === last.card.value + 1 &&
+                curr.card.color !== last.card.color) {
                 run.push(curr);
                 last = curr;
+            }
+        }
+
+        // Check K→A wrap: if run ends at K, look for A at the
+        // start of sorted that alternates color.
+        if (last.card.value === 13) {
+            for (let j = 0; j < start; j++) {
+                if (used.has(sorted[j])) continue;
+                const curr = sorted[j];
+                if (curr.card.value === successor(last.card.value) &&
+                    curr.card.color !== last.card.color) {
+                    run.push(curr);
+                    last = curr;
+                }
             }
         }
 
@@ -1363,13 +1413,8 @@ export function find_peel_for_run_plays(
                 // long stack at different positions. For safety, skip same stack.)
                 if (a.stack_index === b.stack_index) continue;
 
-                // Sort the three cards by value and check if they form a valid stack.
-                const triple = [a.card, hc.card, b.card].sort(
-                    (x, y) => x.value - y.value,
-                );
-                const st = get_stack_type(triple);
-                if (st === CardStackType.PURE_RUN ||
-                    st === CardStackType.RED_BLACK_RUN) {
+                // Check if the three cards form a valid run.
+                if (is_valid_run_triple(a.card, hc.card, b.card)) {
                     found = true;
                 }
             }

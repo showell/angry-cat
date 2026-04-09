@@ -30,12 +30,25 @@ function is_valid_stack(cards: Card[]): CardStackType | undefined {
     const st = get_stack_type(cards);
     if (st === CardStackType.SET) return st;
 
+    // For runs, sort by value and try the normal order.
     const sorted = [...cards].sort((a, b) => a.value - b.value);
     const sorted_type = get_stack_type(sorted);
     if (sorted_type === CardStackType.PURE_RUN ||
         sorted_type === CardStackType.RED_BLACK_RUN) {
         return sorted_type;
     }
+
+    // Try wrap-around: rotate so K comes first (K A 2 3 ...).
+    // If the last card is K and the first is A, rotate.
+    if (sorted.length >= 3 && sorted[sorted.length - 1].value === 13 && sorted[0].value === 1) {
+        const rotated = [...sorted.slice(-1), ...sorted.slice(0, -1)];
+        const rot_type = get_stack_type(rotated);
+        if (rot_type === CardStackType.PURE_RUN ||
+            rot_type === CardStackType.RED_BLACK_RUN) {
+            return rot_type;
+        }
+    }
+
     return undefined;
 }
 

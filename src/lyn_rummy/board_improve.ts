@@ -797,23 +797,37 @@ function try_consecutive_sets_to_runs(stacks: CardStack[]): {
         for (const [_suit, suited] of by_suit) {
             suited.sort((a, b) => a.value - b.value);
             // Find consecutive chains of 3+.
+            const chains: Card[][] = [];
             let chain: Card[] = [suited[0]];
             for (let i = 1; i < suited.length; i++) {
                 if (suited[i].value === successor(chain[chain.length - 1].value as CardValue)) {
                     chain.push(suited[i]);
                 } else {
-                    if (chain.length >= 3) {
-                        new_stacks.push(new CardStack(
-                            chain.map((c) => new BoardCard(c, BoardCardState.FIRMLY_ON_BOARD)), loc));
-                        for (const c of chain) placed.add(c);
-                    }
+                    chains.push(chain);
                     chain = [suited[i]];
                 }
             }
-            if (chain.length >= 3) {
-                new_stacks.push(new CardStack(
-                    chain.map((c) => new BoardCard(c, BoardCardState.FIRMLY_ON_BOARD)), loc));
-                for (const c of chain) placed.add(c);
+            chains.push(chain);
+
+            // Check K→A wrap: can the last chain (ending at K)
+            // join the first chain (starting at A)?
+            if (chains.length >= 2) {
+                const last = chains[chains.length - 1];
+                const first = chains[0];
+                if (last[last.length - 1].value === 13 && first[0].value === 1) {
+                    // Merge last + first into one wrap chain.
+                    const wrapped = [...last, ...first];
+                    chains[0] = wrapped;
+                    chains.pop();
+                }
+            }
+
+            for (const ch of chains) {
+                if (ch.length >= 3) {
+                    new_stacks.push(new CardStack(
+                        ch.map((c) => new BoardCard(c, BoardCardState.FIRMLY_ON_BOARD)), loc));
+                    for (const c of ch) placed.add(c);
+                }
             }
         }
 
