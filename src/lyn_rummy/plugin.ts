@@ -35,11 +35,15 @@ export function plugin(context: PluginContext): Plugin {
 // --- Gopher path: game bus via /gopher/games endpoints ---
 
 function gopher_plugin(div: HTMLDivElement): Plugin {
-    const landing_div = document.createElement("div");
-    landing_div.style.paddingTop = "30px";
-    landing_div.style.display = "flex";
-    landing_div.style.justifyContent = "center";
-    landing_div.style.gap = "20px";
+    // The lobby is the landing area shown before the player picks
+    // a game. It holds a "Launch new game" button and one button
+    // per existing game (to resume or join). Puzzle games appear
+    // in the same lobby with their own labels.
+    const lobby_div = document.createElement("div");
+    lobby_div.style.paddingTop = "30px";
+    lobby_div.style.display = "flex";
+    lobby_div.style.justifyContent = "center";
+    lobby_div.style.gap = "20px";
 
     const launch_button = new Button("Launch new game", 150, async () => {
         div.innerHTML = "";
@@ -55,26 +59,50 @@ function gopher_plugin(div: HTMLDivElement): Plugin {
         gopher_start_game_with_helper(helper, json_cards, div);
     });
 
-    landing_div.append(launch_button.div);
+    lobby_div.append(launch_button.div);
 
-    // Check for existing games we can join or resume.
-    gopher_find_games(landing_div, div);
+    // Populate the lobby with existing games we can resume or join.
+    populate_lobby(lobby_div, div);
 
-    div.append(landing_div);
+    div.append(lobby_div);
 
     return { div };
 }
 
-async function gopher_find_games(
-    landing_div: HTMLDivElement,
+// Fetch the existing games and add a button to the lobby for each
+// one the current user can act on (resume their own, join an open
+// game, or play a puzzle). Puzzle games carry a non-null
+// puzzle_name from the server and get a "Play puzzle" label
+// regardless of who created them.
+async function populate_lobby(
+    lobby_div: HTMLDivElement,
     div: HTMLDivElement,
 ): Promise<void> {
     const user_id = DB.current_user_id;
     const games = await list_gopher_games();
 
     for (const game of games) {
+        const is_puzzle = game.puzzle_name !== null;
         const is_my_game = game.player1_id === user_id || game.player2_id === user_id;
         const is_open = game.player2_id === null;
+
+        if (is_puzzle) {
+            // Puzzles share the lobby with regular games but use
+            // a distinct label. Click behavior is the same as a
+            // resume/join — we just relabel the button.
+            const label = `Play puzzle: ${game.puzzle_name}`;
+            const button = new Button(label, 200, async () => {
+                if (is_open && !is_my_game) {
+                    const ok = await join_gopher_game(game.id);
+                    if (!ok) return;
+                }
+                div.innerHTML = "";
+                div.innerText = "Loading puzzle...";
+                await gopher_resume_game(game.id, div);
+            });
+            lobby_div.append(button.div);
+            continue;
+        }
 
         if (is_my_game) {
             const label = `Resume game ${game.id} (${game.event_count} events)`;
@@ -83,7 +111,7 @@ async function gopher_find_games(
                 div.innerText = "Loading game...";
                 await gopher_resume_game(game.id, div);
             });
-            landing_div.append(button.div);
+            lobby_div.append(button.div);
         } else if (is_open) {
             const label = `Join game ${game.id}`;
             const button = new Button(label, 150, async () => {
@@ -93,7 +121,7 @@ async function gopher_find_games(
                 div.innerText = "Loading game...";
                 await gopher_resume_game(game.id, div);
             });
-            landing_div.append(button.div);
+            lobby_div.append(button.div);
         }
     }
 }

@@ -167,22 +167,38 @@ type GopherEvent = {
 };
 
 // Create a new game on the Gopher server. Returns the game ID.
-export async function create_gopher_game(): Promise<number> {
+//
+// If puzzle_name is provided, the game is marked as a puzzle on
+// the server (an opaque label, the server doesn't interpret it).
+// The lobby uses the label to render puzzle games differently.
+export async function create_gopher_game(
+    puzzle_name?: string,
+): Promise<number> {
     const url = gopher_url("games");
-    const resp = await fetch(url, {
+    const init: RequestInit = {
         method: "POST",
         headers: get_headers(),
-    });
+    };
+    if (puzzle_name !== undefined) {
+        init.headers = { ...init.headers, "Content-Type": "application/json" };
+        init.body = JSON.stringify({ puzzle_name });
+    }
+    const resp = await fetch(url, init);
     const data = await resp.json();
     return data.game_id;
 }
 
 // List games the current user is in.
+//
+// puzzle_name is non-null if this game was created as a puzzle.
+// The string is an opaque label (e.g. "puzzle_24") that the
+// client looks up in its own puzzle catalog at join time.
 export type GopherGameInfo = {
     id: number;
     player1_id: number;
     player2_id: number | null;
     event_count: number;
+    puzzle_name: string | null;
 };
 
 export async function list_gopher_games(): Promise<GopherGameInfo[]> {
