@@ -25,7 +25,15 @@ const suit_letter: Record<Suit, string> = {
     [Suit.HEART]: "H", [Suit.SPADE]: "S",
     [Suit.DIAMOND]: "D", [Suit.CLUB]: "C",
 };
-function card_str(c: Card): string { return value_str(c.value) + suit_letter[c.suit]; }
+// For JSON serialization — includes deck tag.
+function card_data(c: Card): string {
+    const deck = c.origin_deck === OriginDeck.DECK_ONE ? "1" : "2";
+    return value_str(c.value) + suit_letter[c.suit] + ":" + deck;
+}
+// For human-readable console output — no deck tag.
+function card_str(c: Card): string {
+    return value_str(c.value) + suit_letter[c.suit];
+}
 function hc_str(hc: HandCard): string { return card_str(hc.card); }
 
 // --- Deck helpers ---
@@ -111,7 +119,7 @@ function snap(
 ): BoardSnapshot {
     const all: string[] = [];
     const stacks = board.map((s) => {
-        const cards = s.get_cards().map(card_str);
+        const cards = s.get_cards().map(card_data);
         for (const c of cards) all.push(c);
         return { cards, type: s.get_stack_type() };
     });

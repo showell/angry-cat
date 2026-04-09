@@ -15,6 +15,14 @@ import {
 } from "./reassemble_graph";
 
 const D1 = OriginDeck.DECK_ONE;
+
+function parse_card(label: string): Card {
+    const parts = label.replace("10", "T").split(":");
+    const deck = parts.length > 1 && parts[1] === "2"
+        ? OriginDeck.DECK_TWO : OriginDeck.DECK_ONE;
+    return Card.from(parts[0], deck);
+}
+
 const sl: Record<Suit, string> = {
     [Suit.HEART]: "H", [Suit.SPADE]: "S",
     [Suit.DIAMOND]: "D", [Suit.CLUB]: "C",
@@ -162,7 +170,7 @@ function reduce(cards: Card[], verbose = false): Graph {
 
 {
     const data = JSON.parse(fs.readFileSync("src/lyn_rummy/reduced_board.json", "utf-8"));
-    const cards = data.unresolved_cards.map((l: string) => Card.from(l.replace("10", "T"), D1));
+    const cards = data.unresolved_cards.map((l: string) => parse_card(l));
 
     console.log("18-card reduced board:");
     console.log("  Input: " + cards.map(cs).join(", "));
@@ -237,7 +245,7 @@ function reduce(cards: Card[], verbose = false): Graph {
 
     const all_cards: Card[] = [];
     for (const sd of snap.stacks) {
-        for (const l of sd.cards) all_cards.push(Card.from(l.replace("10", "T"), D1));
+        for (const l of sd.cards) all_cards.push(parse_card(l));
     }
 
     const g = reduce(all_cards);

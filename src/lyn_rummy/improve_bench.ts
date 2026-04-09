@@ -13,6 +13,14 @@ import {
     do_board_improvements_with_dissolve,
 } from "./board_improve";
 
+function parse_card(label: string): Card {
+    // Handle "KS:1" or "KS:2" (deck-tagged) and legacy "KS" (no deck).
+    const parts = label.replace("10", "T").split(":");
+    const deck = parts.length > 1 && parts[1] === "2"
+        ? OriginDeck.DECK_TWO : OriginDeck.DECK_ONE;
+    return Card.from(parts[0], deck);
+}
+
 const D1 = OriginDeck.DECK_ONE;
 const loc: BoardLocation = { top: 0, left: 0 };
 
@@ -25,7 +33,7 @@ type Snapshot = {
 function load_board(snap: Snapshot): CardStack[] {
     return snap.stacks.map((sd) => new CardStack(
         sd.cards.map((l) =>
-            new BoardCard(Card.from(l.replace("10", "T"), D1), BoardCardState.FIRMLY_ON_BOARD)),
+            new BoardCard(parse_card(l), BoardCardState.FIRMLY_ON_BOARD)),
         loc,
     ));
 }
