@@ -775,48 +775,100 @@ function solve_with_branching(
         return { committed_edges: committed, orphans, remaining_edges: remaining };
     }
 
-    // Find the best edge to branch on: lowest-degree node, highest chain.
-    let best_edge: DirEdge | undefined;
-    let best_score = -Infinity;
+    // Find a 3-card group to commit: two consecutive same-kind edges
+    // A→B→C that form a valid 3-card stack. For sets, any 3 cards
+    // of the same value with distinct suits.
+    type Triple = { edges: [DirEdge, DirEdge]; cards: [Card, Card, Card] };
 
-    for (const c of g.cards) {
-        const deg = card_degree(g, c);
-        if (deg < 2) continue; // degree 0 = orphan, degree 1 = should have been committed
+    function find_triples(): Triple[] {
+        const triples: Triple[] = [];
+        const seen = new Set<string>();
 
-        const key = card_key(c);
-        const all_edges: DirEdge[] = [];
-        for (const e of g.outgoing.get(key) ?? []) { if (e.alive) all_edges.push(e); }
-        for (const e of g.incoming.get(key) ?? []) { if (e.alive) all_edges.push(e); }
+        for (const e1 of g.edges) {
+            if (!e1.alive) continue;
 
-        for (const e of all_edges) {
-            // Score: prefer low degree (constrained) + high chain length.
-            const score = chain_len(e) * 100 - deg * 10;
-            if (score > best_score) {
-                best_score = score;
-                best_edge = e;
+            if (e1.kind === "set") {
+                // For sets: find another set edge from B to a third card C.
+                for (const e2 of g.outgoing.get(card_key(e1.b)) ?? []) {
+                    if (!e2.alive || e2.kind !== "set") continue;
+                    if (e2.b === e1.a) continue; // back to start
+                    // Check distinct suits.
+                    const suits = new Set([e1.a.suit, e1.b.suit, e2.b.suit]);
+                    if (suits.size < 3) continue;
+                    const key = [e1.a, e1.b, e2.b].map(card_key).sort().join("|");
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    triples.push({ edges: [e1, e2], cards: [e1.a, e1.b, e2.b] });
+                }
+            } else {
+                // For runs: e1 is A→B. Find e2 = B→C of same kind.
+                for (const e2 of g.outgoing.get(card_key(e1.b)) ?? []) {
+                    if (!e2.alive || e2.kind !== e1.kind) continue;
+                    if (e2.b === e1.a) continue;
+                    const key = [e1.id, e2.id].sort().join("|");
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    triples.push({ edges: [e1, e2], cards: [e1.a, e1.b, e2.b] });
+                }
+                // Also: e1 is A→B. Find e0 where e0.b === A (predecessor).
+                for (const e0 of g.incoming.get(card_key(e1.a)) ?? []) {
+                    if (!e0.alive || e0.kind !== e1.kind) continue;
+                    if (e0.a === e1.b) continue;
+                    const key = [e0.id, e1.id].sort().join("|");
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    triples.push({ edges: [e0, e1], cards: [e0.a, e1.a, e1.b] });
+                }
             }
         }
+
+        return triples;
     }
 
-    if (!best_edge) {
+    const triples = find_triples();
+    if (triples.length === 0) {
         for (const c of g.cards) {
             if (card_degree(g, c) === 0) orphans.push(c);
         }
         return { committed_edges: committed, orphans, remaining_edges: remaining };
     }
 
-    // Try committing the best edge.
+    // Score triples: prefer the one on the most constrained cards.
+    // Lower total degree of the 3 cards = more constrained = try first.
+    triples.sort((a, b) => {
+        const deg_a = a.cards.reduce((s, c) => s + card_degree(g, c), 0);
+        const deg_b = b.cards.reduce((s, c) => s + card_degree(g, c), 0);
+        return deg_a - deg_b;
+    });
+
+    const best_triple = triples[0];
+
+    // Try committing this triple: kill all edges on all 3 cards.
+    function commit_triple(g: DirGraph, t: Triple): void {
+        for (const c of t.cards) {
+            const key = card_key(c);
+            for (const e of g.outgoing.get(key) ?? []) { if (e.alive) kill_edge(g, e); }
+            for (const e of g.incoming.get(key) ?? []) { if (e.alive) kill_edge(g, e); }
+            // Remove from set pool if committed to a run.
+            if (t.edges[0].kind !== "set") {
+                remove_from_set_pool(g, c);
+            }
+        }
+    }
+
     const g_commit = clone_dir_graph(g);
-    const cloned_edge = g_commit.edges[best_edge.id];
-    commit_edge(g_commit, cloned_edge);
+    // Find the cloned triple edges.
+    commit_triple(g_commit, {
+        edges: [g_commit.edges[best_triple.edges[0].id], g_commit.edges[best_triple.edges[1].id]],
+        cards: best_triple.cards,
+    });
     const commit_result = solve_with_branching(g_commit, max_depth - 1);
 
-    // Try skipping this specific edge (kill just this edge).
+    // Try skipping: kill the first edge of the triple.
     const g_skip = clone_dir_graph(g);
-    kill_edge(g_skip, g_skip.edges[best_edge.id]);
+    kill_edge(g_skip, g_skip.edges[best_triple.edges[0].id]);
     const skip_result = solve_with_branching(g_skip, max_depth - 1);
 
-    // Pick whichever has fewer orphans.
     return commit_result.orphans.length <= skip_result.orphans.length
         ? commit_result : skip_result;
 }
