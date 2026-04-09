@@ -52,7 +52,7 @@ function gopher_plugin(div: HTMLDivElement): Plugin {
         const helper = new GopherGameHelper({ game_id, user_id: DB.current_user_id });
         await helper.post_deck(json_cards);
         div.innerHTML = "";
-        gopher_start_game_with_deck(game_id, json_cards, div);
+        gopher_start_game_with_helper(helper, json_cards, div);
     });
 
     landing_div.append(launch_button.div);
@@ -98,14 +98,13 @@ async function gopher_find_games(
     }
 }
 
-// Start a new game with a known deck (creator already stored it).
-function gopher_start_game_with_deck(
-    game_id: number,
+// Start a new game with a known deck and an already-initialized helper
+// (which has last_seen_event_id set from posting the deck).
+function gopher_start_game_with_helper(
+    helper: GopherGameHelper,
     json_cards: JsonCard[],
     div: HTMLDivElement,
 ): void {
-    const user_id = DB.current_user_id;
-    const helper = new GopherGameHelper({ game_id, user_id });
     const webxdc = helper.xdc_interface();
     const deck_cards = json_cards.map(lyn_rummy.Card.from_json);
 
@@ -136,8 +135,9 @@ async function gopher_resume_game(
     const webxdc = helper.xdc_interface();
     const deck_cards = (json_cards as JsonCard[]).map(lyn_rummy.Card.from_json);
 
-    // Fetch all events after the deck event (id=1) for replay.
-    const event_rows = await helper.get_events_after(1);
+    // Fetch all game events after the deck event for replay.
+    // get_deck() already set last_seen_event_id to the deck event's ID.
+    const event_rows = await helper.get_events_after(helper.last_seen_event_id);
 
     lyn_rummy.start_game(
         deck_cards,

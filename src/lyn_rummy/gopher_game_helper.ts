@@ -41,14 +41,18 @@ export class GopherGameHelper {
     // get the same deal. The payload is { deck: JsonCard[] }.
     async post_deck(json_cards: object[]): Promise<void> {
         const url = gopher_url(`games/${this.game_id}/events`);
-        await fetch(url, {
+        const resp = await fetch(url, {
             method: "POST",
             headers: { ...get_headers(), "Content-Type": "application/json" },
             body: JSON.stringify({ deck: json_cards }),
         });
+        if (resp.ok) {
+            const data = await resp.json();
+            this.last_seen_event_id = data.event_id;
+        }
     }
 
-    // Fetch the deck from the first event.
+    // Fetch the deck from the first event and track its ID.
     async get_deck(): Promise<object[] | undefined> {
         const url = gopher_url(`games/${this.game_id}/events?after=0`);
         const resp = await fetch(url, { headers: get_headers() });
@@ -56,6 +60,7 @@ export class GopherGameHelper {
         const data = await resp.json();
         const events: GopherEvent[] = data.events || [];
         if (events.length === 0) return undefined;
+        this.last_seen_event_id = events[0].id;
         const first = events[0].payload as any;
         return first.deck;
     }
@@ -77,19 +82,29 @@ export class GopherGameHelper {
     }
 
     // Fetch events after a given event ID. Used to skip the deck
-    // event (id=1) when replaying game state.
+    // event when replaying game state. Updates last_seen_event_id
+    // so polling starts from the right place.
     async get_events_after(after: number): Promise<EventRow[]> {
         const url = gopher_url(`games/${this.game_id}/events?after=${after}`);
         const resp = await fetch(url, { headers: get_headers() });
         if (!resp.ok) return [];
 
         const data = await resp.json();
-        return (data.events || []).map((e: GopherEvent) => e.payload as EventRow);
+        const events: GopherEvent[] = data.events || [];
+        if (events.length > 0) {
+            this.last_seen_event_id = events[events.length - 1].id;
+        }
+        return events
+            .filter((e) => (e.payload as any).json_game_event)
+            .map((e) => e.payload as EventRow);
     }
 
+    // Track the highest event ID we've seen, so polling starts
+    // after it. Set by get_deck() or get_events_after().
+    last_seen_event_id = 0;
+
     private start_polling(callback: webxdc.UpdateListener): void {
-        // Start after the deck event (id=1) so we don't replay it.
-        let last_event_id = 1;
+        let last_event_id = this.last_seen_event_id;
         const game_id = this.game_id;
         const user_id = this.user_id;
 
@@ -106,6 +121,11 @@ export class GopherGameHelper {
 
                 for (const event of events) {
                     last_event_id = event.id;
+
+                    // Skip non-game events (e.g. the deck event).
+                    const payload = event.payload as any;
+                    if (!payload.json_game_event) continue;
+
                     // Only process events from other players.
                     if (event.user_id !== user_id) {
                         callback({ payload: event.payload });

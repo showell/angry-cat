@@ -74,24 +74,28 @@ async function run_tests(): Promise<void> {
         console.log("  Test 1: post_event sends to correct URL ✓");
     }
 
-    // --- Test 2: get_events fetches and parses ---
+    // --- Test 2: get_events_after fetches, filters, and tracks last ID ---
     {
         fetch_calls.length = 0;
         fetch_response = {
             result: "success",
             events: [
-                { id: 1, user_id: 1, payload: { type: "A" }, created_at: 100 },
-                { id: 2, user_id: 2, payload: { type: "B" }, created_at: 200 },
+                { id: 1, user_id: 1, payload: { deck: [1, 2, 3] }, created_at: 100 },
+                { id: 2, user_id: 1, payload: { json_game_event: { type: "A" }, addr: "1" }, created_at: 200 },
+                { id: 3, user_id: 2, payload: { json_game_event: { type: "B" }, addr: "2" }, created_at: 300 },
             ],
         };
 
         const helper = new GopherGameHelper({ game_id: 7, user_id: 1 });
-        const events = await helper.get_events();
+        const events = await helper.get_events_after(0);
 
+        // Should filter out the deck event (no json_game_event).
         assert.equal(events.length, 2);
         assert(fetch_calls[0].url.includes("/gopher/games/7/events"));
+        // Should track the last event ID.
+        assert.equal(helper.last_seen_event_id, 3);
 
-        console.log("  Test 2: get_events fetches and parses ✓");
+        console.log("  Test 2: get_events_after fetches, filters, and tracks last ID ✓");
     }
 
     // --- Test 3: selfAddr is the user ID ---
