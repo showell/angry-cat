@@ -494,9 +494,29 @@ export function propagate(g: Graph): void {
             const neighbor = edge.a === node ? edge.b : edge.a;
             const combined = node.cards.length + neighbor.cards.length;
 
+            // If BOTH sides are already valid groups (3+ cards),
+            // don't force the merge — it's optional.
+            if (node.cards.length >= 3 && neighbor.cards.length >= 3) {
+                continue;
+            }
+
+            // If THIS node is already valid and the NEIGHBOR has
+            // other edges, don't absorb — the neighbor has options.
+            if (node.cards.length >= 3) {
+                let neighbor_degree = 0;
+                for (const ne of neighbor.edges) {
+                    if (ne.alive) neighbor_degree++;
+                }
+                if (neighbor_degree > 1) continue;
+                // Neighbor is also degree 1 — it has no other option.
+                // Absorb it (e.g., 4th card joining a 3-set).
+            }
+
             if (combined >= 3) {
-                // Forced: one option, result is already valid.
-                merge_along(g, edge);
+                // Forced: merge completes or extends a group.
+                if (!merge_would_orphan_neighbor(g, edge)) {
+                    merge_along(g, edge);
+                }
                 continue;
             }
 
