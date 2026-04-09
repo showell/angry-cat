@@ -117,12 +117,16 @@ export function chain_length(
     kind: EdgeKindTag,
     lookup: Map<string, Card[]>,
 ): number {
-    // Sets: just count distinct suits for this value.
+    // Sets: count ALL cards of this value (both decks, all suits).
+    // A set can hold at most 4, but the pool of candidates is up
+    // to 8 in a double deck. The path length represents the pool
+    // size — how many cards compete for slots in this group.
     if (kind === "set") {
         let count = 0;
         for (const suit of ALL_SUITS) {
             const key = `${a.value}:${suit}`;
-            if (lookup.has(key)) count++;
+            const matches = lookup.get(key);
+            if (matches) count += matches.length;
         }
         return count;
     }
