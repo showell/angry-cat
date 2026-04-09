@@ -108,36 +108,54 @@ export class GopherGameHelper {
         const game_id = this.game_id;
         const user_id = this.user_id;
 
-        async function poll(): Promise<void> {
-            try {
-                const url = gopher_url(
-                    `games/${game_id}/events?after=${last_event_id}`,
-                );
-                const resp = await fetch(url, { headers: get_headers() });
-                if (!resp.ok) return;
-
-                const data = await resp.json();
-                const events: GopherEvent[] = data.events || [];
-
-                for (const event of events) {
-                    last_event_id = event.id;
-
-                    // Skip non-game events (e.g. the deck event).
-                    const payload = event.payload as any;
-                    if (!payload.json_game_event) continue;
-
-                    // Only process events from other players.
-                    if (event.user_id !== user_id) {
-                        callback({ payload: event.payload });
+        async function long_poll(): Promise<void> {
+            console.log("[gopher] long_poll started, game_id=" + game_id + " user_id=" + user_id + " after=" + last_event_id);
+            while (true) {
+                try {
+                    const url = gopher_url(
+                        `games/${game_id}/events?after=${last_event_id}&timeout=30`,
+                    );
+                    const hdrs = get_headers();
+                    console.log("[gopher] polling:", url.toString(), "auth:", hdrs.Authorization?.slice(0, 20) + "...");
+                    const resp = await fetch(url, { headers: hdrs });
+                    const data = await resp.json();
+                    console.log("[gopher] poll response status:", resp.status, "data:", JSON.stringify(data).slice(0, 200));
+                    if (!resp.ok || data.result === "error") {
+                        console.error("[gopher] poll failed:", data.msg);
+                        await new Promise((r) => setTimeout(r, 5000));
+                        continue;
                     }
+                    const events: GopherEvent[] = data.events || [];
+                    console.log("[gopher] got " + events.length + " events");
+
+                    for (const event of events) {
+                        last_event_id = event.id;
+                        console.log("[gopher] event id=" + event.id + " user=" + event.user_id, event.payload);
+
+                        // Skip non-game events (e.g. the deck event).
+                        const payload = event.payload as any;
+                        if (!payload.json_game_event) {
+                            console.log("[gopher] skipping non-game event");
+                            continue;
+                        }
+
+                        // Only process events from other users.
+                        if (event.user_id !== user_id) {
+                            console.log("[gopher] dispatching event from user " + event.user_id);
+                            callback({ payload: event.payload });
+                        } else {
+                            console.log("[gopher] skipping own event");
+                        }
+                    }
+                } catch (err) {
+                    console.error("[gopher] poll error:", err);
+                    await new Promise((r) => setTimeout(r, 5000));
                 }
-            } catch (err) {
-                console.error("Game event poll error:", err);
             }
         }
 
-        // Poll every 2 seconds.
-        setInterval(poll, 2000);
+        console.log("[gopher] starting long_poll");
+        long_poll();
     }
 }
 
