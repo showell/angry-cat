@@ -14,6 +14,7 @@ import {
     card_label,
     find_best_arrangement,
     fmt_arrangement,
+    arrangement_quality,
 } from "./arrangements";
 import {
     solve,
@@ -28,9 +29,10 @@ function c(label: string, deck: OriginDeck = D1): Card {
     return Card.from(label, deck);
 }
 
-// Convert solver result to a comparable score.
-function solver_score(result: SolveResult): number {
-    return result.total_score;
+// Quality metric matching the solver and oracle: grouped cards * 10000 + score.
+function solver_quality(result: SolveResult, total_cards: number): number {
+    const grouped = total_cards - result.ungrouped.length;
+    return grouped * 10000 + result.total_score;
 }
 
 type TestCase = {
@@ -251,16 +253,16 @@ for (const tc of cases) {
     const result = solve(tc.cards);
     const ms = performance.now() - start;
 
-    const oracle_score = oracle.best_score;
-    const solver_sc = solver_score(result);
-    const ok = solver_sc >= oracle_score;
+    const oracle_q = arrangement_quality(oracle.best);
+    const solver_q = solver_quality(result, tc.cards.length);
+    const ok = solver_q >= oracle_q;
 
     if (ok) {
         pass++;
-        console.log(`PASS  ${tc.name} (${tc.cards.length} cards): solver=${solver_sc} oracle=${oracle_score} [${ms.toFixed(1)}ms]`);
+        console.log(`PASS  ${tc.name} (${tc.cards.length} cards): solver=${solver_q} oracle=${oracle_q} [${ms.toFixed(1)}ms]`);
     } else {
         fail++;
-        console.log(`FAIL  ${tc.name} (${tc.cards.length} cards): solver=${solver_sc} oracle=${oracle_score} [${ms.toFixed(1)}ms]`);
+        console.log(`FAIL  ${tc.name} (${tc.cards.length} cards): solver=${solver_q} oracle=${oracle_q} [${ms.toFixed(1)}ms]`);
         console.log(`  Oracle best: ${fmt_arrangement(oracle.best, tc.cards)}`);
         console.log(`  Solver got:`);
         console.log(format_solve_result(result));

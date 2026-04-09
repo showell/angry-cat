@@ -173,14 +173,11 @@ function card_label(hc: HandCard): string {
     );
 }
 
-// --- Case 5: Set dissolution impossible for old engine, but graph
-// solver can rearrange ---
+// --- Case 5: Set dissolution where only one run accepts a 7 ---
 //
-// [7H 7S 7D] but only one run accepts a 7. The old engine couldn't
-// dissolve the set (7S and 7D have nowhere to go as a set). But the
-// graph solver can rearrange: pull 7H out of the set, extend [4H 5H
-// 6H 7H 8H], and leave 7S+7D ungrouped. The rearrangement level
-// finds that 8H is playable.
+// [7H 7S 7D] but only one run accepts a 7. The heuristic engine
+// can't dissolve the set (7S and 7D have nowhere to go). This
+// would require the graph solver (currently disabled in hints).
 {
     const board = [
         board_stack(D1, "4H", "5H", "6H"),  // can extend to 7H 8H
@@ -192,8 +189,8 @@ function card_label(hc: HandCard): string {
     const hint = get_hint(hand, board);
 
     assert.equal(
-        hint.level, HintLevel.REARRANGE_PLAY,
-        `Expected REARRANGE_PLAY for 8H via graph solver`,
+        hint.level, HintLevel.NO_MOVES,
+        `Heuristic engine can't solve this without graph solver`,
     );
 }
 

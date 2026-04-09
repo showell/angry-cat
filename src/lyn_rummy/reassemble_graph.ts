@@ -757,10 +757,23 @@ export const STRATEGY_MAX_CASCADE: BranchStrategy = {
 export let MAX_NODES = 500;
 export let DISABLE_PRUNING = false;
 
+// Quality metric: more grouped cards first, then higher score.
+// Encoded as a single number: grouped_cards * 10000 + score.
+// A card is "grouped" only when it's in a valid 3+ node.
+// This ensures placing one more card always beats a score increase.
+function graph_quality(g: Graph): number {
+    let grouped = 0;
+    for (const n of g.nodes) {
+        if (!n.alive) continue;
+        if (n.cards.length >= 3) grouped += n.cards.length;
+    }
+    return grouped * 10000 + graph_score(g);
+}
+
 function solve_recursive(
     g: Graph,
     strategy: BranchStrategy,
-    best_score: { value: number },
+    best_quality: { value: number },
     best_graph: { value: Graph | undefined },
     nodes_explored: { value: number },
 ): void {
@@ -769,21 +782,23 @@ function solve_recursive(
 
     propagate(g);
 
-    const score = graph_score(g);
-    if (score > best_score.value) {
-        best_score.value = score;
+    const quality = graph_quality(g);
+    if (quality > best_quality.value) {
+        best_quality.value = quality;
         best_graph.value = clone_graph(g);
     }
 
-    // Upper bound.
-    let upper = score;
+    // Upper bound: assume all unresolved cards get grouped in pure runs.
+    let upper = quality;
     for (const n of g.nodes) {
         if (!n.alive || n.cards.length >= 3) continue;
         let has_edge = false;
         for (const e of n.edges) { if (e.alive) { has_edge = true; break; } }
-        if (has_edge) upper += 100 * n.cards.length;
+        // Each unresolved card could be grouped (+10000) and score as
+        // part of a pure run (+100).
+        if (has_edge) upper += n.cards.length * 10100;
     }
-    if (!DISABLE_PRUNING && upper <= best_score.value) return;
+    if (!DISABLE_PRUNING && upper <= best_quality.value) return;
 
     // Pick pivot using strategy.
     let pivot: GNode | undefined;
@@ -810,7 +825,7 @@ function solve_recursive(
             .edges.find((e) => e.id === edge.id);
         if (!be || !be.alive) continue;
         merge_along(branched, be);
-        solve_recursive(branched, strategy, best_score, best_graph, nodes_explored);
+        solve_recursive(branched, strategy, best_quality, best_graph, nodes_explored);
     }
 
     // Try skipping this node.
@@ -818,7 +833,7 @@ function solve_recursive(
         const branched = clone_graph(g);
         const bp = branched.nodes.find((n) => n.id === pivot.id)!;
         for (const e of [...bp.edges]) { if (e.alive) kill_edge(branched, e); }
-        solve_recursive(branched, strategy, best_score, best_graph, nodes_explored);
+        solve_recursive(branched, strategy, best_quality, best_graph, nodes_explored);
     }
 }
 
@@ -831,15 +846,14 @@ export type SolveResult = {
     stats: { merges: number; pruned: number };
 };
 
-export function solve(cards: Card[], strategy: BranchStrategy = STRATEGY_MIN_DEGREE): SolveResult {
-    const g = create_graph(cards);
-    const best_score = { value: 0 };
-    const best_graph: { value: Graph | undefined } = { value: undefined };
+const ALL_STRATEGIES: BranchStrategy[] = [
+    STRATEGY_PREFER_RUNS,
+    STRATEGY_PREFER_SETS,
+    STRATEGY_MIN_DEGREE,
+    STRATEGY_MAX_CASCADE,
+];
 
-    const nodes_explored = { value: 0 };
-    solve_recursive(g, strategy, best_score, best_graph, nodes_explored);
-
-    const result_g = best_graph.value ?? g;
+function extract_result(cards: Card[], result_g: Graph, stats: { merges: number; pruned: number }): SolveResult {
     const groups: { cards: Card[]; type: CardStackType; score: number }[] = [];
     const grouped = new Set<Card>();
 
@@ -854,8 +868,41 @@ export function solve(cards: Card[], strategy: BranchStrategy = STRATEGY_MIN_DEG
     }
 
     const ungrouped = cards.filter((c) => !grouped.has(c));
+    return { groups, ungrouped, total_score: graph_score(result_g), stats };
+}
 
-    return { groups, ungrouped, total_score: best_score.value, stats: g.stats };
+export function solve(cards: Card[], strategy: BranchStrategy = STRATEGY_MIN_DEGREE): SolveResult {
+    // Try all strategies, keep the result with most grouped cards
+    // (breaking ties by score).
+    const strategies = strategy === STRATEGY_MIN_DEGREE
+        ? ALL_STRATEGIES
+        : [strategy, ...ALL_STRATEGIES.filter((s) => s !== strategy)];
+
+    let best_result: SolveResult | undefined;
+    let best_q = -1;
+
+    for (const strat of strategies) {
+        const g = create_graph(cards);
+        const best_quality = { value: 0 };
+        const best_graph: { value: Graph | undefined } = { value: undefined };
+        const nodes_explored = { value: 0 };
+
+        solve_recursive(g, strat, best_quality, best_graph, nodes_explored);
+
+        const result_g = best_graph.value ?? g;
+        const result = extract_result(cards, result_g, g.stats);
+        const q = (cards.length - result.ungrouped.length) * 10000 + result.total_score;
+
+        if (q > best_q) {
+            best_q = q;
+            best_result = result;
+        }
+
+        // Perfect solution — no point trying other strategies.
+        if (result.ungrouped.length === 0) break;
+    }
+
+    return best_result!;
 }
 
 export function format_solve_result(result: SolveResult): string {

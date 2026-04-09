@@ -132,7 +132,13 @@ export function arrangement_score(arr: Arrangement): number {
     return score;
 }
 
-// Find the arrangement with the highest score.
+// Quality metric: more grouped cards first, then higher score.
+// Same metric used by the solver.
+export function arrangement_quality(arr: Arrangement): number {
+    return grouped_count(arr) * 10000 + arrangement_score(arr);
+}
+
+// Find the arrangement with the highest quality (most grouped, then score).
 export function find_best_arrangement(cards: Card[]): {
     best: Arrangement;
     best_score: number;
@@ -141,13 +147,13 @@ export function find_best_arrangement(cards: Card[]): {
 } {
     const all = find_all_arrangements(cards);
     let best: Arrangement = [];
-    let best_score = 0;
+    let best_quality = 0;
     let total_full = 0;
 
     for (const arr of all) {
-        const score = arrangement_score(arr);
-        if (score > best_score) {
-            best_score = score;
+        const q = arrangement_quality(arr);
+        if (q > best_quality) {
+            best_quality = q;
             best = arr;
         }
         if (grouped_count(arr) === cards.length) {
@@ -155,7 +161,7 @@ export function find_best_arrangement(cards: Card[]): {
         }
     }
 
-    return { best, best_score, total_arrangements: all.length, total_full };
+    return { best, best_score: arrangement_score(best), total_arrangements: all.length, total_full };
 }
 
 // Format an arrangement for display.

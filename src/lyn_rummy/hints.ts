@@ -176,12 +176,6 @@ export function get_hint(
         }
     }
 
-    // Level 7: Rearrange the board (expert-level, graph solver).
-    const rearrange_plays = find_rearrangement_plays(hand_cards, board_stacks);
-    if (rearrange_plays.length > 0) {
-        return { level: HintLevel.REARRANGE_PLAY, plays: rearrange_plays };
-    }
-
     return { level: HintLevel.NO_MOVES };
 }
 

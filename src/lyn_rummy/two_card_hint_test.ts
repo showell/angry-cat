@@ -12,9 +12,7 @@ import {
     type BoardLocation, CardStack,
     HandCard, HandCardState,
 } from "./card_stack";
-import {
-    find_rearrangement_plays, find_playable_hand_cards,
-} from "./hints";
+import { find_playable_hand_cards } from "./hints";
 
 const D1 = OriginDeck.DECK_ONE;
 const D2 = OriginDeck.DECK_TWO;
@@ -44,10 +42,6 @@ function assert_no_single_plays(hand: HandCard[], board: CardStack[]): void {
     const direct = find_playable_hand_cards(hand, board);
     assert.equal(direct.length, 0,
         `Expected no direct plays, found: ${direct.map(card_label)}`);
-
-    const rearrange = find_rearrangement_plays(hand, board);
-    assert.equal(rearrange.length, 0,
-        `Expected no rearrangement plays, found: ${rearrange.map(card_label)}`);
 }
 
 // --- Case 1: Peel from 4-card set, form a run ---
