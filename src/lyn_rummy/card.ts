@@ -44,6 +44,9 @@ export function is_pair_of_dups(card1: Card, card2: Card): boolean {
     return card1.value === card2.value && card1.suit === card2.suit;
 }
 
+// Canonical (parser-friendly) string for a card value. Tens are
+// always "T" so labels are fixed-width and round-trip with Card.from.
+// For player-facing UI, use value_display_str instead.
 export function value_str(val: CardValue): string {
     switch (val) {
         case CardValue.ACE:
@@ -65,7 +68,7 @@ export function value_str(val: CardValue): string {
         case CardValue.NINE:
             return "9";
         case CardValue.TEN:
-            return "10";
+            return "T";
         case CardValue.JACK:
             return "J";
         case CardValue.QUEEN:
@@ -73,6 +76,14 @@ export function value_str(val: CardValue): string {
         case CardValue.KING:
             return "K";
     }
+}
+
+// Player-facing display: tens render as "10". Use this only for
+// UI rendering — code paths that need to round-trip should use
+// value_str (which returns "T").
+export function value_display_str(val: CardValue): string {
+    if (val === CardValue.TEN) return "10";
+    return value_str(val);
 }
 
 function value_for(label: string): CardValue {

@@ -8,7 +8,7 @@ import {
     OriginDeck,
     Suit,
     suit_emoji_str,
-    value_str,
+    value_display_str,
 } from "./card";
 
 export type { JsonCard } from "./card";
@@ -815,7 +815,7 @@ function render_card_char(c: string): HTMLElement {
 
 function render_playing_card(card: Card): HTMLElement {
     const div = document.createElement("div");
-    const v_node = render_card_char(value_str(card.value));
+    const v_node = render_card_char(value_display_str(card.value));
     const s_node = render_card_char(suit_emoji_str(card.suit));
     div.append(v_node);
     div.append(s_node);
@@ -1879,7 +1879,7 @@ class EventManagerSingleton {
             case HintLevel.REARRANGE_PLAY: {
                 const play = hint.plays[0];
                 const dest_labels = play.destination_cards
-                    .map((c) => value_str(c.value) + suit_emoji_str(c.suit))
+                    .map((c) => value_display_str(c.value) + suit_emoji_str(c.suit))
                     .join(" ");
                 StatusBar.inform(
                     `Rearrange the board! Your card can join [${dest_labels}] (${play.destination_type}).`,
