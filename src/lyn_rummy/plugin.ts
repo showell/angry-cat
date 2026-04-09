@@ -1,6 +1,8 @@
 import type { Message } from "../backend/db_types";
 import type { ZulipEvent } from "../backend/event";
 import * as model from "../backend/model";
+import { is_gopher_realm } from "../backend/config";
+import { DB } from "../backend/database";
 import { NetworkHelper } from "../backend/network";
 import { Button } from "../button";
 import { MessageRow } from "../backend/message_row";
@@ -8,6 +10,12 @@ import type { Plugin, PluginContext } from "../plugin_helper";
 import type { JsonCard } from "./game";
 import * as lyn_rummy from "./game";
 import { GameHelper } from "./game_helper";
+import {
+    GopherGameHelper,
+    create_gopher_game,
+    list_gopher_games,
+    join_gopher_game,
+} from "./gopher_game_helper";
 
 export function plugin(context: PluginContext): Plugin {
     const div = document.createElement("div");
@@ -15,12 +23,139 @@ export function plugin(context: PluginContext): Plugin {
     div.style.maxHeight = `${max_height}px`;
     div.style.marginTop = "10px";
 
+    context.update_label(lyn_rummy.get_title());
+
+    if (is_gopher_realm()) {
+        return gopher_plugin(div);
+    }
+
+    return zulip_plugin(div, context);
+}
+
+// --- Gopher path: game bus via /gopher/games endpoints ---
+
+function gopher_plugin(div: HTMLDivElement): Plugin {
     const landing_div = document.createElement("div");
     landing_div.style.paddingTop = "30px";
     landing_div.style.display = "flex";
     landing_div.style.justifyContent = "center";
+    landing_div.style.gap = "20px";
 
-    context.update_label(lyn_rummy.get_title());
+    const launch_button = new Button("Launch new game", 150, async () => {
+        div.innerHTML = "";
+        div.innerText = "Creating game...";
+        const game_id = await create_gopher_game();
+        // Store the shuffled deck as the first event so the other
+        // player gets the same deal.
+        const deck_cards = lyn_rummy.build_full_double_deck();
+        const json_cards = deck_cards.map((c) => c.toJSON());
+        const helper = new GopherGameHelper({ game_id, user_id: DB.current_user_id });
+        await helper.post_deck(json_cards);
+        div.innerHTML = "";
+        gopher_start_game_with_deck(game_id, json_cards, div);
+    });
+
+    landing_div.append(launch_button.div);
+
+    // Check for existing games we can join or resume.
+    gopher_find_games(landing_div, div);
+
+    div.append(landing_div);
+
+    return { div };
+}
+
+async function gopher_find_games(
+    landing_div: HTMLDivElement,
+    div: HTMLDivElement,
+): Promise<void> {
+    const user_id = DB.current_user_id;
+    const games = await list_gopher_games();
+
+    for (const game of games) {
+        const is_my_game = game.player1_id === user_id || game.player2_id === user_id;
+        const is_open = game.player2_id === null;
+
+        if (is_my_game) {
+            const label = `Resume game ${game.id} (${game.event_count} events)`;
+            const button = new Button(label, 200, async () => {
+                div.innerHTML = "";
+                div.innerText = "Loading game...";
+                await gopher_resume_game(game.id, div);
+            });
+            landing_div.append(button.div);
+        } else if (is_open) {
+            const label = `Join game ${game.id}`;
+            const button = new Button(label, 150, async () => {
+                const ok = await join_gopher_game(game.id);
+                if (!ok) return;
+                div.innerHTML = "";
+                div.innerText = "Loading game...";
+                await gopher_resume_game(game.id, div);
+            });
+            landing_div.append(button.div);
+        }
+    }
+}
+
+// Start a new game with a known deck (creator already stored it).
+function gopher_start_game_with_deck(
+    game_id: number,
+    json_cards: JsonCard[],
+    div: HTMLDivElement,
+): void {
+    const user_id = DB.current_user_id;
+    const helper = new GopherGameHelper({ game_id, user_id });
+    const webxdc = helper.xdc_interface();
+    const deck_cards = json_cards.map(lyn_rummy.Card.from_json);
+
+    lyn_rummy.start_game(
+        deck_cards,
+        div,
+        webxdc,
+        [],
+        model.current_user_name(),
+        "Player Two",
+    );
+}
+
+// Resume or join a game — fetch the deck from the server.
+async function gopher_resume_game(
+    game_id: number,
+    div: HTMLDivElement,
+): Promise<void> {
+    const user_id = DB.current_user_id;
+    const helper = new GopherGameHelper({ game_id, user_id });
+
+    const json_cards = await helper.get_deck();
+    if (!json_cards) {
+        div.innerText = "Could not load game deck.";
+        return;
+    }
+
+    const webxdc = helper.xdc_interface();
+    const deck_cards = (json_cards as JsonCard[]).map(lyn_rummy.Card.from_json);
+
+    // Fetch all events after the deck event (id=1) for replay.
+    const event_rows = await helper.get_events_after(1);
+
+    lyn_rummy.start_game(
+        deck_cards,
+        div,
+        webxdc,
+        event_rows,
+        model.current_user_name(),
+        "Player Two",
+    );
+}
+
+// --- Zulip path: original channel-based game bus ---
+
+function zulip_plugin(div: HTMLDivElement, context: PluginContext): Plugin {
+    const landing_div = document.createElement("div");
+    landing_div.style.paddingTop = "30px";
+    landing_div.style.display = "flex";
+    landing_div.style.justifyContent = "center";
 
     const channel_id = model.channel_id_for("Lyn Rummy");
     if (channel_id === undefined) {
@@ -76,7 +211,7 @@ class GameLauncher {
             div.innerHTML = "";
             self.game_id = message.id;
             const is_spectator = false;
-            start_new_game(
+            start_zulip_game(
                 network_helper,
                 self.game_id,
                 json_cards,
@@ -88,7 +223,7 @@ class GameLauncher {
     }
 }
 
-function start_new_game(
+function start_zulip_game(
     network_helper: NetworkHelper,
     game_id: number,
     json_cards: JsonCard[],
@@ -149,7 +284,7 @@ class GameFinder {
                 () => {
                     div.innerHTML = "";
                     const is_spectator = true;
-                    start_new_game(
+                    start_zulip_game(
                         network_helper,
                         game_id,
                         json_cards,
