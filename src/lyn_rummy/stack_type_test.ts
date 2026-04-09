@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { Card, OriginDeck } from "./card";
-import { CardStackType, get_stack_type } from "./stack_type";
+import { Card, CardValue, OriginDeck } from "./card";
+import { CardStackType, get_stack_type, value_distance } from "./stack_type";
 
 const D1 = OriginDeck.DECK_ONE;
 const D2 = OriginDeck.DECK_TWO;
@@ -82,6 +82,45 @@ function cards(...labels: string[]): Card[] {
 
     // same value but mixing set and run
     assert.equal(get_stack_type(cards("AH", "2H", "2D")), CardStackType.BOGUS);
+}
+
+// value_distance: circular distance over the 13-card cycle.
+{
+    // self distance is always 0
+    for (let v = 1 as CardValue; v <= 13; v++) {
+        assert.equal(value_distance(v as CardValue, v as CardValue), 0);
+    }
+
+    // ace's neighborhood (the wrap-around case)
+    assert.equal(value_distance(CardValue.ACE, CardValue.KING), 1);
+    assert.equal(value_distance(CardValue.ACE, CardValue.TWO), 1);
+    assert.equal(value_distance(CardValue.ACE, CardValue.QUEEN), 2);
+    assert.equal(value_distance(CardValue.ACE, CardValue.THREE), 2);
+    assert.equal(value_distance(CardValue.ACE, CardValue.FOUR), 3);
+    assert.equal(value_distance(CardValue.ACE, CardValue.JACK), 3);
+
+    // king's neighborhood (the other side of the wrap)
+    assert.equal(value_distance(CardValue.KING, CardValue.ACE), 1);
+    assert.equal(value_distance(CardValue.KING, CardValue.QUEEN), 1);
+    assert.equal(value_distance(CardValue.KING, CardValue.TWO), 2);
+
+    // diametrically opposite pairs (the maximum distance is 6)
+    assert.equal(value_distance(CardValue.TWO, CardValue.EIGHT), 6);
+    assert.equal(value_distance(CardValue.TWO, CardValue.NINE), 6);
+    assert.equal(value_distance(CardValue.THREE, CardValue.NINE), 6);
+    assert.equal(value_distance(CardValue.SEVEN, CardValue.ACE), 6);
+    assert.equal(value_distance(CardValue.SEVEN, CardValue.KING), 6);
+
+    // sanity: distance never exceeds 6 anywhere on the cycle
+    for (let a = 1 as CardValue; a <= 13; a++) {
+        for (let b = 1 as CardValue; b <= 13; b++) {
+            const d = value_distance(a as CardValue, b as CardValue);
+            assert.ok(d >= 0 && d <= 6,
+                `value_distance(${a}, ${b}) = ${d} out of range`);
+            // symmetry
+            assert.equal(d, value_distance(b as CardValue, a as CardValue));
+        }
+    }
 }
 
 console.log("All stack_type tests passed.");

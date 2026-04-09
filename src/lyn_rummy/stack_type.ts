@@ -41,6 +41,16 @@ export function predecessor(val: CardValue): CardValue {
     }
 }
 
+// Circular distance between two card values. The deck is treated
+// as a 13-cycle (A through K, with K wrapping back to A), so the
+// distance is the minimum number of value-steps in either
+// direction. A↔A is 0, A↔K and A↔2 are 1, A↔Q and A↔3 are 2,
+// etc. The maximum possible distance is 6 (e.g. 2↔9 or 3↔T).
+export function value_distance(a: CardValue, b: CardValue): number {
+    const diff = Math.abs(a - b);
+    return Math.min(diff, 13 - diff);
+}
+
 export function successor(val: CardValue): CardValue {
     // This is hopefully straightforward code.  Note
     // K, A, 2 is a valid run in LynRummy, because

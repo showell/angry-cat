@@ -7,3 +7,5 @@ import "./hints_test";
 import "./hints_hard_test";
 import "./rearrange_hint_test";
 import "./simulation_test";
+import "./viability_test";
+import "./puzzle_layout_test";
