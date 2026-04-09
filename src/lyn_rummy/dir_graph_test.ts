@@ -131,7 +131,10 @@ function build_dir_graph(cards: Card[]): DirGraph {
 // --- Compute initial chain lengths ---
 
 function compute_fwd_reach(e: DirEdge, g: DirGraph): number {
-    if (e.kind === "set") return g.set_pool.get(e.a.value)! - 2;
+    // For sets, store the extra pool beyond the 2 cards in this edge.
+    // But we split it: fwd gets the full extra, bwd gets 0.
+    // chain_len = fwd + bwd + 2 = extra + 0 + 2 = pool.
+    if (e.kind === "set") return Math.max(0, g.set_pool.get(e.a.value)! - 2);
 
     // Walk forward from b along same-kind outgoing edges.
     const visited = new Set<string>();
@@ -156,7 +159,8 @@ function compute_fwd_reach(e: DirEdge, g: DirGraph): number {
 }
 
 function compute_bwd_reach(e: DirEdge, g: DirGraph): number {
-    if (e.kind === "set") return g.set_pool.get(e.a.value)! - 2;
+    // For sets, bwd gets 0. All extra is in fwd.
+    if (e.kind === "set") return 0;
 
     // Walk backward from a along same-kind incoming edges.
     const visited = new Set<string>();
@@ -190,13 +194,42 @@ function compute_all_reaches(g: DirGraph): void {
 
 // --- Kill an edge and update affected chain lengths ---
 
+// When a card is consumed by a run (committed to a non-set group),
+// remove it from the set pool and update all set edges for that value.
+function remove_from_set_pool(g: DirGraph, card: Card): void {
+    const val = card.value;
+    const count = g.set_pool.get(val);
+    if (count === undefined) return;
+    g.set_pool.set(val, count - 1);
+
+    // Update fwd_reach on all alive set edges for this value.
+    // chain_len = fwd_reach + 0 + 2 = pool.
+    const new_pool = count - 1;
+    for (const e of g.edges) {
+        if (!e.alive || e.kind !== "set") continue;
+        if (e.a.value !== val) continue;
+        e.fwd_reach = Math.max(0, new_pool - 2);
+        e.bwd_reach = 0;
+    }
+
+    // Also kill any set edge that directly involves this card.
+    for (const e of g.edges) {
+        if (!e.alive || e.kind !== "set") continue;
+        const a_key = card_key(e.a);
+        const b_key = card_key(e.b);
+        const c_key = card_key(card);
+        if (a_key === c_key || b_key === c_key) {
+            kill_edge(g, e);
+        }
+    }
+}
+
 function kill_edge(g: DirGraph, edge: DirEdge): void {
     if (!edge.alive) return;
     edge.alive = false;
 
     if (edge.kind === "set") {
-        // Sets don't need chain updates — the pool counter only
-        // changes when a card is committed to a non-set group.
+        // No chain walk needed — set reaches are driven by pool counter.
         return;
     }
 
@@ -335,6 +368,67 @@ function parse_card(label: string): Card {
 
     console.log(`  Total killed: ${total_killed}`);
     console.log(`  Surviving edges: ${g.edges.filter(e => e.alive).length}`);
+}
+
+// --- Test: set pool decrement ---
+//
+// 7H, 7S, 7D + 6H, 8H. The 7s form a 3-set (pool=3).
+// 7H is also in a pure run [6H 7H 8H]. If 7H gets consumed
+// by the run, the set pool drops to 2 and 7S→7D set edges die.
+{
+    const cards = [
+        Card.from("7H", D1), Card.from("7S", D1), Card.from("7D", D1),
+        Card.from("6H", D1), Card.from("8H", D1),
+    ];
+    const g = build_dir_graph(cards);
+    compute_all_reaches(g);
+
+    // Before: set pool for 7 = 3. Set edges have chain_len = 3.
+    const set_edges_before = g.edges.filter((e) => e.alive && e.kind === "set");
+    assert(set_edges_before.length > 0, "should have set edges");
+    for (const e of set_edges_before) {
+        assert.equal(chain_len(e), 3, `${cs(e.a)}→${cs(e.b)} set should be 3`);
+    }
+    console.log("\nSet pool test:");
+    console.log("  Before: pool=3, set edges alive=" + set_edges_before.length);
+
+    // Simulate: 7H is consumed by a run. Remove it from set pool.
+    const card_7h = cards.find((c) => c.value === 7 && c.suit === Suit.HEART)!;
+    remove_from_set_pool(g, card_7h);
+
+    // Kill any edges that dropped to chain_len ≤ 2.
+    for (const e of g.edges) {
+        if (e.alive && chain_len(e) <= 2) kill_edge(g, e);
+    }
+
+    // After: pool = 2. All set edges for value 7 should be dead.
+    const set_edges_after = g.edges.filter((e) => e.alive && e.kind === "set" && e.a.value === 7);
+    assert.equal(set_edges_after.length, 0, "all set edges should be dead");
+    assert.equal(g.set_pool.get(7 as CardValue), 2, "pool should be 2");
+    console.log("  After removing 7H: pool=2, set edges alive=0 ✓");
+}
+
+// --- Test: set pool with 4 cards stays alive ---
+{
+    const cards = [
+        Card.from("7H", D1), Card.from("7S", D1),
+        Card.from("7D", D1), Card.from("7C", D1),
+        Card.from("6H", D1), Card.from("8H", D1),
+    ];
+    const g = build_dir_graph(cards);
+    compute_all_reaches(g);
+
+    // Pool = 4. Remove 7H.
+    const card_7h = cards.find((c) => c.value === 7 && c.suit === Suit.HEART)!;
+    remove_from_set_pool(g, card_7h);
+
+    // Pool = 3. Set edges NOT involving 7H should survive with chain_len = 3.
+    const surviving = g.edges.filter((e) => e.alive && e.kind === "set" && e.a.value === 7);
+    assert(surviving.length > 0, "some set edges should survive");
+    for (const e of surviving) {
+        assert.equal(chain_len(e), 3, `${cs(e.a)}→${cs(e.b)} should be 3`);
+    }
+    console.log("\n  4-card pool → remove one → pool=3, surviving set edges have len=3 ✓");
 }
 
 console.log("\nAll dir graph tests passed.");
