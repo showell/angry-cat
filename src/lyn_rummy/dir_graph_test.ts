@@ -825,52 +825,63 @@ function solve_with_branching(
         return triples;
     }
 
-    const triples = find_triples();
-    if (triples.length === 0) {
+    // Find the most constrained card (lowest degree >= 2).
+    let pivot: Card | undefined;
+    let min_deg = Infinity;
+    for (const c of g.cards) {
+        const d = card_degree(g, c);
+        if (d >= 2 && d < min_deg) { min_deg = d; pivot = c; }
+    }
+
+    if (!pivot) {
         for (const c of g.cards) {
             if (card_degree(g, c) === 0) orphans.push(c);
         }
         return { committed_edges: committed, orphans, remaining_edges: remaining };
     }
 
-    // Score triples: prefer the one on the most constrained cards.
-    // Lower total degree of the 3 cards = more constrained = try first.
-    triples.sort((a, b) => {
-        const deg_a = a.cards.reduce((s, c) => s + card_degree(g, c), 0);
-        const deg_b = b.cards.reduce((s, c) => s + card_degree(g, c), 0);
-        return deg_a - deg_b;
-    });
+    // Find ALL triples containing the pivot.
+    const all_triples = find_triples();
+    const pivot_key = card_key(pivot);
+    const pivot_triples = all_triples.filter((t) =>
+        t.cards.some((c) => card_key(c) === pivot_key));
 
-    const best_triple = triples[0];
+    if (pivot_triples.length === 0) {
+        for (const c of g.cards) {
+            if (card_degree(g, c) === 0) orphans.push(c);
+        }
+        return { committed_edges: committed, orphans, remaining_edges: remaining };
+    }
 
-    // Try committing this triple: kill all edges on all 3 cards.
-    function commit_triple(g: DirGraph, t: Triple): void {
+    function commit_triple_on(g: DirGraph, t: Triple): void {
         for (const c of t.cards) {
             const key = card_key(c);
             for (const e of g.outgoing.get(key) ?? []) { if (e.alive) kill_edge(g, e); }
             for (const e of g.incoming.get(key) ?? []) { if (e.alive) kill_edge(g, e); }
-            // Remove from set pool if committed to a run.
             if (t.edges[0].kind !== "set") {
                 remove_from_set_pool(g, c);
             }
         }
     }
 
-    const g_commit = clone_dir_graph(g);
-    // Find the cloned triple edges.
-    commit_triple(g_commit, {
-        edges: [g_commit.edges[best_triple.edges[0].id], g_commit.edges[best_triple.edges[1].id]],
-        cards: best_triple.cards,
-    });
-    const commit_result = solve_with_branching(g_commit, max_depth - 1);
+    // Try EVERY triple for the pivot. Pick fewest orphans.
+    let best_result: SolveResult | undefined;
 
-    // Try skipping: kill the first edge of the triple.
-    const g_skip = clone_dir_graph(g);
-    kill_edge(g_skip, g_skip.edges[best_triple.edges[0].id]);
-    const skip_result = solve_with_branching(g_skip, max_depth - 1);
+    for (const triple of pivot_triples) {
+        const gc = clone_dir_graph(g);
+        commit_triple_on(gc, {
+            edges: [gc.edges[triple.edges[0].id], gc.edges[triple.edges[1].id]],
+            cards: triple.cards,
+        });
+        const result = solve_with_branching(gc, max_depth - 1);
 
-    return commit_result.orphans.length <= skip_result.orphans.length
-        ? commit_result : skip_result;
+        if (!best_result || result.orphans.length < best_result.orphans.length) {
+            best_result = result;
+            if (result.orphans.length === 0) break; // perfect
+        }
+    }
+
+    return best_result!;
 }
 
 // Test branching on the 18-card reduced board.
