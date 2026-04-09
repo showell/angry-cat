@@ -2,7 +2,7 @@ import type { Update, UpdateListener, WebXdc } from "../backend/webxdc";
 import {
     all_suits,
     build_full_double_deck,
-    type Card,
+    Card,
     CardColor,
     type JsonCard,
     OriginDeck,
@@ -63,6 +63,19 @@ export type JsonGameEvent = {
 export type EventRow = {
     json_game_event: JsonGameEvent;
     addr: string;
+};
+
+// PuzzleSetup is the snapshot the curl authoring tool POSTs as a
+// game's first event for puzzle games. It carries pre-built board
+// stacks (with their on-screen positions already chosen by the
+// layout helper) plus the cards that should land in player 1's
+// hand at start. start_game() applies it instead of running the
+// usual initial_board() and deal_cards() steps. The transport
+// payload looks like { puzzle_setup: PuzzleSetup }, recognized
+// by the lobby alongside the existing { deck: ... } shape.
+export type PuzzleSetup = {
+    board_stacks: JsonCardStack[];
+    player1_hand: JsonCard[];
 };
 
 function get_sorted_cards_for_suit(
@@ -406,10 +419,20 @@ class PlayerGroupSingleton {
     players: Player[];
     current_player_index: number;
 
-    constructor(player_names: string[]) {
+    // Regular games pass `deal: true` (the default) so the
+    // constructor immediately deals 15 cards to each player from
+    // TheDeck. Puzzles pass `deal: false` because the player
+    // hands are populated explicitly from the puzzle setup
+    // payload, and the deck is empty.
+    constructor(
+        player_names: string[],
+        options: { deal: boolean } = { deal: true },
+    ) {
         this.players = player_names.map((name) => new Player(name));
 
-        this.deal_cards();
+        if (options.deal) {
+            this.deal_cards();
+        }
         this.current_player_index = 0;
         ActivePlayer = this.players[0];
     }
@@ -2779,6 +2802,7 @@ export function start_game(
     event_rows: EventRow[],
     player1_name: string,
     player2_name: string,
+    puzzle_setup?: PuzzleSetup,
 ) {
     TheDeck = new Deck(deck_cards);
     DragDropHelper = new DragDropHelperSingleton();
@@ -2787,9 +2811,37 @@ export function start_game(
     StatusBar = new StatusBarSingleton();
     EventManager = new EventManagerSingleton();
     TheGame = new Game();
-    CurrentBoard = initial_board();
+
+    // Puzzle games override the usual initial_board() / deal step
+    // with a snapshot from the puzzle setup payload. The board
+    // gets the puzzle's pre-built stacks (with on-screen positions
+    // already chosen), player 1 gets the stubborn hand cards,
+    // player 2 starts empty, and the deck is left as whatever the
+    // caller passed in (typically empty for v1).
+    if (puzzle_setup) {
+        CurrentBoard = new Board(
+            puzzle_setup.board_stacks.map((js) => CardStack.from_json(js)),
+        );
+    } else {
+        CurrentBoard = initial_board();
+    }
+
     GameEventTracker = new GameEventTrackerSingleton(webxdc);
-    PlayerGroup = new PlayerGroupSingleton([player1_name, player2_name]);
+    PlayerGroup = new PlayerGroupSingleton(
+        [player1_name, player2_name],
+        { deal: !puzzle_setup },
+    );
+
+    if (puzzle_setup) {
+        const stubborn_cards = puzzle_setup.player1_hand.map((jc) =>
+            Card.from_json(jc),
+        );
+        PlayerGroup.players[0].hand.add_cards(
+            stubborn_cards,
+            HandCardState.NORMAL,
+        );
+    }
+
     ActivePlayer.start_turn();
     new MainGamePage(container);
 

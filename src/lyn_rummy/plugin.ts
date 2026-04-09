@@ -88,8 +88,7 @@ async function populate_lobby(
 
         if (is_puzzle) {
             // Puzzles share the lobby with regular games but use
-            // a distinct label. Click behavior is the same as a
-            // resume/join — we just relabel the button.
+            // a distinct label and a puzzle-aware loader.
             const label = `Play puzzle: ${game.puzzle_name}`;
             const button = new Button(label, 200, async () => {
                 if (is_open && !is_my_game) {
@@ -98,7 +97,7 @@ async function populate_lobby(
                 }
                 div.innerHTML = "";
                 div.innerText = "Loading puzzle...";
-                await gopher_resume_game(game.id, div);
+                await gopher_resume_puzzle_game(game.id, div);
             });
             lobby_div.append(button.div);
             continue;
@@ -174,6 +173,37 @@ async function gopher_resume_game(
         event_rows,
         model.current_user_name(),
         "Player Two",
+    );
+}
+
+// Resume or join a puzzle game. Mirrors gopher_resume_game but
+// pulls a puzzle_setup snapshot from the first event instead of
+// a deck. start_game gets an empty deck and the snapshot, which
+// it uses to override initial_board() / deal_cards().
+async function gopher_resume_puzzle_game(
+    game_id: number,
+    div: HTMLDivElement,
+): Promise<void> {
+    const user_id = DB.current_user_id;
+    const helper = new GopherGameHelper({ game_id, user_id });
+
+    const puzzle_setup = await helper.get_puzzle_setup();
+    if (!puzzle_setup) {
+        div.innerText = "Could not load puzzle setup.";
+        return;
+    }
+
+    const webxdc = helper.xdc_interface();
+    const event_rows = await helper.get_events_after(helper.last_seen_event_id);
+
+    lyn_rummy.start_game(
+        [],
+        div,
+        webxdc,
+        event_rows,
+        model.current_user_name(),
+        "Player Two",
+        puzzle_setup,
     );
 }
 

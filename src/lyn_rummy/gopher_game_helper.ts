@@ -9,7 +9,7 @@
 
 import { gopher_url, get_headers } from "../backend/api_helpers";
 import type * as webxdc from "../backend/webxdc";
-import type { EventRow } from "./game";
+import type { EventRow, PuzzleSetup } from "./game";
 
 export class GopherGameHelper {
     game_id: number;
@@ -63,6 +63,23 @@ export class GopherGameHelper {
         this.last_seen_event_id = events[0].id;
         const first = events[0].payload as any;
         return first.deck;
+    }
+
+    // Puzzle games carry their setup snapshot as the very first
+    // event with payload { puzzle_setup: ... }, the same slot
+    // regular games use for { deck: ... }. Returns the parsed
+    // setup so the caller can hand it to start_game(), and
+    // updates last_seen_event_id so subsequent polls skip past it.
+    async get_puzzle_setup(): Promise<PuzzleSetup | undefined> {
+        const url = gopher_url(`games/${this.game_id}/events?after=0`);
+        const resp = await fetch(url, { headers: get_headers() });
+        if (!resp.ok) return undefined;
+        const data = await resp.json();
+        const events: GopherEvent[] = data.events || [];
+        if (events.length === 0) return undefined;
+        this.last_seen_event_id = events[0].id;
+        const first = events[0].payload as any;
+        return first.puzzle_setup;
     }
 
     private async post_event(event_row: EventRow): Promise<void> {
