@@ -543,4 +543,231 @@ function parse_card(label: string): Card {
     console.log("  All surviving edges have chain_len ≥ 3 ✓");
 }
 
+// --- Full cascade: prune → leaf commit → update → prune ---
+//
+// A "leaf" is a card with exactly one alive edge. It must commit
+// to that edge. Committing kills all other edges on both cards,
+// which triggers chain-length updates, which may kill more edges,
+// which may create more leaves.
+
+function card_degree(g: DirGraph, c: Card): number {
+    const key = card_key(c);
+    let count = 0;
+    for (const e of g.outgoing.get(key) ?? []) { if (e.alive) count++; }
+    for (const e of g.incoming.get(key) ?? []) { if (e.alive) count++; }
+    return count;
+}
+
+// Would committing this edge orphan any neighbor?
+// A neighbor is orphaned if ALL its edges go through A or B.
+function commit_would_orphan(g: DirGraph, edge: DirEdge): boolean {
+    const a_key = card_key(edge.a);
+    const b_key = card_key(edge.b);
+
+    // Collect all neighbors of A and B (excluding each other).
+    const neighbor_keys = new Set<string>();
+    for (const e of g.outgoing.get(a_key) ?? []) {
+        if (e.alive && e !== edge) neighbor_keys.add(card_key(e.b));
+    }
+    for (const e of g.incoming.get(a_key) ?? []) {
+        if (e.alive && e !== edge) neighbor_keys.add(card_key(e.a));
+    }
+    for (const e of g.outgoing.get(b_key) ?? []) {
+        if (e.alive && e !== edge) neighbor_keys.add(card_key(e.b));
+    }
+    for (const e of g.incoming.get(b_key) ?? []) {
+        if (e.alive && e !== edge) neighbor_keys.add(card_key(e.a));
+    }
+    neighbor_keys.delete(a_key);
+    neighbor_keys.delete(b_key);
+
+    // For each neighbor, count edges NOT going to A or B.
+    for (const nk of neighbor_keys) {
+        let surviving = 0;
+        for (const e of g.outgoing.get(nk) ?? []) {
+            if (!e.alive) continue;
+            const ok = card_key(e.b);
+            if (ok !== a_key && ok !== b_key) surviving++;
+        }
+        for (const e of g.incoming.get(nk) ?? []) {
+            if (!e.alive) continue;
+            const ok = card_key(e.a);
+            if (ok !== a_key && ok !== b_key) surviving++;
+        }
+        // Also check: would the committed pair reconnect to this
+        // neighbor? The pair is locked to edge.kind. If the neighbor
+        // had a same-kind edge to A or B, the pair might rebuild it.
+        if (surviving === 0) {
+            let reconnects = false;
+            for (const e of g.outgoing.get(nk) ?? []) {
+                if (!e.alive) continue;
+                const ok = card_key(e.b);
+                if ((ok === a_key || ok === b_key) && e.kind === edge.kind) {
+                    reconnects = true; break;
+                }
+            }
+            if (!reconnects) {
+                for (const e of g.incoming.get(nk) ?? []) {
+                    if (!e.alive) continue;
+                    const ok = card_key(e.a);
+                    if ((ok === a_key || ok === b_key) && e.kind === edge.kind) {
+                        reconnects = true; break;
+                    }
+                }
+            }
+            if (!reconnects) return true;
+        }
+    }
+    return false;
+}
+
+function find_safe_leaf(g: DirGraph): DirEdge | undefined {
+    for (const c of g.cards) {
+        const key = card_key(c);
+        const all_edges: DirEdge[] = [];
+        for (const e of g.outgoing.get(key) ?? []) { if (e.alive) all_edges.push(e); }
+        for (const e of g.incoming.get(key) ?? []) { if (e.alive) all_edges.push(e); }
+        if (all_edges.length === 1) {
+            const edge = all_edges[0];
+            if (!commit_would_orphan(g, edge)) return edge;
+        }
+    }
+    return undefined;
+}
+
+// Commit an edge: both cards are consumed. Kill all OTHER edges
+// on both cards. For sets, remove both cards from the set pool.
+function commit_edge(g: DirGraph, edge: DirEdge): void {
+    // Mark the committed edge as dead — the cards are now consumed.
+    edge.alive = false;
+
+    const a_key = card_key(edge.a);
+    const b_key = card_key(edge.b);
+
+    // Kill all other edges on A.
+    for (const e of g.outgoing.get(a_key) ?? []) {
+        if (e.alive && e !== edge) kill_edge(g, e);
+    }
+    for (const e of g.incoming.get(a_key) ?? []) {
+        if (e.alive && e !== edge) kill_edge(g, e);
+    }
+
+    // Kill all other edges on B.
+    for (const e of g.outgoing.get(b_key) ?? []) {
+        if (e.alive && e !== edge) kill_edge(g, e);
+    }
+    for (const e of g.incoming.get(b_key) ?? []) {
+        if (e.alive && e !== edge) kill_edge(g, e);
+    }
+
+    // If committed to a non-set edge, remove both cards from set pools.
+    if (edge.kind !== "set") {
+        remove_from_set_pool(g, edge.a);
+        remove_from_set_pool(g, edge.b);
+    }
+}
+
+function safe_to_kill(g: DirGraph, edge: DirEdge): boolean {
+    // Don't kill if it would orphan either endpoint.
+    // An endpoint is orphaned if this is its last alive edge.
+    if (card_degree(g, edge.a) <= 1) return false;
+    if (card_degree(g, edge.b) <= 1) return false;
+    return true;
+}
+
+function full_cascade(g: DirGraph): { pruned: number; committed: number } {
+    let total_pruned = 0;
+    let total_committed = 0;
+
+    let iterations = 0;
+    let progress = true;
+    while (progress) {
+        progress = false;
+        iterations++;
+        if (iterations > 10000) throw new Error("full_cascade exceeded 10000 iterations");
+
+        // Prune edges with chain ≤ 2 (only if safe — won't orphan endpoints).
+        {
+            let killed_any = false;
+            for (const e of g.edges) {
+                if (!e.alive || chain_len(e) > 2) continue;
+                if (safe_to_kill(g, e)) {
+                    kill_edge(g, e);
+                    total_pruned++;
+                    killed_any = true;
+                    break; // restart — killing may change other chain lengths
+                }
+            }
+            if (killed_any) { progress = true; continue; }
+        }
+
+        // Commit leaves (only if safe — won't orphan neighbors).
+        const leaf = find_safe_leaf(g);
+        if (leaf) {
+            commit_edge(g, leaf);
+            total_committed++;
+            progress = true;
+            continue;
+        }
+    }
+
+    return { pruned: total_pruned, committed: total_committed };
+}
+
+// --- Scale up: full cascade on all game boards ---
+
+{
+    const raw = fs.readFileSync("src/lyn_rummy/game_boards.json", "utf-8");
+    const snaps = JSON.parse(raw);
+
+    let prev_count = -1;
+    console.log("\n--- Full cascade on all boards ---\n");
+    console.log("Cards  Edges  Pruned  Committed  Surviving  Time");
+    console.log("-----  -----  ------  ---------  ---------  ----");
+
+    for (const snap of snaps) {
+        if (snap.cards_on_board === prev_count) continue;
+        prev_count = snap.cards_on_board;
+
+        const cards: Card[] = [];
+        for (const sd of snap.stacks) {
+            for (const l of sd.cards) cards.push(parse_card(l));
+        }
+
+        const start = performance.now();
+        const g = build_dir_graph(cards);
+        compute_all_reaches(g);
+        const result = full_cascade(g);
+        const ms = performance.now() - start;
+        if (ms > 2000) { console.log("SLOW at " + snap.cards_on_board + " cards (" + ms.toFixed(0) + "ms)"); }
+
+        const surviving = g.edges.filter((e) => e.alive).length;
+
+        // Check for orphans.
+        let orphans = 0;
+        for (const c of g.cards) {
+            const key = card_key(c);
+            let has = false;
+            for (const e of g.outgoing.get(key) ?? []) { if (e.alive) { has = true; break; } }
+            if (!has) { for (const e of g.incoming.get(key) ?? []) { if (e.alive) { has = true; break; } } }
+            // Also check if this card was committed (part of a committed edge).
+            // A committed card has exactly one alive edge — the committed one.
+            // An orphan has zero alive edges.
+            if (!has) orphans++;
+        }
+
+        const orphan_tag = orphans > 0 ? ` (${orphans} orphans)` : "";
+
+        console.log(
+            String(snap.cards_on_board).padStart(5) +
+            String(g.edges.length).padStart(7) +
+            String(result.pruned).padStart(8) +
+            String(result.committed).padStart(11) +
+            String(surviving).padStart(11) +
+            (ms.toFixed(0) + "ms").padStart(7) +
+            orphan_tag
+        );
+    }
+}
+
 console.log("\nAll dir graph tests passed.");
