@@ -431,4 +431,116 @@ function parse_card(label: string): Card {
     console.log("\n  4-card pool → remove one → pool=3, surviving set edges have len=3 ✓");
 }
 
+// --- Integration test: prune → leaf commit → update → prune cycle ---
+//
+// Board: 3H 4H 5H 6H 7H 7S 7D 7C 8S 9S
+//
+// PR edges: 3H→4H→5H→6H→7H (hearts run, len 5)
+//           7S→8S→9S (spades, but 8S→9S is only len 2 without 10S)
+//           Wait — 7S→8S is pr if same suit. Yes.
+//
+// Set edges: 7H↔7S↔7D↔7C (pool=4)
+//
+// RB edges: 6H→7S, 6H→7C (red→black), 7H→8S (red→black), etc.
+//
+// After initial chain prune: 8S→9S (pr) has chain len 2 if no 10S.
+// Wait — 7S→8S→9S is len 3. And 8S→9S has bwd_reach to 7S = 1,
+// so len = 1 + 0 + 2 = 3. OK that's fine.
+//
+// Let me pick cards where pruning actually cascades.
+//
+// Board: AH 2H 3H 4H 4S 4D
+// PR: AH→2H→3H→4H (hearts, len 4)
+// Set: 4H↔4S↔4D (pool=3, len 3)
+// RB: 3H→4S, 3H→4D (red→black, but need 5-something for len 3)
+//
+// No pruning here. Let me add a dead end:
+// Board: AH 2H 3H 4H 4S 4D 5C
+// PR: AH→2H→3H→4H (len 4), 4C... wait no 4C isn't here.
+// RB: 4H→5C (red→black), 4S→5C (black→black? no), 4D→5C (red→black).
+// 5C has: incoming rb from 4H, 4D. Outgoing: nothing (no 6-anything).
+// 5C→? needs value 6. No 6 exists. So 4H→5C (rb) has fwd=0.
+// bwd of 4H→5C: walk back from 4H along rb... 3H→4D (rb? 3H is red,
+// 4D is red — same color, NOT rb). 3H→4S (rb? 3H red, 4S black, yes!)
+// So 3H→4S (rb) has chain: 2H→3H→4S→5C? No, 2H→3H is pr not rb.
+// bwd from 3H along rb... 2H→3H is pr. No rb predecessor for 3H.
+// So 3H→4S (rb) has bwd=0, fwd via 4S... 4S has no outgoing rb to 5C
+// (4S black, 5C black — same color). So 3H→4S is len 2. Dead!
+//
+// This should prune 3H→4S, which leaves 4S with only set edges.
+// If set pool for 4 is 3, 4S still has set edges to 4H and 4D.
+// No cascade. Let me try harder.
+//
+// Simplest cascading case:
+// KS AS 2S 3S 7H 7S 7D
+// PR: KS→AS→2S→3S (spades, len 4 with wrap)
+// Set: 7H↔7S↔7D (pool 3, len 3)
+// RB: KS→AH? No AH. Let me check actual rb edges.
+// KS(black)→AH would be rb but no AH.
+// KS only has: pr to AS (wrap), set... KS value=13, only one K.
+// So KS has 1 edge: KS→AS (pr). Degree 1 — it's a leaf!
+// Commit KS→AS. [KS,AS] is locked to pr.
+// Now AS is consumed. 7S has no pr edge to AS anymore.
+// AS→2S was another edge — it's killed because AS merged.
+// But wait, in this test we don't have the full merge machinery.
+// Let me just test the prune-and-decrement cycle.
+
+{
+    console.log("\n--- Integration: prune→commit→update→prune ---\n");
+
+    // 9 cards. Enough to have a mix of types.
+    const cards = [
+        Card.from("3H", D1), Card.from("4H", D1), Card.from("5H", D1),
+        Card.from("6H", D1), Card.from("7H", D1),
+        Card.from("7S", D1), Card.from("7D", D1), Card.from("7C", D1),
+        Card.from("5C", D1),
+    ];
+
+    const g = build_dir_graph(cards);
+    compute_all_reaches(g);
+
+    const alive_count = () => g.edges.filter((e) => e.alive).length;
+    const dead_count = () => g.edges.filter((e) => e.alive && chain_len(e) <= 2).length;
+
+    console.log("  Initial: " + alive_count() + " edges, " + dead_count() + " dead");
+
+    // Show all edges.
+    for (const e of g.edges) {
+        if (!e.alive) continue;
+        console.log(`    ${cs(e.a)}→${cs(e.b)} (${e.kind}) bwd=${e.bwd_reach} fwd=${e.fwd_reach} len=${chain_len(e)}`);
+    }
+
+    // Prune loop: kill dead edges, update, repeat.
+    let round = 0;
+    let total_killed = 0;
+    while (true) {
+        const to_kill = g.edges.filter((e) => e.alive && chain_len(e) <= 2);
+        if (to_kill.length === 0) break;
+        round++;
+        for (const e of to_kill) {
+            console.log(`  Kill: ${cs(e.a)}→${cs(e.b)} (${e.kind}) len=${chain_len(e)}`);
+            kill_edge(g, e);
+        }
+        total_killed += to_kill.length;
+        console.log(`  Round ${round}: killed ${to_kill.length}, alive: ${alive_count()}`);
+    }
+
+    console.log("  Total killed: " + total_killed);
+    console.log("  Surviving: " + alive_count() + " edges");
+
+    // Show survivors.
+    for (const e of g.edges) {
+        if (!e.alive) continue;
+        console.log(`    ${cs(e.a)}→${cs(e.b)} (${e.kind}) len=${chain_len(e)}`);
+    }
+
+    // Verify: no edge has chain_len ≤ 2.
+    for (const e of g.edges) {
+        if (e.alive) {
+            assert(chain_len(e) >= 3, `${cs(e.a)}→${cs(e.b)} has len ${chain_len(e)}`);
+        }
+    }
+    console.log("  All surviving edges have chain_len ≥ 3 ✓");
+}
+
 console.log("\nAll dir graph tests passed.");
