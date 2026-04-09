@@ -314,6 +314,66 @@ export function merge_along(g: Graph, edge: Edge): GNode {
 //    produces 3+ cards, merge. (The node has no alternative, and
 //    the result is a valid stack.)
 
+// Would merging along this edge orphan any of the neighbor's
+// other connections? Checks directly without cloning — counts
+// how many edges each neighbor-of-neighbor would retain.
+function merge_would_orphan_neighbor(g: Graph, edge: Edge): boolean {
+    const a = edge.a;
+    const b = edge.b;
+
+    // Collect all nodes connected to a or b (excluding a and b).
+    const neighbor_ids = new Set<number>();
+    for (const e of a.edges) {
+        if (!e.alive) continue;
+        const other = e.a === a ? e.b : e.a;
+        if (other !== b) neighbor_ids.add(other.id);
+    }
+    for (const e of b.edges) {
+        if (!e.alive) continue;
+        const other = e.a === b ? e.b : e.a;
+        if (other !== a) neighbor_ids.add(other.id);
+    }
+
+    // For each neighbor, check if it would be orphaned.
+    // A neighbor survives if it either:
+    //   (a) has edges to nodes other than a and b, OR
+    //   (b) would connect to the merged [a,b] node (same kind as
+    //       the merge edge, since the merged node is locked to that kind).
+    for (const nid of neighbor_ids) {
+        const neighbor = g.nodes.find((n) => n.id === nid)!;
+
+        // Check (a): edges to other nodes.
+        let has_other_edge = false;
+        for (const e of neighbor.edges) {
+            if (!e.alive) continue;
+            const other = e.a === neighbor ? e.b : e.a;
+            if (other === a || other === b) continue;
+            has_other_edge = true;
+            break;
+        }
+        if (has_other_edge) continue;
+
+        // Check (b): would the merged node reconnect to this neighbor?
+        // The merged node is locked to edge.kind. The neighbor must
+        // have had an edge of that kind to a or b.
+        let reconnects = false;
+        for (const e of neighbor.edges) {
+            if (!e.alive) continue;
+            const other = e.a === neighbor ? e.b : e.a;
+            if ((other === a || other === b) && e.kind === edge.kind) {
+                reconnects = true;
+                break;
+            }
+        }
+        if (reconnects) continue;
+
+        // Neither (a) nor (b): this neighbor would be orphaned.
+        return true;
+    }
+
+    return false;
+}
+
 export function propagate(g: Graph): void {
     while (g.dirty.length > 0) {
         const node = g.dirty.pop()!;
@@ -450,14 +510,16 @@ export function propagate(g: Graph): void {
                 }
             }
 
-            if (can_grow) {
-                // This node is forced into this edge. The merge is
-                // unambiguous for the node (no alternative exists).
+            if (can_grow && !merge_would_orphan_neighbor(g, edge)) {
+                // This node is forced into this edge and the merge
+                // won't strand any of the neighbor's other connections.
                 merge_along(g, edge);
-            } else {
+            } else if (!can_grow) {
                 // Dead end: pair can't reach 3. Kill.
                 kill_edge(g, edge);
             }
+            // If can_grow but would orphan: leave the edge alone.
+            // Branching will handle it.
         }
     }
 }
