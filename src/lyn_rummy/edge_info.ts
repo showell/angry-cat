@@ -128,29 +128,50 @@ export function chain_length(
     }
 
     // Runs (pr or rb): walk forward from b, backward from a.
-    let length = 2; // a and b
+    // Track visited cards by identity (not just value) since
+    // D1 and D2 copies are different cards. A pure run can
+    // include both: AH:D1 2H:D1 ... KH:D1 AH:D2 2H:D2 ...
+    function card_id(c: Card): string {
+        return `${c.value}:${c.suit}:${c.origin_deck}`;
+    }
+
+    const visited = new Set<string>();
+    visited.add(card_id(a));
+    visited.add(card_id(b));
+    let length = 2;
 
     // Walk forward.
     let current = b;
     let prev = a;
-    for (let i = 0; i < 13; i++) {
+    while (true) {
         const ext = compute_extensions(prev, current, kind);
         const matches = find_matching_cards(ext.forward, lookup);
-        if (matches.length === 0) break;
+        // Pick the first match we haven't visited.
+        let next: Card | undefined;
+        for (const m of matches) {
+            if (!visited.has(card_id(m))) { next = m; break; }
+        }
+        if (!next) break;
+        visited.add(card_id(next));
         prev = current;
-        current = matches[0];
+        current = next;
         length++;
     }
 
     // Walk backward.
     current = a;
     prev = b;
-    for (let i = 0; i < 13; i++) {
+    while (true) {
         const ext = compute_extensions(current, prev, kind);
         const matches = find_matching_cards(ext.backward, lookup);
-        if (matches.length === 0) break;
+        let next: Card | undefined;
+        for (const m of matches) {
+            if (!visited.has(card_id(m))) { next = m; break; }
+        }
+        if (!next) break;
+        visited.add(card_id(next));
         prev = current;
-        current = matches[0];
+        current = next;
         length++;
     }
 
