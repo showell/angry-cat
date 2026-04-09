@@ -70,6 +70,12 @@ export function get_api_key_for_current_realm() {
 
 // Returns true when connected to an Angry Gopher server (vs. Zulip).
 // Gopher-only features (invites, etc.) check this before showing.
+//
+// Both "gopher" (prod, port 9000) and "gopher_demo" (port 9001)
+// count as gopher realms, so all the gopher code paths light up
+// for either. The two realms coexist in localStorage with
+// distinct nicknames.
 export function is_gopher_realm(): boolean {
-    return current_realm_config?.nickname === "gopher";
+    const n = current_realm_config?.nickname;
+    return n === "gopher" || n === "gopher_demo";
 }

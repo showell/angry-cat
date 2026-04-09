@@ -3,13 +3,24 @@ import type { RealmConfig } from "./backend/config";
 
 // Known realms and their server URLs. When a user logs in, we pair
 // their credentials with the URL for the chosen realm.
+//
+// Two gopher realms can coexist in localStorage because they have
+// distinct nicknames:
+//   - "gopher"      → prod Angry Gopher on port 9000
+//   - "gopher_demo" → demo Angry Gopher on port 9001
+//
+// The single Angry Cat instance (always served on 8000) can be
+// logged into either one. Switching between them does not
+// overwrite credentials because each nickname has its own
+// localStorage entry.
 const KNOWN_REALMS: Record<string, string> = {
     mac: "https://macandcheese.zulipchat.com",
     gopher: "http://localhost:9000",
+    gopher_demo: "http://localhost:9001",
 };
 
 // Gopher realms support invite links and use the /gopher/ namespace.
-const GOPHER_REALMS = new Set(["gopher"]);
+const GOPHER_REALMS = new Set(["gopher", "gopher_demo"]);
 
 function get_realm_nickname_from_url(): string | undefined {
     const parts = window.location.pathname
@@ -22,6 +33,9 @@ function get_realm_nickname_from_url(): string | undefined {
 }
 
 function realm_label(nickname: string | undefined): string {
+    if (nickname === "gopher_demo") {
+        return "Login To Angry Gopher (demo)";
+    }
     if (nickname && GOPHER_REALMS.has(nickname)) {
         return "Login To Angry Gopher";
     }
