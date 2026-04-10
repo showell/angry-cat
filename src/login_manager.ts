@@ -208,11 +208,10 @@ class LoginManager {
             status_div.textContent = "";
 
             const realm_url = KNOWN_REALMS[nickname];
-            const valid = await verify_credentials(realm_url, email, api_key);
+            const result = await verify_credentials(realm_url, email, api_key);
 
-            if (!valid) {
-                status_div.textContent =
-                    "Could not connect with these credentials. Please check your email and API key.";
+            if (result.kind !== "success") {
+                status_div.textContent = explain_verify_failure(realm_url, result);
                 submit_btn.disabled = false;
                 submit_btn.innerText = "Save and Login";
                 return;
@@ -286,23 +285,93 @@ class LoginManager {
     }
 }
 
-// Verify credentials by hitting the /users endpoint. Returns true
-// if the server responds successfully.
+// Result of trying to verify credentials. The variants let the
+// caller distinguish "the server isn't even reachable" from
+// "the server is up but said the credentials are wrong" — those
+// are very different problems and the user should be told which
+// one they're hitting.
+export type VerifyResult =
+    | { kind: "success" }
+    | { kind: "unreachable"; detail: string }
+    | { kind: "auth_failed" }
+    | { kind: "server_error"; detail: string };
+
+// Convert a non-success VerifyResult into a user-facing message
+// that points the user at the actual problem instead of always
+// blaming their credentials.
+export function explain_verify_failure(
+    realm_url: string,
+    result: VerifyResult,
+): string {
+    switch (result.kind) {
+        case "success":
+            return "";
+        case "unreachable":
+            return (
+                `Could not reach ${realm_url}. Is the server running ` +
+                `and listening on that port? (${result.detail})`
+            );
+        case "auth_failed":
+            return (
+                "The server is up, but rejected your email and API key. " +
+                "Please double-check both."
+            );
+        case "server_error":
+            return `Server returned an error: ${result.detail}`;
+    }
+}
+
+// Verify credentials by hitting the /users endpoint. The four
+// possible outcomes are reported as distinct discriminated-union
+// variants so the login form can show a precise error message.
 async function verify_credentials(
     realm_url: string,
     email: string,
     api_key: string,
-): Promise<boolean> {
+): Promise<VerifyResult> {
+    let response: Response;
     try {
         const auth = btoa(`${email}:${api_key}`);
-        const response = await fetch(`${realm_url}/api/v1/users`, {
+        response = await fetch(`${realm_url}/api/v1/users`, {
             headers: { Authorization: `Basic ${auth}` },
         });
-        if (!response.ok) return false;
+    } catch (err) {
+        // fetch() throws on network failures: server unreachable,
+        // DNS failure, port not listening, CORS preflight death,
+        // certificate problems. We can't distinguish these from
+        // each other in the browser, but we can at least tell the
+        // user "I never got a response from the server."
+        return { kind: "unreachable", detail: String(err) };
+    }
+
+    if (response.status === 401 || response.status === 403) {
+        return { kind: "auth_failed" };
+    }
+
+    if (!response.ok) {
+        return {
+            kind: "server_error",
+            detail: `HTTP ${response.status} ${response.statusText}`,
+        };
+    }
+
+    try {
         const data = await response.json();
-        return data.result === "success";
-    } catch {
-        return false;
+        if (data.result === "success") {
+            return { kind: "success" };
+        }
+        // The server answered 200 OK but the body says result=error.
+        // The server's own message (if any) is the most useful thing
+        // we can show; fall back to "auth_failed" if it's missing.
+        if (typeof data.msg === "string" && data.msg) {
+            return { kind: "server_error", detail: data.msg };
+        }
+        return { kind: "auth_failed" };
+    } catch (err) {
+        return {
+            kind: "server_error",
+            detail: `Could not parse response: ${String(err)}`,
+        };
     }
 }
 
