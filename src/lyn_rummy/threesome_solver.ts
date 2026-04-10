@@ -13,14 +13,17 @@ import { Card, Suit, value_str } from "./card";
 import { CardStackType, get_stack_type } from "./stack_type";
 import { compute_threesomes, Threesome } from "./threesomes";
 import {
-    Board, Stack, make_board, clone_board, raid,
+    Board, Stack, make_board, clone_board, raid, can_steal,
 } from "./raid";
 
 // Score the board: sum the score of every valid stack.
-//   pure run: (n-2) * 100
-//   set: (n-2) * 60
-//   rb run: (n-2) * 50
+//   pure run: n * 100
+//   set: n * 60
+//   rb run: n * 50
 //   anything else: 0
+//
+// Mirrors Score.for_stack in score.ts. Flat per-card scoring so
+// splits don't change the score (cooperative-friendly).
 export function score_board(board: Board): number {
     let total = 0;
     for (const stack of board.stacks) {
@@ -30,17 +33,55 @@ export function score_board(board: Board): number {
             t === CardStackType.PURE_RUN ? 100 :
             t === CardStackType.SET ? 60 :
             t === CardStackType.RED_BLACK_RUN ? 50 : 0;
-        total += (stack.length - 2) * tv;
+        total += stack.length * tv;
     }
     return total;
 }
+
+// One row in the structured iteration log produced by the solver.
+// Useful for after-the-fact analysis (cycle detection, viewers).
+export type SolveStep = {
+    iter: number;
+    chosen: Card;
+    acting_as_pair: boolean;
+    threesome: Threesome;
+    pattern_key: string;
+    score_before: number;
+    score_after: number;
+    // Snapshot of all stacks AFTER this iteration's raid.
+    // Each stack is shown by its cards in their final order.
+    stacks_after: Card[][];
+};
 
 export type SolveResult = {
     board: Board;
     score: number;
     iterations: number;
     aborted: boolean;
+    // Step-by-step log. Always populated; consumers can ignore it.
+    steps: SolveStep[];
+    // True if the solver threw an "all threesomes retired" exception.
+    threw: boolean;
+    // Error message if threw is true.
+    error_message?: string;
+    // If threw, this is the step index whose raid is the most recent
+    // cause of homelessness for the failing card. Used for backtracking.
+    blame_step_index?: number;
+    // The card that ran out of options.
+    failing_card?: Card;
 };
+
+// A blacklist entry: forbid choosing a particular pattern at a
+// particular step index in the run. Used by the backtracking
+// wrapper to retry the same starting state with different choices.
+export type BlacklistEntry = {
+    step_index: number;     // 0-based step number in the forward run
+    pattern_key: string;
+};
+
+export function pattern_key_for(t: Threesome): string {
+    return t.cards.map((c) => c.value + ":" + c.suit).join("|");
+}
 
 export const DEBUG_FLAGS = { enabled: false };
 
@@ -53,48 +94,73 @@ function dbg_label(c: Card): string {
     return value_str(c.value) + SUIT_LABELS[c.suit] + ":" + dk;
 }
 
-// The main solver. Takes an initial set of cards as singletons and
-// runs the threesome-driven loop until no more progress can be made.
+// Solve a fresh pile of cards: every card starts as a singleton.
 export function solve_threesomes(initial_cards: Card[]): SolveResult {
-    // Each card starts as its own singleton.
     const initial_stacks: Card[][] = initial_cards.map((c) => [c]);
-    const board = make_board(initial_stacks);
+    return solve_from_board(initial_stacks);
+}
+
+// Solve from an existing board state: caller provides pre-formed
+// stacks (some may already be valid 3+ stacks; some may be loose
+// singletons or pairs). The solver runs its raid loop on this board.
+//
+// This is the "puzzle mode" entry point — it lets the solver work
+// on the same level playing field as a human player who sees a
+// mostly-complete board with a few stragglers in hand.
+//
+// `blacklist` is an optional set of (step_index, pattern_key) pairs
+// that the solver must avoid. Used by the backtracking wrapper.
+export function solve_from_board(
+    stacks: Card[][],
+    blacklist?: BlacklistEntry[],
+): SolveResult {
+    const board = make_board(stacks);
+
+    // Collect every card on the board for the threesome universe.
+    const all_cards: Card[] = [];
+    for (const s of stacks) for (const c of s) all_cards.push(c);
 
     // Precompute threesomes for every card. Lifetime constant.
-    const all_threesomes = compute_threesomes(initial_cards);
+    // Twins share their lists — see compute_threesomes.
+    const all_threesomes = compute_threesomes(all_cards);
 
-    // PER-CARD timeout: when card C raids threesome T, T goes into
-    // C's personal timeout for the next TIMEOUT_TURNS of C's turns.
-    // Other cards have their own independent timeouts.
-    //
-    // Map structure: card → (threesome → turns remaining for that card).
-    const TIMEOUT_TURNS = 3;
-    const timeouts = new Map<Card, Map<Threesome, number>>();
-
-    function get_timeout(card: Card, t: Threesome): number {
-        return timeouts.get(card)?.get(t) ?? 0;
+    // Per-pattern global play count. After MAX_PLAYS plays, the
+    // pattern is permanently retired. Keyed by a stable string of
+    // (value, suit) slots so different instantiations of the same
+    // pattern share a counter.
+    const MAX_PLAYS = 30;
+    const play_count = new Map<string, number>();
+    function pattern_key_of(t: Threesome): string {
+        return t.cards.map((c) => c.value + ":" + c.suit).join("|");
     }
-    function start_timeout(card: Card, t: Threesome): void {
-        let m = timeouts.get(card);
-        if (!m) { m = new Map(); timeouts.set(card, m); }
-        m.set(t, TIMEOUT_TURNS);
+    function get_plays(t: Threesome): number {
+        return play_count.get(pattern_key_of(t)) ?? 0;
     }
-    // Decrement all of card's timeouts. Called once per turn that
-    // card actually takes.
-    function tick_card_timeouts(card: Card): void {
-        const m = timeouts.get(card);
-        if (!m) return;
-        for (const [t, n] of m) {
-            if (n > 0) m.set(t, n - 1);
-        }
+    function bump_plays_by_key(key: string): void {
+        play_count.set(key, (play_count.get(key) ?? 0) + 1);
+    }
+    function is_retired(t: Threesome): boolean {
+        return get_plays(t) >= MAX_PLAYS;
     }
 
     // Two FIFO queues: singletons first, then pairs. Within each
-    // tier, longest-waiting goes first.
-    const singleton_queue: Card[] = [...initial_cards];
+    // tier, longest-waiting goes first. Only LONELY cards (in
+    // incomplete stacks) start in the queues; cards already in
+    // valid 3+ families are not initially lonely.
+    const singleton_queue: Card[] = [];
     const pair_queue: Card[] = [];
-    const in_singleton_queue = new Set<Card>(initial_cards);
+    const in_singleton_queue = new Set<Card>();
     const in_pair_queue = new Set<Card>();
+
+    for (const stack of board.stacks) {
+        if (stack.length === 1) {
+            singleton_queue.push(stack[0]);
+            in_singleton_queue.add(stack[0]);
+        } else if (stack.length === 2) {
+            pair_queue.push(stack[0]);
+            in_pair_queue.add(stack[0]);
+        }
+    }
 
     function enqueue(card: Card): void {
         const stack = board.location.get(card);
@@ -118,6 +184,9 @@ export function solve_threesomes(initial_cards: Card[]): SolveResult {
 
     let iterations = 0;
     const MAX_ITERATIONS = 10000;
+    const steps: SolveStep[] = [];
+    let threw = false;
+    let error_message: string | undefined;
 
     while (iterations < MAX_ITERATIONS) {
         iterations++;
@@ -147,86 +216,123 @@ export function solve_threesomes(initial_cards: Card[]): SolveResult {
 
         if (!chosen) break; // queues empty — we're done
 
-        // This card just got a turn. Tick its personal timeouts.
-        tick_card_timeouts(chosen);
-
-        // Find candidate threesomes.
+        // Find candidate threesomes. Constraints:
+        //   - The pattern must have a slot matching chosen's
+        //     (value, suit) — chosen will fill that slot at play time
+        //   - The twin rule must allow the steal
+        //   - The pattern must not be retired
+        // For pairs, both pair members' slots must appear in the pattern.
         const my_threesomes = all_threesomes.get(chosen) ?? [];
         const candidates: Threesome[] = [];
 
+        function pattern_has_slot(t: Threesome, c: Card): boolean {
+            for (const slot of t.cards) {
+                if (slot.value === c.value && slot.suit === c.suit) return true;
+            }
+            return false;
+        }
+
+        // Build a Threesome with the chosen card substituted into
+        // its slot (and the partner too, for pair turns). The
+        // pattern's other slots keep their sample cards.
+        function instantiate(t: Threesome, players: Card[]): Threesome {
+            const cards = t.cards.map((slot) => {
+                for (const p of players) {
+                    if (slot.value === p.value && slot.suit === p.suit) return p;
+                }
+                return slot;
+            });
+            return { cards, type: t.type };
+        }
+
         if (acting_as_pair) {
-            // A pair pursues threesomes that contain BOTH pair members.
             const pair_stack = board.location.get(chosen)!;
             const partner = pair_stack.find((c) => c !== chosen)!;
             for (const t of my_threesomes) {
-                if (t.cards.includes(partner)) candidates.push(t);
-            }
-            // Fallback: if the pair has no joint threesomes (e.g.,
-            // they were stuck together by an earlier raid that
-            // didn't quite work out), dissolve the pair and act as
-            // a singleton instead. We never quit on a turn.
-            if (candidates.length === 0) {
-                acting_as_pair = false;
-                for (const t of my_threesomes) candidates.push(t);
-            }
-        } else {
-            // A singleton pursues every threesome it can.
-            for (const t of my_threesomes) candidates.push(t);
-        }
-
-        // Simulate each candidate. First try only the threesomes
-        // that aren't in this card's personal timeout. If all of
-        // them are in timeout, fall back to the full list — but
-        // prefer the ones with the lowest remaining counter (closest
-        // to expiring), breaking ties by board score.
-        function pick_best_by_score(pool: Threesome[]): Threesome | undefined {
-            let best_outcome = -Infinity;
-            let best: Threesome | undefined;
-            for (const t of pool) {
-                const sim = clone_board(board);
-                raid(sim, t);
-                const outcome = score_board(sim);
-                if (outcome > best_outcome) {
-                    best_outcome = outcome;
-                    best = t;
+                if (pattern_has_slot(t, chosen) && pattern_has_slot(t, partner)
+                    && !is_retired(t)) {
+                    const inst = instantiate(t, [chosen, partner]);
+                    if (can_steal(board, inst)) candidates.push(inst);
                 }
             }
-            return best;
-        }
-
-        const chosenCard = chosen;
-        const fresh = candidates.filter((t) => get_timeout(chosenCard, t) === 0);
-        let best_threesome = pick_best_by_score(fresh);
-        if (!best_threesome && candidates.length > 0) {
-            // No fresh threesomes — all are in timeout. Pick from
-            // the timeout pool, preferring the lowest remaining
-            // counter (closest to expiring).
-            const min_counter = Math.min(...candidates.map((t) => get_timeout(chosenCard, t)));
-            const least_timed_out = candidates.filter((t) => get_timeout(chosenCard, t) === min_counter);
-            best_threesome = pick_best_by_score(least_timed_out);
-        }
-
-        if (!best_threesome) {
-            // No threesomes at all for this card.
-            if (DEBUG_FLAGS.enabled) {
-                console.log(
-                    "iter " + iterations + " " + dbg_label(chosenCard) +
-                    " has no threesomes available (candidates=" + candidates.length + ")",
-                );
+            // Fallback: if the pair has no feasible joint threesomes,
+            // dissolve the pair and act as a singleton instead.
+            if (candidates.length === 0) {
+                acting_as_pair = false;
+                for (const t of my_threesomes) {
+                    if (pattern_has_slot(t, chosen) && !is_retired(t)) {
+                        const inst = instantiate(t, [chosen]);
+                        if (can_steal(board, inst)) candidates.push(inst);
+                    }
+                }
             }
-            continue;
+        } else {
+            for (const t of my_threesomes) {
+                if (pattern_has_slot(t, chosen) && !is_retired(t)) {
+                    const inst = instantiate(t, [chosen]);
+                    if (can_steal(board, inst)) candidates.push(inst);
+                }
+            }
         }
 
-        // Apply the chosen raid for real and start its timeout
-        // for this card.
+        // If nothing remains, the chosen card is fundamentally stuck.
+        if (candidates.length === 0) {
+            threw = true;
+            error_message =
+                "Card " + dbg_label(chosen) +
+                " has no feasible non-retired threesomes (" +
+                my_threesomes.length + " total)";
+            break;
+        }
+
+        // Pick the candidate that yields the best board score.
+        let best_threesome: Threesome | undefined;
+        let best_outcome = -Infinity;
+        for (const t of candidates) {
+            const sim = clone_board(board);
+            raid(sim, t);
+            const outcome = score_board(sim);
+            if (outcome > best_outcome) {
+                best_outcome = outcome;
+                best_threesome = t;
+            }
+        }
+        if (!best_threesome) {
+            threw = true;
+            error_message = "Unexpected: no best threesome chosen for " + dbg_label(chosen);
+            break;
+        }
+
+        // Apply the raid and bump the play count.
         const score_before = score_board(board);
         raid(board, best_threesome);
         const score_after = score_board(board);
-        start_timeout(chosenCard, best_threesome);
+        // bump_plays uses the underlying pattern for retirement.
+        // We need to find the original pattern (the candidates were
+        // instantiated copies). The pattern can be located via the
+        // shared "type" + slot signature. For simplicity, we bump
+        // by signature: key by ordered slot tuples.
+        const pattern_key = best_threesome.cards
+            .map((c) => c.value + ":" + c.suit).join("|");
+        bump_plays_by_key(pattern_key);
+
+        // Append a step record. Snapshot the board's stacks (their
+        // contents in their current order) so analysis tools can
+        // see exactly what was on the board after this iteration.
+        steps.push({
+            iter: iterations,
+            chosen,
+            acting_as_pair,
+            threesome: best_threesome,
+            pattern_key,
+            score_before,
+            score_after,
+            stacks_after: board.stacks.map((s) => s.slice()),
+        });
 
         if (DEBUG_FLAGS.enabled) {
             console.log(
-                "iter " + iterations + " " + dbg_label(chosenCard) +
+                "iter " + iterations + " " + dbg_label(chosen) +
                 (acting_as_pair ? " (pair)" : "") +
                 " plays [" + best_threesome.cards.map(dbg_label).join(" ") + "]" +
                 "  score " + score_before + "→" + score_after,
@@ -246,6 +352,9 @@ export function solve_threesomes(initial_cards: Card[]): SolveResult {
         score: score_board(board),
         iterations,
         aborted: iterations >= MAX_ITERATIONS,
+        steps,
+        threw,
+        error_message,
     };
 }
 

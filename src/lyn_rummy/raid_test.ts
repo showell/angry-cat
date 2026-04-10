@@ -1,10 +1,21 @@
-// Tests for raid mechanics: steal, rescue, merge, raid.
+// Tests for raid mechanics: steal, rescue, raid.
 
 import assert from "node:assert/strict";
 import { Card, OriginDeck, Suit, value_str } from "./card";
 import { CardStackType, get_stack_type } from "./stack_type";
 import { compute_threesomes, Threesome } from "./threesomes";
-import { make_board, clone_board, steal, rescue, merge, raid, Board, Stack } from "./raid";
+import { make_board, clone_board, steal, rescue, raid, can_steal, Board, Stack } from "./raid";
+
+// Helper for tests: every singleton card currently on the board.
+// Use as the `allowed` set for rescue when you want it to consider
+// every singleton (e.g., to test the perimeter logic in isolation).
+function all_singletons(board: Board): Set<Card> {
+    const result = new Set<Card>();
+    for (const s of board.stacks) {
+        if (s.length === 1) result.add(s[0]);
+    }
+    return result;
+}
 
 // Verify the board satisfies the invariant: every stack is either
 // a valid 3+ stack (pure run / set / rb run) or an incomplete stack
@@ -26,6 +37,7 @@ function assert_no_bogus_stacks(board: Board, where: string): void {
 }
 
 const D1 = OriginDeck.DECK_ONE;
+const D2 = OriginDeck.DECK_TWO;
 
 const sl: Record<Suit, string> = {
     [Suit.HEART]: "H", [Suit.SPADE]: "S",
@@ -74,10 +86,11 @@ console.log("=== STEAL tests ===\n");
     const threesomes = compute_threesomes(cards);
     const ace_set = find_threesome(threesomes, ["AC", "AD", "AH"]);
 
-    const family = steal(board, ace_set);
+    const result = steal(board, ace_set);
+    assert(result, "steal should succeed");
     assert_no_bogus_stacks(board, "test 1");
     assert.equal(board.stacks.length, 1, "Should have just one stack after steal");
-    assert.deepEqual(family, ace_set.cards, "Family should match the threesome");
+    assert.deepEqual(result!.family, ace_set.cards, "Family should match the threesome");
     console.log("  Test 1: steal from singletons → " + fmt_board(board) + " ✓");
 }
 
@@ -268,7 +281,7 @@ console.log("\n=== RESCUE tests ===\n");
     ]);
     const family = board.stacks[0];
 
-    const added = rescue(board, family);
+    const added = rescue(board, family, new Set([cards[3]]));
     assert_no_bogus_stacks(board, "test 4");
 
     assert.equal(added, 1);
@@ -286,7 +299,7 @@ console.log("\n=== RESCUE tests ===\n");
     ]);
     const set_family = board.stacks[0];
 
-    const added = rescue(board, set_family);
+    const added = rescue(board, set_family, all_singletons(board));
     assert_no_bogus_stacks(board, "test 5");
 
     // 7C is in a valid 3-stack — sacred. Should not be taken.
@@ -309,7 +322,7 @@ console.log("\n=== RESCUE tests ===\n");
     ]);
     const set_family = board.stacks[0];
 
-    const added = rescue(board, set_family);
+    const added = rescue(board, set_family, all_singletons(board));
     assert_no_bogus_stacks(board, "test 5b");
 
     assert.equal(added, 0, "rescue should not break up pairs");
@@ -328,7 +341,7 @@ console.log("\n=== RESCUE tests ===\n");
     ]);
     const family = board.stacks[0];
 
-    const added = rescue(board, family);
+    const added = rescue(board, family, all_singletons(board));
     assert_no_bogus_stacks(board, "test 6");
 
     assert.equal(added, 2);
@@ -348,7 +361,7 @@ console.log("\n=== RESCUE tests ===\n");
     ]);
     const family = board.stacks[0];
 
-    const added = rescue(board, family);
+    const added = rescue(board, family, all_singletons(board));
     assert_no_bogus_stacks(board, "test 7");
 
     // Should extend forward through KD→AD→2D wrap.
@@ -368,7 +381,7 @@ console.log("\n=== RESCUE tests ===\n");
     ]);
     const family = board.stacks[0];
 
-    const added = rescue(board, family);
+    const added = rescue(board, family, all_singletons(board));
     assert_no_bogus_stacks(board, "test 8");
 
     assert.equal(added, 2);
@@ -379,117 +392,86 @@ console.log("\n=== RESCUE tests ===\n");
 }
 
 // =====================================================================
-// MERGE tests
+// TWIN RULE tests
 // =====================================================================
-
-console.log("\n=== MERGE tests ===\n");
-
-// --- Test M1: two pairs merge into a 4-card pure run ---
-{
-    const cards = ["TD", "JD", "QD", "KD"].map(c);
-    const board = make_board([
-        [cards[0], cards[1]], // [TD JD]
-        [cards[2], cards[3]], // [QD KD]
-    ]);
-
-    const merged = merge(board);
-    assert_no_bogus_stacks(board, "test M1");
-
-    assert.equal(merged, 1);
-    assert.equal(board.stacks.length, 1);
-    assert.equal(board.stacks[0].length, 4);
-    console.log("  Test M1: two pairs merge into pure run → " + fmt_board(board) + " ✓");
-}
-
-// --- Test M2: two pairs merge into a 4-set ---
-{
-    const cards = ["7H", "7S", "7D", "7C"].map(c);
-    const board = make_board([
-        [cards[0], cards[1]], // [7H 7S]
-        [cards[2], cards[3]], // [7D 7C]
-    ]);
-
-    const merged = merge(board);
-    assert_no_bogus_stacks(board, "test M2");
-
-    assert.equal(merged, 1);
-    assert.equal(board.stacks.length, 1);
-    assert.equal(board.stacks[0].length, 4);
-    console.log("  Test M2: two pairs merge into 4-set → " + fmt_board(board) + " ✓");
-}
-
-// --- Test M3: two pairs merge into an rb run ---
-{
-    const cards = ["2C", "3H", "4C", "5H"].map(c);
-    const board = make_board([
-        [cards[0], cards[1]], // [2C 3H]
-        [cards[2], cards[3]], // [4C 5H]
-    ]);
-
-    const merged = merge(board);
-    assert_no_bogus_stacks(board, "test M3");
-
-    assert.equal(merged, 1);
-    assert.equal(board.stacks.length, 1);
-    assert.equal(board.stacks[0].length, 4);
-    console.log("  Test M3: two pairs merge into rb run → " + fmt_board(board) + " ✓");
-}
-
-// --- Test M4: incompatible pairs do NOT merge ---
-{
-    const cards = ["TD", "JD", "5H", "8S"].map(c);
-    const board = make_board([
-        [cards[0], cards[1]], // [TD JD]
-        [cards[2], cards[3]], // [5H 8S]
-    ]);
-
-    const merged = merge(board);
-    assert_no_bogus_stacks(board, "test M4");
-
-    assert.equal(merged, 0, "incompatible pairs should not merge");
-    assert.equal(board.stacks.length, 2);
-    console.log("  Test M4: incompatible pairs left alone → " + fmt_board(board) + " ✓");
-}
-
-// --- Test M5: chain merges (after one merge, another becomes possible) ---
 //
-// Three pairs: [TD JD], [QD KD], [5H 6H]. Initially [TD JD] + [QD KD]
-// merge into [TD JD QD KD]. After that, [5H 6H] is alone — no merge
-// possible. Final: [TD JD QD KD] [5H 6H].
+// A steal is forbidden if any source stack contains a twin of any
+// threesome member. Prevents two duplicate cards (e.g. KD:1 and
+// KD:2) from oscillating in and out of the same family slot.
+
+console.log("\n=== TWIN RULE tests ===\n");
+
+// --- Test T1: cannot steal from a stack containing the raider's twin ---
+//
+// Board: [KD:1 AD:1 2D:1 3D:1] (4-card pure run)
+//        [KD:2] (singleton — KD:2 is KD:1's twin)
+// Threesome: [KD:2 AD:1 2D:1] (a wrap pure run for KD:2)
+// To form this, KD:2 would need to steal AD and 2D from a stack
+// that contains KD:1, its own twin. Forbidden.
 {
-    const cards = ["TD", "JD", "QD", "KD", "5H", "6H"].map(c);
+    const kd1 = Card.from("KD", D1);
+    const ad1 = Card.from("AD", D1);
+    const d2 = Card.from("2D", D1);
+    const d3 = Card.from("3D", D1);
+    const kd2 = Card.from("KD", D2);
+
     const board = make_board([
-        [cards[0], cards[1]], // [TD JD]
-        [cards[2], cards[3]], // [QD KD]
-        [cards[4], cards[5]], // [5H 6H]
+        [kd1, ad1, d2, d3],  // [KD:1 AD:1 2D:1 3D:1]
+        [kd2],               // [KD:2] singleton
     ]);
 
-    const merged = merge(board);
-    assert_no_bogus_stacks(board, "test M5");
+    // Manually instantiate the pattern [KD:2 AD:1 2D:1]:
+    // the KD slot is filled by KD:2 (the chosen card), the others
+    // are filled by their only available physical instances.
+    const wrap_for_kd2: import("./threesomes").Threesome = {
+        cards: [kd2, ad1, d2],
+        type: CardStackType.PURE_RUN,
+    };
 
-    assert.equal(merged, 1);
+    // can_steal should refuse: AD's source stack [KD:1 AD 2D 3D]
+    // contains KD:1, which is a twin of KD:2 (a threesome member).
+    assert.equal(can_steal(board, wrap_for_kd2), false,
+        "can_steal should refuse — KD:1 (twin of KD:2) is in the source stack");
+
+    // steal should also refuse and return undefined.
+    const result = steal(board, wrap_for_kd2);
+    assert.equal(result, undefined, "steal should refuse and return undefined");
+
+    // Board should be unchanged.
     assert.equal(board.stacks.length, 2);
-    const four = board.stacks.find((s) => s.length === 4);
-    const two = board.stacks.find((s) => s.length === 2);
-    assert(four);
-    assert(two);
-    console.log("  Test M5: one merge + leftover pair → " + fmt_board(board) + " ✓");
+    assert.equal(board.stacks[0].length, 4);
+    assert.equal(board.stacks[1].length, 1);
+
+    console.log("  Test T1: steal refuses when source contains a twin → " + fmt_board(board) + " ✓");
 }
 
-// --- Test M6: merge does NOT touch valid 3+ stacks ---
+// --- Test T2: stealing from a stack that does NOT contain a twin works ---
+//
+// Same setup but the play is the canonical pattern [KD:1 AD:1 2D:1]
+// (the threesome instance using KD:1, not KD:2). KD:1 is in the
+// source stack, but as a member of the threesome itself — and KD:2
+// is in a different stack, not in any source.
 {
-    const cards = ["TD", "JD", "QD", "5H", "6H"].map(c);
+    const kd1 = Card.from("KD", D1);
+    const ad1 = Card.from("AD", D1);
+    const d2 = Card.from("2D", D1);
+    const d3 = Card.from("3D", D1);
+    const kd2 = Card.from("KD", D2);
+
     const board = make_board([
-        [cards[0], cards[1], cards[2]], // [TD JD QD] valid 3-run
-        [cards[3], cards[4]],            // [5H 6H] pair
+        [kd1, ad1, d2, d3],
+        [kd2],
     ]);
 
-    const merged = merge(board);
-    assert_no_bogus_stacks(board, "test M6");
+    const wrap_for_kd1: import("./threesomes").Threesome = {
+        cards: [kd1, ad1, d2],
+        type: CardStackType.PURE_RUN,
+    };
 
-    assert.equal(merged, 0);
-    assert.equal(board.stacks.length, 2);
-    console.log("  Test M6: merge ignores valid 3+ stacks → " + fmt_board(board) + " ✓");
+    assert.equal(can_steal(board, wrap_for_kd1), true);
+    const result = steal(board, wrap_for_kd1);
+    assert(result, "steal should succeed");
+    console.log("  Test T2: steal allowed when no twin in source → " + fmt_board(board) + " ✓");
 }
 
 // =====================================================================
@@ -530,16 +512,13 @@ console.log("\n=== RAID tests ===\n");
     console.log("  Test 9: raid ace set → " + fmt_board(board) + " ✓");
 }
 
-// --- Test 10: raid that leads to rescueth ---
+// --- Test 10: raid does NOT absorb pre-existing singletons ---
 //
-// Board: [AC] [AD] [AH] [2H] [3H] [4H]
+// Board: [AC] [AD] [AH] [2H] [3H] [4H] — all six are singletons.
 // Raid the [2H 3H 4H] threesome. After steal: [2H 3H 4H] formed.
-// Grow: 5H? not on board. AH? on board (loose), and it extends left
-// (predecessor of 2H is A; AH is the only A in the right suit).
-// Wait, AH is hearts and 2H is hearts so AH is the predecessor of 2H
-// in pure run. AH is loose (singleton). So rescue takes AH.
-// Then rescue loops: predecessor of AH is KH (not on board). Stop.
-// Final family: [AH 2H 3H 4H]
+// AH would naturally extend the run on the left (predecessor of 2H),
+// but AH was a pre-existing singleton, not one we just perturbed.
+// Rescue should leave AH alone. The family stays at 3 cards.
 {
     const cards = ["AC", "AD", "AH", "2H", "3H", "4H"].map(c);
     const board = make_board(cards.map((card) => [card]));
@@ -549,9 +528,11 @@ console.log("\n=== RAID tests ===\n");
     const family = raid(board, heart_run);
     assert_no_bogus_stacks(board, "test 10");
 
-    assert.equal(family.length, 4, "Family should be 4 cards after rescue absorbs AH");
-    assert.equal(cs(family[0]), "AH");
-    console.log("  Test 10: raid + rescue absorbs loose card → " + fmt(family) + " ✓");
+    assert.equal(family!.length, 3, "Family should stay 3 cards (AH not perturbed)");
+    // AH should still be a lonely singleton.
+    const ah_stack = board.stacks.find((s) => s.length === 1 && cs(s[0]) === "AH");
+    assert(ah_stack, "AH should still be a singleton");
+    console.log("  Test 10: rescue leaves pre-existing singletons alone → " + fmt(family!) + " ✓");
 }
 
 // =====================================================================
