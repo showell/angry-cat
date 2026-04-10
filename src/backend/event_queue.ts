@@ -13,13 +13,29 @@ export function addr(): string {
     return `${DB.current_user_id}-${queue_id}`;
 }
 
-function assert_event_id(value: unknown): number {
+export function assert_event_id(value: unknown): number {
     if (!Number.isInteger(value)) {
         throw new Error(
             `Expected integer event id, got: ${JSON.stringify(value)}`,
         );
     }
     return value as number;
+}
+
+// Given a batch of events, return the last_event_id to use for the
+// next poll. Heartbeat events are excluded because some servers
+// fabricate their IDs in a way that collides with real event IDs.
+// If all events are heartbeats, the fallback (current last_event_id)
+// is returned unchanged.
+export function last_real_event_id(
+    events: { type: string; id: number }[],
+    fallback: number,
+): number {
+    const real = events.filter((e) => e.type !== "heartbeat");
+    if (real.length > 0) {
+        return assert_event_id(real[real.length - 1].id);
+    }
+    return fallback;
 }
 
 export async function register_queue(): Promise<void> {
@@ -75,18 +91,10 @@ export async function start_polling(
         }
 
         if (data.events?.length) {
-            // Only advance last_event_id from non-heartbeat events.
-            // Heartbeat IDs are fabricated by some servers and can
-            // collide with the next real event's auto-increment ID,
-            // causing that real event to be silently skipped.
-            const real_events = data.events.filter(
-                (e: { type: string }) => e.type !== "heartbeat",
+            last_event_id = last_real_event_id(
+                data.events,
+                last_event_id!,
             );
-            if (real_events.length > 0) {
-                last_event_id = assert_event_id(
-                    real_events[real_events.length - 1].id,
-                );
-            }
             event_handler.process_events(data.events);
         }
     }
