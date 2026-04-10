@@ -5,6 +5,7 @@ import * as code_search from "./code_search";
 import * as color_scheme from "./color_scheme";
 import * as config_viewer from "./config_viewer";
 import * as image_search from "./image_search";
+import * as profile from "./profile";
 
 export function plugin(context: PluginContext): Plugin {
     const div = document.createElement("div");
@@ -26,6 +27,7 @@ export function plugin(context: PluginContext): Plugin {
     add_plugin("Color Scheme", color_scheme.plugin);
     add_plugin("Config", config_viewer.plugin);
     add_plugin("Image Search", image_search.plugin);
+    add_plugin("Profile", profile.plugin);
 
     context.update_label("Plugins");
 
