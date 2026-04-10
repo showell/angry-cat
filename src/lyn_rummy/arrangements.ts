@@ -118,7 +118,8 @@ export function grouped_count(arr: Arrangement): number {
     return n;
 }
 
-// Compute the score of an arrangement using the game's scoring formula.
+// Compute the score of an arrangement using the game's scoring
+// formula (flat per-card; mirrors Score.for_stack).
 export function arrangement_score(arr: Arrangement): number {
     let score = 0;
     for (const g of arr) {
@@ -127,7 +128,7 @@ export function arrangement_score(arr: Arrangement): number {
             g.type === CardStackType.PURE_RUN ? 100 :
             g.type === CardStackType.SET ? 60 :
             g.type === CardStackType.RED_BLACK_RUN ? 50 : 0;
-        score += (g.cards.length - 2) * type_value;
+        score += g.cards.length * type_value;
     }
     return score;
 }

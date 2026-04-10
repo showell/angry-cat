@@ -16,7 +16,18 @@ export class ScoreSingleton {
     }
 
     for_stack(stack: CardStack): number {
-        return (stack.size() - 2) * this.stack_type_value(stack.stack_type);
+        // Flat per-card scoring: each card in a valid 3+ family
+        // is worth one type_value. The old formula was
+        // (n-2)*type_value, which had two problems for cooperative
+        // play: it gave away the first two cards of any stack for
+        // free, and — worse — it punished a player for splitting a
+        // long stack to make room for a clever placement, even
+        // when the split kept all the original cards in valid
+        // families. Under the flat formula, splits are free
+        // (n cards is n cards no matter how they're grouped) and
+        // the marginal reward for adding a card to any valid
+        // stack is still exactly one type_value.
+        return stack.size() * this.stack_type_value(stack.stack_type);
     }
 
     for_stacks(stacks: CardStack[]): number {

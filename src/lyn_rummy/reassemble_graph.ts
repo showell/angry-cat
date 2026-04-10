@@ -552,7 +552,8 @@ function compute_score(cards: Card[], stack_type: CardStackType): number {
         stack_type === CardStackType.PURE_RUN ? 100 :
         stack_type === CardStackType.SET ? 60 :
         stack_type === CardStackType.RED_BLACK_RUN ? 50 : 0;
-    return (cards.length - 2) * type_value;
+    // Flat per-card scoring (mirrors Score.for_stack).
+    return cards.length * type_value;
 }
 
 export function graph_score(g: Graph): number {
