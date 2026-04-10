@@ -40,6 +40,11 @@ let STATE: State;
 export async function fetch_initial_messages(db: Database): Promise<void> {
     const data = await zulip_client.get_messages("newest", INITIAL_BATCH_SIZE);
 
+    if (!data.messages || data.messages.length === 0) {
+        STATE = { found_oldest: true, oldest_id: 0 };
+        return;
+    }
+
     STATE = {
         found_oldest: data.found_oldest,
         oldest_id: data.messages[0].id,
@@ -66,6 +71,11 @@ export async function backfill(
             STATE.oldest_id.toString(),
             num_before,
         );
+
+        if (!data.messages || data.messages.length === 0) {
+            STATE.found_oldest = true;
+            break;
+        }
 
         STATE = {
             found_oldest: data.found_oldest,
