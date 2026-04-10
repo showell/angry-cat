@@ -75,9 +75,18 @@ export async function start_polling(
         }
 
         if (data.events?.length) {
-            last_event_id = assert_event_id(
-                data.events[data.events.length - 1].id,
+            // Only advance last_event_id from non-heartbeat events.
+            // Heartbeat IDs are fabricated by some servers and can
+            // collide with the next real event's auto-increment ID,
+            // causing that real event to be silently skipped.
+            const real_events = data.events.filter(
+                (e: { type: string }) => e.type !== "heartbeat",
             );
+            if (real_events.length > 0) {
+                last_event_id = assert_event_id(
+                    real_events[real_events.length - 1].id,
+                );
+            }
             event_handler.process_events(data.events);
         }
     }
