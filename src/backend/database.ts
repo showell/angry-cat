@@ -144,6 +144,13 @@ export function handle_event(event: ZulipEvent): void {
     if (event.flavor === EventFlavor.REACTION_REMOVE_EVENT) {
         DB.reactions_map.process_remove_event(event);
     }
+
+    if (event.flavor === EventFlavor.REALM_USER_UPDATE) {
+        const user = DB.user_map.get(event.user_id);
+        if (user) {
+            user.full_name = event.full_name;
+        }
+    }
 }
 
 function add_message_to_cache(message: Message) {

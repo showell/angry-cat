@@ -14,6 +14,7 @@ export enum EventFlavor {
     UNKNOWN,
     REACTION_ADD_EVENT,
     REACTION_REMOVE_EVENT,
+    REALM_USER_UPDATE,
 }
 
 type MessageEvent = {
@@ -77,6 +78,12 @@ type SubscriptionAddEvent = {
     subscriptions: SubscriptionInfo[];
 };
 
+type RealmUserUpdateEvent = {
+    flavor: EventFlavor.REALM_USER_UPDATE;
+    user_id: number;
+    full_name: string;
+};
+
 type UnknownEvent = {
     flavor: EventFlavor.UNKNOWN;
     raw_event: any;
@@ -91,6 +98,7 @@ export type ZulipEvent =
     | MutateStreamEvent
     | SubscriptionAddEvent
     | ReactionEvent
+    | RealmUserUpdateEvent
     | UnknownEvent;
 
 function build_event(raw_event: any): ZulipEvent | undefined {
@@ -247,6 +255,17 @@ function build_event(raw_event: any): ZulipEvent | undefined {
                     flavor: EventFlavor.SUBSCRIPTION_ADD,
                     stream_names,
                     subscriptions,
+                };
+            }
+            return undefined;
+        }
+
+        case "realm_user": {
+            if (raw_event.op === "update" && raw_event.person?.full_name) {
+                return {
+                    flavor: EventFlavor.REALM_USER_UPDATE,
+                    user_id: raw_event.person.user_id,
+                    full_name: raw_event.person.full_name,
                 };
             }
             return undefined;
