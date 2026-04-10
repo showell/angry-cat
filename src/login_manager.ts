@@ -1,5 +1,6 @@
 import * as config from "./backend/config";
 import type { RealmConfig } from "./backend/config";
+import { Button } from "./button";
 
 // Known realms and their server URLs. When a user logs in, we pair
 // their credentials with the URL for the chosen realm.
@@ -172,22 +173,22 @@ class LoginManager {
         );
 
         const email_info = this.create_input_box("email", "Email Address");
-        const api_key_info = this.create_input_box("password", "API Key");
+        const api_key_info = this.create_input_box("text", "API Key");
 
         const status_div = document.createElement("div");
         status_div.style.color = "#c00";
         status_div.style.fontSize = "14px";
         status_div.style.marginTop = "8px";
 
-        const submit_btn = document.createElement("button");
-        submit_btn.type = "submit";
-        submit_btn.innerText = "Save and Login";
+        const submit_btn = new Button("Save and Login", 180, () => {
+            form.requestSubmit();
+        });
 
         form.append(
             realm_info.div,
             email_info.div,
             api_key_info.div,
-            submit_btn,
+            submit_btn.div,
             status_div,
         );
 
@@ -203,8 +204,7 @@ class LoginManager {
             }
 
             // Verify credentials before saving.
-            submit_btn.disabled = true;
-            submit_btn.innerText = "Verifying...";
+            submit_btn.disable();
             status_div.textContent = "";
 
             const realm_url = KNOWN_REALMS[nickname];
@@ -212,8 +212,7 @@ class LoginManager {
 
             if (result.kind !== "success") {
                 status_div.textContent = explain_verify_failure(realm_url, result);
-                submit_btn.disabled = false;
-                submit_btn.innerText = "Save and Login";
+                submit_btn.enable();
                 return;
             }
 
