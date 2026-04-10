@@ -52,6 +52,20 @@ export async function get_users() {
     return data.members;
 }
 
+// Update the authenticated user's display name. Mirrors Zulip's
+// PATCH /api/v1/settings endpoint. Returns the standard
+// {result, msg?} envelope so callers can detect failure and
+// surface the server's error message in the UI.
+export async function update_full_name(
+    full_name: string,
+): Promise<{ result: string; msg?: string; full_name?: string }> {
+    return api_form_request("PATCH", "settings", { full_name }) as Promise<{
+        result: string;
+        msg?: string;
+        full_name?: string;
+    }>;
+}
+
 export async function get_subscriptions() {
     const data = await api_get("users/me/subscriptions");
     return data.subscriptions;
