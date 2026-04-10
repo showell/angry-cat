@@ -15,7 +15,7 @@ import {
 // value_str
 {
     assert.equal(value_str(CardValue.ACE), "A");
-    assert.equal(value_str(CardValue.TEN), "10");
+    assert.equal(value_str(CardValue.TEN), "T");
     assert.equal(value_str(CardValue.JACK), "J");
     assert.equal(value_str(CardValue.QUEEN), "Q");
     assert.equal(value_str(CardValue.KING), "K");
