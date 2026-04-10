@@ -104,7 +104,7 @@ function render_full_name_section(): HTMLElement {
         status_span.style.color = color;
     }
 
-    async function save(): Promise<void> {
+    function save(): void {
         const new_name = input.value.trim();
         if (new_name === "") {
             set_status("Display name cannot be empty.", colors.danger);
@@ -118,36 +118,31 @@ function render_full_name_section(): HTMLElement {
         save_button.disabled = true;
         set_status("Saving…", colors.text_muted);
 
-        try {
-            const resp = await update_full_name(new_name);
-            if (resp.result !== "success") {
-                set_status(
-                    `Error: ${resp.msg ?? "unknown error"}`,
-                    colors.danger,
-                );
-                return;
-            }
-            // Update the local user-map cache so other parts of
-            // the UI immediately see the new name without waiting
-            // for a re-fetch. Once we're handling user_update
-            // events from the server we can drop this manual
-            // update and rely on the event flow.
-            const me = DB.user_map.get(DB.current_user_id);
-            if (me) {
-                me.full_name = resp.full_name ?? new_name;
-            }
-            input.value = resp.full_name ?? new_name;
-            set_status("Saved!", colors.success);
-        } catch (err) {
-            set_status(`Network error: ${String(err)}`, colors.danger);
-        } finally {
-            save_button.disabled = false;
-        }
+        update_full_name(
+            new_name,
+            () => {
+                // Update the local user-map cache for immediate
+                // local effect. The realm_user event will also
+                // update it (a harmless no-op if it arrives after
+                // this), and that same event updates OTHER clients.
+                const me = DB.user_map.get(DB.current_user_id);
+                if (me) {
+                    me.full_name = new_name;
+                }
+                input.value = new_name;
+                save_button.disabled = false;
+                set_status("Saved!", colors.success);
+            },
+            (error_msg) => {
+                save_button.disabled = false;
+                set_status(`Error: ${error_msg}`, colors.danger);
+            },
+        );
     }
 
     form.onsubmit = (e) => {
         e.preventDefault();
-        void save();
+        save();
     };
 
     return section;

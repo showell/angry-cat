@@ -175,11 +175,20 @@ export class ChannelInfo {
             cancel_button_text: "Cancel",
             auto_focus: false,
             callback: () => {
+                StatusBar.inform("Saving description…");
                 zulip_client.update_stream_description(
                     this.stream_id,
                     textarea.value,
+                    () => {
+                        // The actual UI content update happens when the
+                        // stream event arrives (handle_stream_update).
+                        // Here we just confirm the server accepted.
+                        StatusBar.celebrate("Channel description updated!");
+                    },
+                    (error_msg) => {
+                        StatusBar.scold(`Failed to update description: ${error_msg}`);
+                    },
                 );
-                StatusBar.inform("Saving description…");
             },
         });
         textarea.focus();
@@ -187,6 +196,5 @@ export class ChannelInfo {
 
     handle_stream_update(rendered_description: string): void {
         this.show_description(rendered_description);
-        StatusBar.celebrate("Channel description updated!");
     }
 }

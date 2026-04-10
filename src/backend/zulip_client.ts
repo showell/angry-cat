@@ -53,17 +53,31 @@ export async function get_users() {
 }
 
 // Update the authenticated user's display name. Mirrors Zulip's
-// PATCH /api/v1/settings endpoint. Returns the standard
-// {result, msg?} envelope so callers can detect failure and
-// surface the server's error message in the UI.
-export async function update_full_name(
+// PATCH /api/v1/settings endpoint. The server echoes the changed
+// field back; we verify it matches what we sent and log a
+// console error on mismatch (but still call on_success — the
+// update landed, it just came back different from what we sent).
+export function update_full_name(
     full_name: string,
-): Promise<{ result: string; msg?: string; full_name?: string }> {
-    return api_form_request("PATCH", "settings", { full_name }) as Promise<{
-        result: string;
-        msg?: string;
-        full_name?: string;
-    }>;
+    on_success: () => void,
+    on_error: (msg: string) => void,
+): void {
+    api_form_request("PATCH", "settings", { full_name }).then((data) => {
+        if (data.result !== "success") {
+            on_error(data.msg ?? "Unknown error updating name");
+            return;
+        }
+        const resp = data as Record<string, unknown>;
+        if (resp.full_name !== undefined && resp.full_name !== full_name) {
+            console.error(
+                "Server echoed unexpected full_name:",
+                resp.full_name,
+                "(expected:",
+                full_name + ")",
+            );
+        }
+        on_success();
+    });
 }
 
 export async function get_subscriptions() {
@@ -177,8 +191,18 @@ export function edit_message(
 export function update_stream_description(
     stream_id: number,
     description: string,
+    on_success: () => void,
+    on_error: (msg: string) => void,
 ): void {
-    api_form_request("PATCH", `streams/${stream_id}`, { description });
+    api_form_request("PATCH", `streams/${stream_id}`, { description }).then(
+        (data) => {
+            if (data.result === "success") {
+                on_success();
+            } else {
+                on_error(data.msg ?? "Unknown error updating description");
+            }
+        },
+    );
 }
 
 export function toggle_reaction_on_message(
