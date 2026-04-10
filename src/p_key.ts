@@ -18,6 +18,7 @@ import * as buddies from "./plugins/buddies";
 import * as code_search from "./plugins/code_search";
 import * as color_scheme from "./plugins/color_scheme";
 import * as config_viewer from "./plugins/config_viewer";
+import * as github_setup from "./plugins/github_setup";
 import * as image_search from "./plugins/image_search";
 import * as invite from "./plugins/invite";
 import * as mentions from "./plugins/mentions";
@@ -49,6 +50,7 @@ function get_all_plugins(): PluginEntry[] {
     if (model.current_user_is_admin()) {
         plugins.push({ name: "Admin", factory: admin.plugin });
         if (is_gopher_realm()) {
+            plugins.push({ name: "GitHub", factory: github_setup.plugin });
             plugins.push({ name: "Invite", factory: invite.plugin });
         }
     }

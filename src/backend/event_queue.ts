@@ -57,6 +57,18 @@ export async function register_queue(): Promise<void> {
     last_event_id = assert_event_id(data.last_event_id);
 }
 
+export function delete_queue(): void {
+    if (queue_id === undefined) return;
+    const url = api_url("events");
+    url.searchParams.set("queue_id", queue_id);
+    fetch(url, {
+        method: "DELETE",
+        headers: get_headers(),
+        keepalive: true,
+    }).catch(() => {});
+    queue_id = undefined;
+}
+
 async function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }

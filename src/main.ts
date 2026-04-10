@@ -1,10 +1,13 @@
 import * as app from "./app";
+import { api_get } from "./backend/api_helpers";
+import * as config from "./backend/config";
 import * as database from "./backend/database";
 import { DB } from "./backend/database";
 import { EventHandler, type ZulipEvent } from "./backend/event";
 import * as event_queue from "./backend/event_queue";
 import * as zulip_client from "./backend/zulip_client";
-import * as config from "./backend/config";
+import * as buddy_list from "./buddy_list";
+import * as dm_model from "./dm/model";
 import * as local_storage from "./localstorage";
 import * as login_manager from "./login_manager";
 import * as game from "./lyn_rummy/game";
@@ -81,6 +84,18 @@ async function run() {
 
     const screen = splash.create();
 
+    if (config.is_gopher_realm()) {
+        screen.add_line("Pinging Angry Gopher...");
+        try {
+            const settings = await api_get("server_settings");
+            screen.add_line(`Connected to Gopher (generation ${settings.generation})`);
+        } catch {
+            screen.add_line("Could not reach Angry Gopher server.");
+            show_logout_option(screen);
+            return;
+        }
+    }
+
     screen.add_line("Connecting to Zulip...");
     try {
         await event_queue.register_queue();
@@ -93,6 +108,8 @@ async function run() {
     await database.fetch_original_data();
     screen.add_line(`${DB.message_map.size} recent messages loaded.`);
     screen.add_line(`${DB.user_map.size} users found.`);
+    await buddy_list.init();
+    await dm_model.init();
 
     // run_backfill returns two promises: threshold (enough data to
     // render a useful UI) and complete (all data fetched). We await
@@ -114,6 +131,9 @@ async function run() {
     });
 
     event_queue.start_polling(event_manager);
+    window.addEventListener("beforeunload", () => {
+        event_queue.delete_queue();
+    });
     app.init(page);
     install_keyboard_handler();
     presence.start();

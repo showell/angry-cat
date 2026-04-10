@@ -109,6 +109,19 @@ function build_event(raw_event: any): ZulipEvent | undefined {
             const raw_message = raw_event.message;
 
             if (raw_message.type === "stream") {
+                if (
+                    raw_message.stream_id === undefined ||
+                    raw_message.subject === undefined ||
+                    raw_message.content === undefined ||
+                    raw_message.sender_id === undefined
+                ) {
+                    console.error(
+                        "Malformed stream message event — missing required fields:",
+                        JSON.stringify(raw_message),
+                    );
+                    return undefined;
+                }
+
                 const topic = DB.topic_map.get_or_make_topic_for(
                     raw_message.stream_id,
                     raw_message.subject,

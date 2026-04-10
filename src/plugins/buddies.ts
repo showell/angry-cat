@@ -42,8 +42,15 @@ function render_user_row(user: User, presences: PresenceMap): HTMLDivElement {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = buddy_list.is_buddy(user.id);
-    checkbox.addEventListener("change", () => {
-        buddy_list.toggle_buddy(user.id);
+    checkbox.addEventListener("change", async () => {
+        checkbox.disabled = true;
+        try {
+            await buddy_list.toggle_buddy(user.id);
+        } catch {
+            checkbox.checked = !checkbox.checked;
+            StatusBar.scold("Failed to update buddy list");
+        }
+        checkbox.disabled = false;
     });
 
     const dot = document.createElement("span");
