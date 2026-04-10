@@ -166,6 +166,10 @@ async function gopher_resume_game(
     // get_deck() already set last_seen_event_id to the deck event's ID.
     const event_rows = await helper.get_events_after(helper.last_seen_event_id);
 
+    // Clear the "Loading game..." placeholder before start_game
+    // appends the game UI; otherwise the text lingers above the
+    // board.
+    div.innerHTML = "";
     lyn_rummy.start_game(
         deck_cards,
         div,
@@ -196,6 +200,9 @@ async function gopher_resume_puzzle_game(
     const webxdc = helper.xdc_interface();
     const event_rows = await helper.get_events_after(helper.last_seen_event_id);
 
+    // Clear the "Loading puzzle..." placeholder before start_game
+    // appends the game UI.
+    div.innerHTML = "";
     lyn_rummy.start_game(
         [],
         div,

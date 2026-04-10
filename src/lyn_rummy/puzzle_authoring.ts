@@ -32,6 +32,7 @@ import * as fs from "fs";
 import { Card, OriginDeck, type JsonCard } from "./card";
 import type { JsonCardStack } from "./card_stack";
 import { layout_stacks_as_simple_rows } from "./puzzle_layout";
+import { stack_viability } from "./viability";
 
 type PuzzleFile = {
     name: string;
@@ -100,8 +101,27 @@ console.log(`  Board stacks: ${puzzle.board.length}`);
 console.log(`  Hand cards:   ${puzzle.hand.length}`);
 
 const raw_stacks: Card[][] = puzzle.board.map((s) => s.cards.map(parse_card));
+
+// Sort stacks by viability so the most useful stacks land at
+// the top of the board. For multi-hand puzzles, each stack's
+// "usefulness" is the MAX viability across all hand cards: a
+// stack that's great for placing any single stubborn card ranks
+// highly even if it's mediocre for the others. Single-card
+// puzzles fall through this naturally (max of one value = that
+// value).
+const targets = puzzle.hand.map(parse_card);
+function best_viability(stack: Card[]): number {
+    let best = -Infinity;
+    for (const t of targets) {
+        const v = stack_viability(t, stack);
+        if (v > best) best = v;
+    }
+    return best;
+}
+raw_stacks.sort((a, b) => best_viability(b) - best_viability(a));
+
 const positioned_stacks: JsonCardStack[] =
-    layout_stacks_as_simple_rows(raw_stacks);
+    layout_stacks_as_simple_rows(raw_stacks, 25);
 
 // Re-serialize each board card with the bare JsonCard shape so
 // the wire payload is identical to what the game itself would

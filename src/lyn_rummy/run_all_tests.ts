@@ -9,3 +9,4 @@ import "./rearrange_hint_test";
 import "./simulation_test";
 import "./viability_test";
 import "./puzzle_layout_test";
+import "./place_stack_test";

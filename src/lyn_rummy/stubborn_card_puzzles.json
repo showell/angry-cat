@@ -1,0 +1,103 @@
+[
+  {
+    "name": "puzzle_16",
+    "source": "orphan_puzzles.json index 15",
+    "stubborn_card": "10H:2",
+    "notes": "Greedy polite-steal pass places 0 cards. The 10H slot's only twin (10H:1) is in a 3-set, the other tens are mostly in 3-stacks (impolite to peel), and the heart run partners (9H, JH, etc.) are not on the board.",
+    "total_cards": 54,
+    "board_stacks": 12,
+    "hand_size": 1,
+    "board": [
+      { "cards": ["10S:1", "JS:1", "QS:1", "KS:1", "AS:1"], "type": "pure run", "score": 300 },
+      { "cards": ["10C:1", "JC:2", "QC:1"], "type": "pure run", "score": 100 },
+      { "cards": ["10H:1", "10D:2", "10C:2"], "type": "set", "score": 60 },
+      { "cards": ["QC:2", "KC:1", "AC:2", "2C:1", "3C:2", "4C:2", "5C:1", "6C:2", "7C:1"], "type": "pure run", "score": 700 },
+      { "cards": ["KD:2", "AD:1", "2D:1", "3D:1", "4D:1", "5D:2", "6D:1", "7D:1", "8D:1"], "type": "pure run", "score": 700 },
+      { "cards": ["AD:2", "AS:2", "AH:1"], "type": "set", "score": 60 },
+      { "cards": ["2C:2", "3C:1", "4C:1"], "type": "pure run", "score": 100 },
+      { "cards": ["KD:1", "AC:1", "2H:1", "3S:1"], "type": "red/black alternating", "score": 100 },
+      { "cards": ["3S:2", "4S:2", "5S:2", "6S:2"], "type": "pure run", "score": 200 },
+      { "cards": ["3H:1", "4H:1", "5H:2", "6H:1"], "type": "pure run", "score": 200 },
+      { "cards": ["7S:1", "7H:1", "7D:2"], "type": "set", "score": 60 },
+      { "cards": ["6H:2", "6D:2", "6C:1"], "type": "set", "score": 60 }
+    ],
+    "hand": ["10H:2"],
+    "expert_score": 2640
+  },
+  {
+    "name": "puzzle_24",
+    "source": "orphan_puzzles.json index 23",
+    "stubborn_card": "6C:1",
+    "notes": "Stubborn because the board has NO 8H/8C/8S — only 8D:1 and 8D:2 exist. So 6C cannot extend or assemble into any club run requiring an 8C, nor any rb run that wants a black-8 partner. The other-suit 6s are all locked in 3-stacks or buried mid-run, so a polite set-of-6s is impossible. The cleanest polite solve is a 3-rb-run [4-black, 5-red, 6C] which requires expensive middle-splits of two long runs (cost ~-550). The cheap alternative is a lossy set-of-6s for ~-140.",
+    "total_cards": 66,
+    "board_stacks": 14,
+    "hand_size": 1,
+    "board": [
+      { "cards": ["QD:2", "QC:1", "QS:1"], "type": "set", "score": 60 },
+      { "cards": ["9C:1", "10C:1", "JC:2", "QC:2", "KC:1", "AC:2", "2C:1", "3C:2", "4C:2", "5C:1", "6C:2", "7C:1"], "type": "pure run", "score": 1000 },
+      { "cards": ["9S:1", "10S:1", "JS:1"], "type": "pure run", "score": 100 },
+      { "cards": ["9H:1", "10H:1", "JH:2"], "type": "pure run", "score": 100 },
+      { "cards": ["10H:2", "10D:2", "10C:2"], "type": "set", "score": 60 },
+      { "cards": ["9H:2", "9D:2", "9S:2"], "type": "set", "score": 60 },
+      { "cards": ["6D:2", "7D:2", "8D:1"], "type": "pure run", "score": 100 },
+      { "cards": ["KD:2", "AD:1", "2D:1", "3D:1", "4D:1", "5D:2", "6D:1", "7D:1", "8D:2"], "type": "pure run", "score": 700 },
+      { "cards": ["KS:1", "AS:1", "2S:2", "3S:2", "4S:2", "5S:2", "6S:2", "7S:1"], "type": "pure run", "score": 600 },
+      { "cards": ["KD:1", "AC:1", "2H:1", "3S:1"], "type": "red/black alternating", "score": 100 },
+      { "cards": ["5H:2", "6H:1", "7H:1"], "type": "pure run", "score": 100 },
+      { "cards": ["2C:2", "3C:1", "4C:1"], "type": "pure run", "score": 100 },
+      { "cards": ["2H:2", "3H:1", "4H:1", "5H:1", "6H:2"], "type": "pure run", "score": 300 },
+      { "cards": ["AD:2", "AH:1", "AS:2"], "type": "set", "score": 60 }
+    ],
+    "hand": ["6C:1"],
+    "expert_score": 3440
+  },
+  {
+    "name": "puzzle_46",
+    "source": "orphan_puzzles.json index 45",
+    "stubborn_card": "JD:2",
+    "notes": "90 cards, 15 board stacks. Stubborn JD:2 has its twin JD:1 buried in the middle of a 13-card diamond run, so a set-of-jacks would have to navigate around the dup penalty. There's a long club run, a long heart run, and a long spade run too — lots of material to work with for either a set-of-jacks or an rb-run-around-J approach.",
+    "total_cards": 90,
+    "board_stacks": 15,
+    "hand_size": 1,
+    "board": [
+      { "cards": ["8D:2", "8C:2", "8S:2"], "type": "set", "score": 60 },
+      { "cards": ["8D:1", "9D:2", "10D:1", "JD:1", "QD:2", "KD:2", "AD:1", "2D:1", "3D:1", "4D:1", "5D:2", "6D:1", "7D:2"], "type": "pure run", "score": 1100 },
+      { "cards": ["7D:1", "7H:1", "7S:1"], "type": "set", "score": 60 },
+      { "cards": ["9C:1", "10C:1", "JC:2", "QC:2", "KC:1", "AC:1", "2C:2", "3C:1", "4C:1", "5C:1", "6C:1", "7C:1"], "type": "pure run", "score": 1000 },
+      { "cards": ["9H:1", "9S:1", "9C:2"], "type": "set", "score": 60 },
+      { "cards": ["9H:2", "10H:1", "JH:2", "QH:1", "KH:2", "AH:1", "2H:2", "3H:1", "4H:1", "5H:1", "6H:1"], "type": "pure run", "score": 900 },
+      { "cards": ["9S:2", "10S:2", "JS:1", "QS:1", "KS:1", "AS:1", "2S:2", "3S:1", "4S:2", "5S:2", "6S:1"], "type": "pure run", "score": 900 },
+      { "cards": ["10C:2", "JC:1", "QC:1", "KC:2", "AC:2", "2C:1", "3C:2", "4C:2"], "type": "pure run", "score": 600 },
+      { "cards": ["4S:1", "5H:2", "6C:2"], "type": "red/black alternating", "score": 50 },
+      { "cards": ["6D:2", "6S:2", "6H:2"], "type": "set", "score": 60 },
+      { "cards": ["3S:2", "4H:2", "5C:2"], "type": "red/black alternating", "score": 50 },
+      { "cards": ["KD:1", "AD:2", "2D:2", "3D:2", "4D:2", "5D:1"], "type": "pure run", "score": 400 },
+      { "cards": ["KH:1", "AH:2", "2H:1"], "type": "pure run", "score": 100 },
+      { "cards": ["JS:2", "QS:2", "KS:2", "AS:2"], "type": "pure run", "score": 200 },
+      { "cards": ["10S:1", "10H:2", "10D:2"], "type": "set", "score": 60 }
+    ],
+    "hand": ["JD:2"],
+    "expert_score": 5600
+  },
+  {
+    "name": "puzzle_5",
+    "source": "orphan_puzzles.json index 4",
+    "stubborn_card": "AH:1, 4S:2",
+    "notes": "40 cards, 8 board stacks, hand = 2 cards (AH:1 and 4S:2). Small board with two stranded cards of very different values. The backtracking solver got stuck on this with 6 cards unplaced, so it's a real puzzle, not a trivial one.",
+    "total_cards": 40,
+    "board_stacks": 8,
+    "hand_size": 2,
+    "board": [
+      { "cards": ["10S:1", "JS:1", "QS:1", "KS:1", "AS:1"], "type": "pure run", "score": 300 },
+      { "cards": ["KD:2", "AD:1", "2D:1", "3D:1", "4D:1"], "type": "pure run", "score": 300 },
+      { "cards": ["10C:1", "JC:2", "QC:1", "KC:1", "AC:2", "2C:1", "3C:2", "4C:1"], "type": "pure run", "score": 600 },
+      { "cards": ["3C:1", "4C:2", "5C:1", "6C:2"], "type": "pure run", "score": 200 },
+      { "cards": ["KD:1", "AC:1", "2H:1", "3S:1", "4H:1", "5S:2", "6H:1"], "type": "red/black alternating", "score": 250 },
+      { "cards": ["7D:1", "7H:1", "7C:1"], "type": "set", "score": 60 },
+      { "cards": ["6D:1", "7S:1", "8D:1"], "type": "red/black alternating", "score": 50 },
+      { "cards": ["6H:2", "6D:2", "6C:1"], "type": "set", "score": 60 }
+    ],
+    "hand": ["AH:1", "4S:2"],
+    "expert_score": 1820
+  }
+]
