@@ -60,6 +60,13 @@ function render_full_name_section(): HTMLElement {
     heading.style.borderBottom = `1px solid ${colors.accent_border}`;
     section.append(heading);
 
+    // Wrapping input + button in a <form> gives us two things:
+    // (1) Tab naturally flows from the input to the Save button
+    //     without escaping into the surrounding page chrome.
+    // (2) Enter-to-submit works: pressing Enter in the input
+    //     triggers the form's submit handler (which calls save()).
+    const form = document.createElement("form");
+
     const input = document.createElement("input");
     input.type = "text";
     input.value = model.current_user_name();
@@ -68,7 +75,7 @@ function render_full_name_section(): HTMLElement {
     input.style.fontSize = "14px";
     input.style.boxSizing = "border-box";
     input.style.marginBottom = "10px";
-    section.append(input);
+    form.append(input);
 
     const button_row = document.createElement("div");
     button_row.style.display = "flex";
@@ -76,6 +83,7 @@ function render_full_name_section(): HTMLElement {
     button_row.style.alignItems = "center";
 
     const save_button = document.createElement("button");
+    save_button.type = "submit";
     save_button.innerText = "Save";
     save_button.style.padding = "6px 16px";
     save_button.style.fontSize = "14px";
@@ -88,7 +96,8 @@ function render_full_name_section(): HTMLElement {
     status_span.style.fontSize = "13px";
     button_row.append(status_span);
 
-    section.append(button_row);
+    form.append(button_row);
+    section.append(form);
 
     function set_status(text: string, color: string): void {
         status_span.textContent = text;
@@ -136,9 +145,10 @@ function render_full_name_section(): HTMLElement {
         }
     }
 
-    save_button.addEventListener("click", () => {
+    form.onsubmit = (e) => {
+        e.preventDefault();
         void save();
-    });
+    };
 
     return section;
 }
