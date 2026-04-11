@@ -1,14 +1,21 @@
-// Game referee — stateless move validation.
+// Game referee — stateless move and turn validation.
 //
 // The referee is like an expert in the other room. You show them
 // the board and the proposed move, they give a ruling. They don't
 // need to remember anything — the board is the state.
 //
-// Four validation stages, run in order:
-//   1. Protocol  — is the JSON well-formed?
-//   2. Geometry  — do stacks fit without illegal overlap?
-//   3. Semantics — are all stacks valid card groups?
-//   4. Inventory — are cards conserved? No creation or duplication.
+// Two entry points:
+//
+//   validate_game_move — rule on a single move during a turn.
+//     The board can be messy mid-turn. Four stages:
+//       1. Protocol  — is the JSON well-formed?
+//       2. Geometry  — do stacks fit without illegal overlap?
+//       3. Semantics — are all stacks valid card groups?
+//       4. Inventory — are cards conserved?
+//
+//   validate_turn_complete — rule on whether the turn can end.
+//     The board must be clean before we move on to the next
+//     player. The referee checks geometry and semantics.
 //
 // The referee does not enforce turn order, player identity, or
 // how many moves per turn. Those are social rules, not physics.
@@ -69,6 +76,28 @@ export function validate_game_move(
     // Stage 4: Inventory.
     const inventory_error = check_inventory(move, board_after);
     if (inventory_error) return inventory_error;
+
+    return undefined;
+}
+
+// --- Turn completion ---
+//
+// Called when a player wants to end their turn. The board must
+// be clean: geometry valid and all stacks semantically correct.
+// Mid-turn messiness is fine, but you can't hand off a dirty board.
+
+export function validate_turn_complete(
+    board: CardStack[],
+    bounds: BoardBounds,
+): RefereeError | undefined {
+
+    // Geometry: no overlaps, everything in bounds.
+    const geometry_error = check_geometry(board, bounds);
+    if (geometry_error) return geometry_error;
+
+    // Semantics: every stack is a valid group.
+    const semantics_error = check_semantics(board);
+    if (semantics_error) return semantics_error;
 
     return undefined;
 }

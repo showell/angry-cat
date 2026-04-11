@@ -40,7 +40,7 @@ import { Score } from "../core/score";
 import { DEFAULT_BOARD_BOUNDS } from "./wire_validation";
 import { classify_board_geometry, BoardGeometryStatus } from "./board_geometry";
 import { validate_move, type ProtocolError } from "./protocol_validation";
-import { validate_game_move } from "./referee";
+import { validate_game_move, validate_turn_complete } from "./referee";
 
 enum GameEventType {
     ADVANCE_TURN,
@@ -478,7 +478,12 @@ class Game {
             return false; // there can only be one winner
         }
 
-        if (!CurrentBoard.is_clean()) {
+        // The referee must approve the board before declaring victory.
+        const referee_error = validate_turn_complete(
+            CurrentBoard.card_stacks,
+            DEFAULT_BOARD_BOUNDS,
+        );
+        if (referee_error) {
             return false;
         }
 
@@ -493,9 +498,12 @@ class Game {
     }
 
     maybe_complete_turn(): CompleteTurnResult {
-        // We return failure so that Angry Cat can complain
-        // about the dirty board.
-        if (!CurrentBoard.is_clean()) return CompleteTurnResult.FAILURE;
+        // Ask the referee if the board is ready to hand off.
+        const referee_error = validate_turn_complete(
+            CurrentBoard.card_stacks,
+            DEFAULT_BOARD_BOUNDS,
+        );
+        if (referee_error) return CompleteTurnResult.FAILURE;
 
         // Let the player decide all the other conditions.
         const turn_result = ActivePlayer.end_turn();

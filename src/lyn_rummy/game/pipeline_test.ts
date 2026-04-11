@@ -11,7 +11,7 @@ import {
 } from "../core/card_stack";
 import { validate_move } from "./protocol_validation";
 import { type BoardBounds } from "./board_geometry";
-import { validate_game_move, type RefereeMove } from "./referee";
+import { validate_game_move, validate_turn_complete, type RefereeMove } from "./referee";
 
 // --- Helpers ---
 
@@ -442,6 +442,62 @@ function test_inventory_rejects_missing_remove() {
     assert.ok(err!.message.includes("not on the board"));
 }
 
+// --- Turn completion tests ---
+
+function test_turn_complete_clean_board() {
+    const run = new CardStack([
+        bc(CardValue.ACE, Suit.HEART),
+        bc(CardValue.TWO, Suit.HEART),
+        bc(CardValue.THREE, Suit.HEART),
+    ], { top: 10, left: 10 });
+
+    const set = new CardStack([
+        bc(CardValue.KING, Suit.CLUB),
+        bc(CardValue.KING, Suit.DIAMOND),
+        bc(CardValue.KING, Suit.SPADE),
+    ], { top: 10, left: 200 });
+
+    const err = validate_turn_complete([run, set], bounds);
+    assert.strictEqual(err, undefined, `Clean board: ${err?.message}`);
+}
+
+function test_turn_complete_rejects_incomplete() {
+    // 2-card stack — valid mid-turn, but can't end turn with it.
+    const incomplete = new CardStack([
+        bc(CardValue.ACE, Suit.HEART),
+        bc(CardValue.TWO, Suit.HEART),
+    ], { top: 10, left: 10 });
+
+    const err = validate_turn_complete([incomplete], bounds);
+    assert.ok(err !== undefined, "Should reject incomplete stack at turn end");
+    assert.strictEqual(err!.stage, "semantics");
+}
+
+function test_turn_complete_rejects_overlap() {
+    // Two stacks at the same position — geometry violation.
+    const stack1 = new CardStack([
+        bc(CardValue.ACE, Suit.HEART),
+        bc(CardValue.TWO, Suit.HEART),
+        bc(CardValue.THREE, Suit.HEART),
+    ], { top: 10, left: 10 });
+
+    const stack2 = new CardStack([
+        bc(CardValue.SEVEN, Suit.CLUB),
+        bc(CardValue.SEVEN, Suit.DIAMOND),
+        bc(CardValue.SEVEN, Suit.SPADE),
+    ], { top: 10, left: 10 });
+
+    const err = validate_turn_complete([stack1, stack2], bounds);
+    assert.ok(err !== undefined, "Should reject overlapping stacks at turn end");
+    assert.strictEqual(err!.stage, "geometry");
+}
+
+function test_turn_complete_empty_board() {
+    // Empty board is fine — nothing to complain about.
+    const err = validate_turn_complete([], bounds);
+    assert.strictEqual(err, undefined, `Empty board: ${err?.message}`);
+}
+
 // --- Run all ---
 
 test_valid_game_sequence();
@@ -459,5 +515,9 @@ test_inventory_allows_rearrangement();
 test_inventory_rejects_board_duplicate();
 test_inventory_rejects_new_cards_without_hand();
 test_inventory_rejects_missing_remove();
+test_turn_complete_clean_board();
+test_turn_complete_rejects_incomplete();
+test_turn_complete_rejects_overlap();
+test_turn_complete_empty_board();
 
 console.log("pipeline: all tests passed");
