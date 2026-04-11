@@ -352,17 +352,17 @@ class GameState {
     async send_move(
         game_id: number, addr: string,
         board_event: WireBoardEvent, hand_cards?: JsonCard[],
-    ): Promise<any> {
+    ): Promise<boolean> {
         const payload = make_event_row(addr, board_event, hand_cards);
         const result = await gopher_post(`games/${game_id}/events`, payload);
         const event_id = result.event_id;
         if (event_id) {
             console.log(`  -> event ${event_id}`);
             this.apply_event({ id: event_id, user_id: 0, payload, created_at: 0 });
-        } else if (result.result === "error") {
-            console.log(`  -> REJECTED: ${result.msg}`);
+            return true;
         }
-        return result;
+        console.log(`  -> REJECTED: ${result.msg}`);
+        return false;
     }
 
     async send_turn_complete(game_id: number, addr: string): Promise<void> {
@@ -417,24 +417,29 @@ async function tidy_board(
     state: GameState, game_id: number, addr: string,
 ): Promise<void> {
     const tidy_locs = compute_tidy_locations(state.board);
-    let moved = 0;
 
+    // Check if anything needs to move.
+    let needs_tidy = false;
     for (let i = 0; i < state.board.length; i++) {
         const s = state.board[i];
-        const new_loc = tidy_locs[i];
-        if (s.loc.top === new_loc.top && s.loc.left === new_loc.left) {
-            continue; // already in the right place
+        const loc = tidy_locs[i];
+        if (s.loc.top !== loc.top || s.loc.left !== loc.left) {
+            needs_tidy = true;
+            break;
         }
-
-        const moved_stack = { ...s, loc: new_loc };
-        const be = make_board_event([s], [moved_stack]);
-        await state.send_move(game_id, addr, be);
-        moved++;
     }
+    if (!needs_tidy) return;
 
-    if (moved > 0) {
-        console.log(`Tidied ${moved} stacks.`);
-    }
+    // One move: remove all stacks, add them all back at tidy positions.
+    const old_stacks = [...state.board];
+    const new_stacks = old_stacks.map((s, i) => ({
+        ...s,
+        loc: tidy_locs[i],
+    }));
+
+    const be = make_board_event(old_stacks, new_stacks);
+    await state.send_move(game_id, addr, be);
+    console.log(`Tidied ${state.board.length} stacks in one move.`);
 }
 
 // --- Auto-play using hints ---
@@ -447,9 +452,14 @@ async function auto_play_turn(
 ): Promise<void> {
     let moves_played = 0;
 
+    let consecutive_failures = 0;
+
     while (true) {
         const hand_json = state.get_remaining_hand(player_index);
         if (hand_json.length === 0) break;
+
+        // Tidy before each move to avoid geometry conflicts.
+        await tidy_board(state, game_id, addr);
 
         const hand_cards = json_to_hand_cards(hand_json);
         const board_stacks = json_to_card_stacks(state.board);
@@ -459,6 +469,11 @@ async function auto_play_turn(
         if (hint.level === HintLevel.NO_MOVES ||
             hint.level === HintLevel.REARRANGE_PLAY) {
             console.log(`Hint: ${hint.level}`);
+            break;
+        }
+
+        if (consecutive_failures >= 3) {
+            console.log("Too many failures, stopping.");
             break;
         }
 
@@ -472,8 +487,13 @@ async function auto_play_turn(
                 const board_cards = cards_json.map(c => make_board_card(c, BoardCardState.FRESHLY_PLAYED));
                 const new_stack = make_stack(board_cards, loc);
                 const be = make_board_event([], [new_stack]);
-                await state.send_move(game_id, addr, be, cards_json);
-                moves_played += group.cards.length;
+                const ok = await state.send_move(game_id, addr, be, cards_json);
+                if (ok) {
+                    moves_played += group.cards.length;
+                    consecutive_failures = 0;
+                } else {
+                    consecutive_failures++;
+                }
                 break;
             }
 
@@ -482,7 +502,6 @@ async function auto_play_turn(
                 const card_json = hc.card.toJSON();
                 const single = CardStack.from_hand_card(hc, { top: 0, left: 0 });
 
-                // Find which board stack this card merges onto.
                 let played = false;
                 for (let i = 0; i < board_stacks.length; i++) {
                     const merged = board_stacks[i].left_merge(single)
@@ -490,18 +509,23 @@ async function auto_play_turn(
                     if (merged) {
                         const old_stack = state.board[i];
                         const new_stack_json = merged.toJSON();
-                        // Preserve the board stack's location.
                         new_stack_json.loc = old_stack.loc;
                         const be = make_board_event([old_stack], [new_stack_json]);
-                        await state.send_move(game_id, addr, be, [card_json]);
-                        moves_played++;
+                        const ok = await state.send_move(game_id, addr, be, [card_json]);
+                        if (ok) {
+                            moves_played++;
+                            consecutive_failures = 0;
+                        } else {
+                            consecutive_failures++;
+                        }
                         played = true;
                         break;
                     }
                 }
                 if (!played) {
                     console.log(`  Could not find merge target for ${card_label(card_json)}`);
-                    return;
+                    consecutive_failures++;
+                    continue;
                 }
                 break;
             }
