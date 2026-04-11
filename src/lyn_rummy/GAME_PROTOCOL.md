@@ -34,25 +34,32 @@ A stack is an ordered list of cards. Valid stack types:
 
 Runs wrap: ...Q K A 2 3...
 
-A stack in JSON is simply an array of cards:
+A stack in JSON is an array of cards with a location:
 
 ```json
-[
-    {"value": 5, "suit": 3, "origin_deck": 0},
-    {"value": 6, "suit": 3, "origin_deck": 0},
-    {"value": 7, "suit": 3, "origin_deck": 1}
-]
+{
+    "cards": [
+        {"value": 5, "suit": 3, "origin_deck": 0},
+        {"value": 6, "suit": 3, "origin_deck": 0},
+        {"value": 7, "suit": 3, "origin_deck": 1}
+    ],
+    "loc": {"top": 100, "left": 200}
+}
 ```
+
+Cards within a stack fan out horizontally from the location.
+The location is always present in communicated board states.
 
 ## Board
 
-The board is an array of stacks. All stacks must be valid.
+The board is an array of stacks. All stacks must be valid and
+non-overlapping.
 
 ```json
 {
     "board": [
-        [{"value": 5, "suit": 3, "origin_deck": 0}, ...],
-        [{"value": 5, "suit": 1, "origin_deck": 0}, ...]
+        {"cards": [...], "loc": {"top": 100, "left": 200}},
+        {"cards": [...], "loc": {"top": 100, "left": 500}}
     ]
 }
 ```
@@ -96,8 +103,8 @@ and the board remains valid.
         {"value": 8, "suit": 3, "origin_deck": 0}
     ],
     "resulting_board": [
-        [{"value": 5, "suit": 3, "origin_deck": 0}, ...],
-        [...]
+        {"cards": [...], "loc": {"top": 100, "left": 200}},
+        {"cards": [...], "loc": {"top": 100, "left": 500}}
     ]
 }
 ```
@@ -131,29 +138,34 @@ Emptying your hand: +1000. Ending the game: +500 additional.
 
 ## Validity
 
-The board is valid when every stack is a valid type with 3+
-cards. This must hold after every move.
+A board state is checked in this order:
+
+1. **No overlapping stacks.** Every stack must occupy its own
+   space on the board. This is checked first — an overlapping
+   board is rejected before any game logic is evaluated.
+
+2. **Every stack is a valid type** (pure run, red/black run,
+   or set) with 3+ cards.
+
+Both constraints must hold after every move.
 
 ## Presentation layer
 
-Everything above describes the game logic layer. Location is a
-separate concern.
+Stack locations are always present in communicated board states.
+Non-overlapping placement is a hard constraint — checked before
+game logic, like well-formed syntax.
 
-Each stack occupies a position on a 2D board when displayed to
-a human. Cards within a stack fan out horizontally. Stack
-locations have no effect on scoring, validity, or strategy.
-Solvers and agents ignore them entirely.
+However, locations have no effect on scoring or strategy. A
+solver choosing between two moves evaluates them identically
+regardless of where the stacks are placed. The solver computes
+locations as a final step to satisfy the non-overlapping
+constraint before communicating the result.
 
-The computer computes locations in exactly two scenarios:
+When interacting with a human, the computer uses locations for:
 
-1. **Rendering for a human** — after deciding a move, the
-   computer assigns non-overlapping positions to all stacks
-   so the human can see the board.
+1. **Rendering** — showing the board in a readable layout.
+2. **Input** — interpreting drag/drop targets.
 
-2. **Accepting human input** — when a human drags a card, the
-   computer uses positions to determine which stack is the
-   drop target.
-
-In computer-vs-computer play, locations do not exist. The
-presentation layer is a post-processing step applied only when
-a human is involved.
+The key distinction: locations are part of the **protocol**
+(always present, always validated) but not part of the
+**strategy** (never influence move selection).
