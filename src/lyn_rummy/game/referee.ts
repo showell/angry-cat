@@ -46,6 +46,11 @@ export type RefereeMove = {
 // --- Entry point ---
 
 // Returns null if the move is valid, or a RefereeError if rejected.
+//
+// Checks protocol, geometry, and inventory — but NOT semantics.
+// The board can be messy mid-turn (incomplete stacks, splits in
+// progress). Semantics are enforced at turn boundaries via
+// validate_turn_complete.
 export function validate_game_move(
     move: RefereeMove,
     bounds: BoardBounds,
@@ -69,11 +74,7 @@ export function validate_game_move(
     const geometry_error = check_geometry(board_after, bounds);
     if (geometry_error) return geometry_error;
 
-    // Stage 3: Semantics.
-    const semantics_error = check_semantics(board_after);
-    if (semantics_error) return semantics_error;
-
-    // Stage 4: Inventory.
+    // Stage 3: Inventory.
     const inventory_error = check_inventory(move, board_after);
     if (inventory_error) return inventory_error;
 

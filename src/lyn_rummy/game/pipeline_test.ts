@@ -189,14 +189,18 @@ function test_geometry_rejects_out_of_bounds() {
 
 // --- Test: semantics rejects bogus ---
 
-function test_semantics_rejects_bogus() {
+// Semantics are NOT checked mid-turn — the board can be messy.
+// validate_game_move accepts bogus/incomplete stacks.
+// validate_turn_complete rejects them.
+
+function test_midturn_allows_bogus() {
     const bogus = new CardStack([
         fresh(CardValue.ACE, Suit.HEART),
         fresh(CardValue.FIVE, Suit.CLUB),
         fresh(CardValue.KING, Suit.DIAMOND),
     ], { top: 10, left: 10 });
 
-    const err = rule([], {
+    const move_err = rule([], {
         stacks_to_remove: [],
         stacks_to_add: [bogus],
         hand_cards_played: [
@@ -205,19 +209,20 @@ function test_semantics_rejects_bogus() {
             hc(CardValue.KING, Suit.DIAMOND),
         ],
     });
-    assert.ok(err !== undefined);
-    assert.strictEqual(err!.stage, "semantics");
+    assert.strictEqual(move_err, undefined, "Mid-turn bogus should be accepted");
+
+    const turn_err = validate_turn_complete([bogus], bounds);
+    assert.ok(turn_err !== undefined, "Turn complete should reject bogus");
+    assert.strictEqual(turn_err!.stage, "semantics");
 }
 
-// --- Test: semantics rejects incomplete ---
-
-function test_semantics_rejects_incomplete() {
+function test_midturn_allows_incomplete() {
     const incomplete = new CardStack([
         fresh(CardValue.ACE, Suit.HEART),
         fresh(CardValue.TWO, Suit.HEART),
     ], { top: 10, left: 10 });
 
-    const err = rule([], {
+    const move_err = rule([], {
         stacks_to_remove: [],
         stacks_to_add: [incomplete],
         hand_cards_played: [
@@ -225,30 +230,37 @@ function test_semantics_rejects_incomplete() {
             hc(CardValue.TWO, Suit.HEART),
         ],
     });
-    assert.ok(err !== undefined);
-    assert.strictEqual(err!.stage, "semantics");
+    assert.strictEqual(move_err, undefined, "Mid-turn incomplete should be accepted");
+
+    const turn_err = validate_turn_complete([incomplete], bounds);
+    assert.ok(turn_err !== undefined, "Turn complete should reject incomplete");
+    assert.strictEqual(turn_err!.stage, "semantics");
 }
 
-// --- Test: semantics rejects dup set ---
-
-function test_semantics_rejects_dup_set() {
+// Dup set: same value+suit from different decks. The inventory
+// allows it (different origin_deck = different cards), but
+// semantics rejects the set at turn completion.
+function test_midturn_allows_dup_set() {
     const dup_set = new CardStack([
-        fresh(CardValue.SEVEN, Suit.HEART),
-        fresh(CardValue.SEVEN, Suit.HEART),
+        fresh(CardValue.SEVEN, Suit.HEART, OriginDeck.DECK_ONE),
+        fresh(CardValue.SEVEN, Suit.HEART, OriginDeck.DECK_TWO),
         fresh(CardValue.SEVEN, Suit.CLUB),
     ], { top: 10, left: 10 });
 
-    const err = rule([], {
+    const move_err = rule([], {
         stacks_to_remove: [],
         stacks_to_add: [dup_set],
         hand_cards_played: [
-            hc(CardValue.SEVEN, Suit.HEART),
-            hc(CardValue.SEVEN, Suit.HEART),
+            hc(CardValue.SEVEN, Suit.HEART, OriginDeck.DECK_ONE),
+            hc(CardValue.SEVEN, Suit.HEART, OriginDeck.DECK_TWO),
             hc(CardValue.SEVEN, Suit.CLUB),
         ],
     });
-    assert.ok(err !== undefined);
-    assert.strictEqual(err!.stage, "semantics");
+    assert.strictEqual(move_err, undefined, "Mid-turn dup set should be accepted");
+
+    const turn_err = validate_turn_complete([dup_set], bounds);
+    assert.ok(turn_err !== undefined, "Turn complete should reject dup set");
+    assert.strictEqual(turn_err!.stage, "semantics");
 }
 
 // --- Test: valid split ---
@@ -284,6 +296,8 @@ function test_split_through_pipeline() {
 
 // --- Test: stages are independent ---
 
+// Mid-turn moves skip semantics. A bogus replacement is accepted
+// during the turn but rejected at turn completion.
 function test_stages_are_independent() {
     const valid_run = new CardStack([
         bc(CardValue.ACE, Suit.CLUB),
@@ -297,7 +311,8 @@ function test_stages_are_independent() {
         fresh(CardValue.KING, Suit.HEART),
     ], { top: 10, left: 10 });
 
-    const err = rule([valid_run], {
+    // Mid-turn: accepted (protocol, geometry, inventory all pass).
+    const move_err = rule([valid_run], {
         stacks_to_remove: [valid_run],
         stacks_to_add: [bogus],
         hand_cards_played: [
@@ -305,9 +320,12 @@ function test_stages_are_independent() {
             hc(CardValue.KING, Suit.HEART),
         ],
     });
-    assert.ok(err !== undefined);
-    assert.strictEqual(err!.stage, "semantics",
-        `Should fail at semantics, not ${err!.stage}`);
+    assert.strictEqual(move_err, undefined, "Mid-turn bogus replacement accepted");
+
+    // Turn boundary: rejected (semantics catches it).
+    const turn_err = validate_turn_complete([bogus], bounds);
+    assert.ok(turn_err !== undefined);
+    assert.strictEqual(turn_err!.stage, "semantics");
 }
 
 // --- Inventory tests ---
@@ -504,9 +522,9 @@ test_valid_game_sequence();
 test_protocol_rejects_bad_json();
 test_geometry_rejects_overlap();
 test_geometry_rejects_out_of_bounds();
-test_semantics_rejects_bogus();
-test_semantics_rejects_incomplete();
-test_semantics_rejects_dup_set();
+test_midturn_allows_bogus();
+test_midturn_allows_incomplete();
+test_midturn_allows_dup_set();
 test_split_through_pipeline();
 test_stages_are_independent();
 test_inventory_rejects_card_from_nowhere();
