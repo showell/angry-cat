@@ -25,8 +25,8 @@ thinks about what moves are *good*, not just what moves are
 *legal*. The advisor is never mandatory — LynRummy is playable
 with just the referee.
 
-The referee is implemented in `game/referee.ts` as two
-stateless functions:
+The referee is implemented in `game/referee.ts` (TypeScript)
+and `lynrummy/lynrummy.go` (Go) as stateless functions:
 
 - `validate_game_move` — rule on a single move during a turn.
   The board can be messy mid-turn. Checks protocol, geometry,
@@ -35,6 +35,45 @@ stateless functions:
 - `validate_turn_complete` — rule on whether the turn can end.
   The board must be clean (geometry + semantics) before we
   hand it off to the next player.
+
+**Dealer** (setup only). The dealer sets up the game before
+play begins: pulls the initial board stacks from the deck,
+shuffles the remaining cards, and deals hands. After dealing,
+the dealer's job is done. Implemented in `game/game.ts` as the
+`Dealer` class.
+
+**Host** (transport). The host relays events between players
+over the network. It authenticates players and knows which
+game type to route to which referee, but it does not understand
+game rules. Implemented in the Angry Gopher `games` package.
+
+## Dealer setup
+
+The dealer receives a shuffled 104-card double deck and performs
+these steps in order:
+
+1. **Pull initial board stacks** from the deck. All cards come
+   from deck 1 (`origin_deck: 0`). The stacks are hard-coded:
+
+   | Row | Cards | Stack type |
+   |-----|-------|------------|
+   | 0 | KS AS 2S 3S | Pure run (wrapping) |
+   | 1 | TD JD QD KD | Pure run |
+   | 2 | 2H 3H 4H | Pure run |
+   | 3 | 7S 7D 7C | Set |
+   | 4 | AC AD AH | Set |
+   | 5 | 2C 3D 4C 5H 6S 7H | Red/black run |
+
+   Board locations are computed from the row index:
+   `col = (row * 3 + 1) % 5`, `top = 20 + row * 60`,
+   `left = 40 + col * 30`.
+
+2. **Deal 15 cards** from the front of the remaining deck to
+   player 1.
+
+3. **Deal 15 cards** from the front of what's left to player 2.
+
+4. The remaining cards form the draw pile.
 
 ## Cards
 
@@ -168,6 +207,73 @@ their new locations.
 A player may pass (empty remove + empty add).
 
 Undo is the inverse: swap `stacks_to_remove` and `stacks_to_add`.
+
+## Wire transport
+
+Events flow through the Angry Gopher game host. Each event is
+a JSON payload posted to `POST /gopher/games/{id}/events` and
+retrieved via `GET /gopher/games/{id}/events?after=N`.
+
+**Event types posted to the host:**
+
+The first event is always the deck:
+
+```json
+{"deck": [{"value": 9, "suit": 0, "origin_deck": 0}, ...]}
+```
+
+Subsequent events are game events wrapped in an `EventRow`:
+
+```json
+{
+    "json_game_event": {
+        "type": 2,
+        "player_action": {
+            "board_event": {
+                "stacks_to_remove": [...],
+                "stacks_to_add": [...]
+            },
+            "hand_cards_to_release": [
+                {"card": {"value": 5, "suit": 3, "origin_deck": 1}, "state": 0}
+            ]
+        }
+    },
+    "addr": "2"
+}
+```
+
+**Game event types** (`json_game_event.type`):
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | ADVANCE_TURN | Turn passes to next player |
+| 1 | MAYBE_COMPLETE_TURN | Player requests turn completion |
+| 2 | PLAYER_ACTION | A move (the common case) |
+| 3 | UNDO | Undo the last move |
+
+**The `addr` field** identifies who sent the event. It must
+match the sender's user ID as a string. The receiving client
+uses `addr` to distinguish own events from opponent events —
+events where `addr === selfAddr` are skipped.
+
+**Event filtering**: The host stores `user_id` on each event.
+The polling client skips events where `user_id` matches itself
+(transport-level filter). Then the game engine skips events
+where `addr` matches itself (application-level filter). Both
+filters must pass for an event to be processed.
+
+## Stack identity matching
+
+When processing a move, `stacks_to_remove` must match stacks
+on the board exactly. Matching uses card identity (value, suit,
+origin_deck in order) and location. Key details:
+
+- **Locations must be exact.** The UI produces float coordinates
+  (e.g., `{"left": 287.1166687011719, "top": 7.8166656494140625}`).
+  Integer approximations will fail the match.
+- **Board card state is ignored** for matching. The `equals`
+  method compares card strings and locations, not states. However,
+  the state must still be present in the JSON.
 
 ## Turns
 
