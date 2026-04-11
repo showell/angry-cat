@@ -184,9 +184,6 @@ PLAYER, DECK, ETC. vvvv
 let TheDeck: Deck;
 
 class Deck {
-    // The "top" of the deck is the last index, so
-    // we can do the equivalent of pop, not that it
-    // remotely matters at our scale.
     cards: Card[];
 
     constructor(cards: Card[]) {
@@ -206,14 +203,47 @@ class Deck {
     }
 
     take_from_top(cnt: number): Card[] {
-        const cards = this.cards;
-        const offset = cards.length - cnt;
-        const top_cards = cards.splice(offset, cnt);
-        return top_cards;
+        return this.cards.splice(0, cnt);
     }
 
     pull_card_from_deck(card: Card): void {
         remove_card_from_array(this.cards, card);
+    }
+}
+
+// The Dealer sets up the game: pulls the initial board stacks
+// from the deck, then deals hands to each player. After dealing,
+// the Dealer's job is done — the Deck lives on for mid-game draws.
+class Dealer {
+    static setup(deck: Deck): { board: Board; } {
+        const board = Dealer.build_initial_board(deck);
+        return { board };
+    }
+
+    static deal_hands(deck: Deck, players: Player[]): void {
+        for (const player of players) {
+            const cards = deck.take_from_top(15);
+            player.hand.add_cards(cards, HandCardState.NORMAL);
+        }
+    }
+
+    private static build_initial_board(deck: Deck): Board {
+        function stack(row: number, sig: string): CardStack {
+            const col = (row * 3 + 1) % 5;
+            const loc = { top: 20 + row * 60, left: 40 + col * 30 };
+            return CardStack.pull_from_deck(sig, OriginDeck.DECK_ONE, loc, deck);
+        }
+
+        const stacks = [
+            stack(0, "KS,AS,2S,3S"),
+            stack(1, "TD,JD,QD,KD"),
+            stack(2, "2H,3H,4H"),
+            stack(3, "7S,7D,7C"),
+            stack(4, "AC,AD,AH"),
+            stack(5, "2C,3D,4C,5H,6S,7H"),
+        ];
+
+        return new Board(stacks);
     }
 }
 
@@ -398,25 +428,6 @@ class Player {
     }
 }
 
-function initial_board(): Board {
-    function stack(row: number, sig: string): CardStack {
-        const col = (row * 3 + 1) % 5;
-        const loc = { top: 20 + row * 60, left: 40 + col * 30 };
-        return CardStack.pull_from_deck(sig, OriginDeck.DECK_ONE, loc, TheDeck);
-    }
-
-    const stacks = [
-        stack(0, "KS,AS,2S,3S"),
-        stack(1, "TD,JD,QD,KD"),
-        stack(2, "2H,3H,4H"),
-        stack(3, "7S,7D,7C"),
-        stack(4, "AC,AD,AH"),
-        stack(5, "2C,3D,4C,5H,6S,7H"),
-    ];
-
-    return new Board(stacks);
-}
-
 let PlayerGroup: PlayerGroupSingleton;
 
 class PlayerGroupSingleton {
@@ -424,10 +435,9 @@ class PlayerGroupSingleton {
     current_player_index: number;
 
     // Regular games pass `deal: true` (the default) so the
-    // constructor immediately deals 15 cards to each player from
-    // TheDeck. Puzzles pass `deal: false` because the player
-    // hands are populated explicitly from the puzzle setup
-    // payload, and the deck is empty.
+    // Dealer deals 15 cards to each player from TheDeck.
+    // Puzzles pass `deal: false` because the player hands are
+    // populated explicitly from the puzzle setup payload.
     constructor(
         player_names: string[],
         options: { deal: boolean } = { deal: true },
@@ -435,7 +445,7 @@ class PlayerGroupSingleton {
         this.players = player_names.map((name) => new Player(name));
 
         if (options.deal) {
-            this.deal_cards();
+            Dealer.deal_hands(TheDeck, this.players);
         }
         this.current_player_index = 0;
         ActivePlayer = this.players[0];
@@ -443,13 +453,6 @@ class PlayerGroupSingleton {
 
     get_player_names(): string[] {
         return this.players.map((player) => player.name);
-    }
-
-    deal_cards() {
-        for (const player of this.players) {
-            const cards = TheDeck.take_from_top(15);
-            player.hand.add_cards(cards, HandCardState.NORMAL);
-        }
     }
 
     advance_turn(): void {
@@ -2899,10 +2902,9 @@ export function start_game(
     EventManager = new EventManagerSingleton();
     TheGame = new Game();
 
-    // Puzzle games override the usual initial_board() / deal step
-    // with a snapshot from the puzzle setup payload. The board
-    // gets the puzzle's pre-built stacks (with on-screen positions
-    // already chosen), player 1 gets the stubborn hand cards,
+    // Puzzle games override the usual Dealer setup with a snapshot
+    // from the puzzle setup payload. The board gets the puzzle's
+    // pre-built stacks, player 1 gets the stubborn hand cards,
     // player 2 starts empty, and the deck is left as whatever the
     // caller passed in (typically empty for v1).
     if (puzzle_setup) {
@@ -2910,7 +2912,8 @@ export function start_game(
             puzzle_setup.board_stacks.map((js) => CardStack.from_json(js)),
         );
     } else {
-        CurrentBoard = initial_board();
+        const { board } = Dealer.setup(TheDeck);
+        CurrentBoard = board;
     }
 
     GameEventTracker = new GameEventTrackerSingleton(webxdc);
