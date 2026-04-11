@@ -60,13 +60,36 @@ function pad_rect(r: Rect, margin: number): Rect {
 }
 
 export type GeometryError = {
-    type: "out_of_bounds" | "overlap";
+    type: "out_of_bounds" | "overlap" | "crowded";
     message: string;
     stack_indices: number[];
 };
 
+export enum BoardGeometryStatus {
+    CLEANLY_SPACED = "cleanly_spaced",
+    CROWDED = "crowded",
+    ILLEGAL = "illegal",
+}
+
+// Classify the board's geometric state.
+export function classify_board_geometry(
+    stacks: JsonCardStack[],
+    bounds: BoardBounds,
+): BoardGeometryStatus {
+    const errors = validate_board_geometry(stacks, bounds);
+    if (errors.some(e => e.type === "out_of_bounds" || e.type === "overlap")) {
+        return BoardGeometryStatus.ILLEGAL;
+    }
+    if (errors.some(e => e.type === "crowded")) {
+        return BoardGeometryStatus.CROWDED;
+    }
+    return BoardGeometryStatus.CLEANLY_SPACED;
+}
+
 // Validate that all stacks fit within bounds and none overlap.
-// Returns an empty array if the board is geometrically valid.
+// Returns an empty array if the board is CLEANLY_SPACED.
+// "overlap" errors mean stacks actually overlap (ILLEGAL).
+// "crowded" errors mean stacks are within margin (CROWDED but playable).
 export function validate_board_geometry(
     stacks: JsonCardStack[],
     bounds: BoardBounds,
@@ -90,16 +113,26 @@ export function validate_board_geometry(
         }
     }
 
-    // Check pairwise overlap (with margin).
+    // Check pairwise: actual overlap vs just too close (crowded).
     for (let i = 0; i < rects.length; i++) {
         for (let j = i + 1; j < rects.length; j++) {
-            const a = pad_rect(rects[i], bounds.margin);
-            if (rects_overlap(a, rects[j])) {
+            if (rects_overlap(rects[i], rects[j])) {
+                // Actual overlap — ILLEGAL.
                 errors.push({
                     type: "overlap",
                     message: `Stacks ${i} and ${j} overlap`,
                     stack_indices: [i, j],
                 });
+            } else {
+                // Check if they're within margin — CROWDED.
+                const padded = pad_rect(rects[i], bounds.margin);
+                if (rects_overlap(padded, rects[j])) {
+                    errors.push({
+                        type: "crowded",
+                        message: `Stacks ${i} and ${j} are too close (within ${bounds.margin}px margin)`,
+                        stack_indices: [i, j],
+                    });
+                }
             }
         }
     }

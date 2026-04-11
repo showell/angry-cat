@@ -31,6 +31,7 @@ export type DropTarget = {
 
 export type DragCallbacks = {
     is_inside_board: (div: HTMLElement) => boolean;
+    overlaps_existing_stack: (div: HTMLElement) => boolean;
     on_reject: (div: HTMLElement) => void;
     on_redraw: () => void;
 };
@@ -187,6 +188,9 @@ class DragSession {
         const target = this.find_hovered_target();
         if (target) {
             target.on_drop();
+        } else if (this.registry.callbacks.overlaps_existing_stack(this.div)) {
+            // Reject: card would overlap another stack without merging.
+            this.registry.callbacks.on_reject(this.div);
         } else {
             this.handle_ordinary_move();
         }

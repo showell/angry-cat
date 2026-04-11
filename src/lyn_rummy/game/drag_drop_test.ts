@@ -62,6 +62,7 @@ function make_callbacks(): DragCallbacks & { rejects: HTMLElement[]; redraws: nu
         rejects: [],
         redraws: 0,
         is_inside_board: () => true,
+        overlaps_existing_stack: () => false,
         on_reject: function(div: HTMLElement) { this.rejects.push(div); },
         on_redraw: function() { this.redraws++; },
     };

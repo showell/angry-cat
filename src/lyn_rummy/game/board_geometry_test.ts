@@ -2,6 +2,8 @@ import * as assert from "assert";
 import type { JsonCardStack } from "../core/card_stack";
 import {
     validate_board_geometry,
+    classify_board_geometry,
+    BoardGeometryStatus,
     stack_width,
     STACK_HEIGHT,
     type BoardBounds,
@@ -101,15 +103,61 @@ function test_stacks_overlap_partially() {
 }
 
 function test_stacks_too_close() {
-    // Just inside the margin — should fail.
+    // Just inside the margin — CROWDED, not ILLEGAL.
     const w = stack_width(3);
     const stacks = [
         make_stack(10, 10, 3),
         make_stack(10 + w + bounds.margin - 1, 10, 3),
     ];
     const errors = validate_board_geometry(stacks, bounds);
-    assert.ok(errors.some(e => e.type === "overlap"),
-        "Stacks within margin distance should be flagged as overlapping");
+    assert.ok(errors.some(e => e.type === "crowded"),
+        "Stacks within margin should be flagged as crowded");
+    assert.ok(!errors.some(e => e.type === "overlap"),
+        "Should NOT be flagged as overlap (they don't actually overlap)");
+}
+
+// --- Classification ---
+
+function test_classify_cleanly_spaced() {
+    const stacks = [
+        make_stack(10, 10, 3),
+        make_stack(10, 100, 3),
+    ];
+    assert.equal(
+        classify_board_geometry(stacks, bounds),
+        BoardGeometryStatus.CLEANLY_SPACED,
+    );
+}
+
+function test_classify_crowded() {
+    const w = stack_width(3);
+    const stacks = [
+        make_stack(10, 10, 3),
+        make_stack(10 + w + 1, 10, 3), // close but not overlapping
+    ];
+    assert.equal(
+        classify_board_geometry(stacks, bounds),
+        BoardGeometryStatus.CROWDED,
+    );
+}
+
+function test_classify_illegal_overlap() {
+    const stacks = [
+        make_stack(10, 10, 3),
+        make_stack(10, 10, 3),
+    ];
+    assert.equal(
+        classify_board_geometry(stacks, bounds),
+        BoardGeometryStatus.ILLEGAL,
+    );
+}
+
+function test_classify_illegal_out_of_bounds() {
+    const stacks = [make_stack(790, 10, 3)];
+    assert.equal(
+        classify_board_geometry(stacks, bounds),
+        BoardGeometryStatus.ILLEGAL,
+    );
 }
 
 function test_three_stacks_one_overlap() {
@@ -136,6 +184,10 @@ test_stack_negative_position();
 test_stacks_overlap_exactly();
 test_stacks_overlap_partially();
 test_stacks_too_close();
+test_classify_cleanly_spaced();
+test_classify_crowded();
+test_classify_illegal_overlap();
+test_classify_illegal_out_of_bounds();
 test_three_stacks_one_overlap();
 
 console.log("board_geometry: all tests passed");
