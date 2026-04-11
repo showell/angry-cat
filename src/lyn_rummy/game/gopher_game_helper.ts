@@ -124,46 +124,34 @@ export class GopherGameHelper {
     private start_polling(callback: webxdc.UpdateListener): void {
         let last_event_id = this.last_seen_event_id;
         const game_id = this.game_id;
-        const user_id = this.user_id;
 
         async function long_poll(): Promise<void> {
-            console.log("[gopher] long_poll started, game_id=" + game_id + " user_id=" + user_id + " after=" + last_event_id);
             while (true) {
                 try {
                     const url = gopher_url(
                         `games/${game_id}/events?after=${last_event_id}&timeout=30`,
                     );
-                    const hdrs = get_headers();
-                    console.log("[gopher] polling:", url.toString(), "auth:", hdrs.Authorization?.slice(0, 20) + "...");
-                    const resp = await fetch(url, { headers: hdrs });
+                    const resp = await fetch(url, { headers: get_headers() });
                     const data = await resp.json();
-                    console.log("[gopher] poll response status:", resp.status, "data:", JSON.stringify(data).slice(0, 200));
                     if (!resp.ok || data.result === "error") {
                         console.error("[gopher] poll failed:", data.msg);
                         await new Promise((r) => setTimeout(r, 5000));
                         continue;
                     }
                     const events: GopherEvent[] = data.events || [];
-                    console.log("[gopher] got " + events.length + " events");
 
                     for (const event of events) {
                         last_event_id = event.id;
-                        console.log("[gopher] event id=" + event.id + " user=" + event.user_id, event.payload);
 
-                        // Skip non-game events (e.g. the deck event).
+                        // Skip non-game events (e.g. the setup event).
                         const payload = event.payload as any;
                         if (!payload.json_game_event) {
-                            console.log("[gopher] skipping non-game event");
                             continue;
                         }
 
-                        // Only process events from other users.
-                        if (event.user_id !== user_id) {
-                            console.log("[gopher] dispatching event from user " + event.user_id);
-                            callback({ payload: event.payload });
-                        } else {
-                            console.log("[gopher] skipping own event");
-                        }
+                        // Relay everything — the game engine decides
+                        // what to do based on the addr field.
+                        callback({ payload: event.payload });
                     }
                 } catch (err) {
                     console.error("[gopher] poll error:", err);
@@ -172,7 +160,6 @@ export class GopherGameHelper {
             }
         }
 
-        console.log("[gopher] starting long_poll");
         long_poll();
     }
 }
