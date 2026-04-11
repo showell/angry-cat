@@ -1,26 +1,28 @@
 // Game referee — stateless move validation.
 //
 // The referee is like an expert in the other room. You show them
-// the board and the proposed move, they give you a ruling. They
-// don't need to remember anything — the board is the state.
+// the board and the proposed move, they give a ruling. They don't
+// need to remember anything — the board is the state.
 //
-// Four validation stages:
+// Four validation stages, run in order:
 //   1. Protocol  — is the JSON well-formed?
 //   2. Geometry  — do stacks fit without illegal overlap?
 //   3. Semantics — are all stacks valid card groups?
 //   4. Inventory — are cards conserved? No creation or duplication.
 //
-// The referee is advisory, not restrictive. It does not enforce
-// turn order, player identity, or how many moves per turn.
+// The referee does not enforce turn order, player identity, or
+// how many moves per turn. Those are social rules, not physics.
+//
+// Designed for easy porting to Go — plain loops, no closures,
+// simple data flow.
 
 import { Card } from "../core/card";
 import { CardStack, type HandCard } from "../core/card_stack";
 import { validate_move } from "./protocol_validation";
-import {
-    validate_board_geometry,
-    type BoardBounds,
-} from "./board_geometry";
+import { validate_board_geometry, type BoardBounds } from "./board_geometry";
 import { CardStackType } from "../core/stack_type";
+
+// --- Types ---
 
 export type RefereeError = {
     stage: "protocol" | "geometry" | "semantics" | "inventory";
@@ -34,139 +36,256 @@ export type RefereeMove = {
     hand_cards_played?: HandCard[];
 };
 
-// The one entry point. Returns undefined if valid, or a
-// RefereeError explaining which stage rejected and why.
+// --- Entry point ---
+
+// Returns null if the move is valid, or a RefereeError if rejected.
 export function validate_game_move(
     move: RefereeMove,
     bounds: BoardBounds,
 ): RefereeError | undefined {
-    // Stage 1: Protocol — validate the JSON shape.
-    const json_move = {
-        stacks_to_remove: move.stacks_to_remove.map(s => s.toJSON()),
-        stacks_to_add: move.stacks_to_add.map(s => s.toJSON()),
-    };
-    const protocol_errors = validate_move(json_move);
-    if (protocol_errors.length > 0) {
-        const detail = protocol_errors.map(e => `${e.path}: ${e.message}`).join("; ");
-        return { stage: "protocol", message: detail };
-    }
 
-    // Compute the resulting board.
-    const remaining = move.board_before.filter(
-        s => !move.stacks_to_remove.some(r => r.equals(s)),
-    );
-    if (remaining.length + move.stacks_to_remove.length !== move.board_before.length) {
+    // Stage 1: Protocol.
+    const protocol_error = check_protocol(move);
+    if (protocol_error) return protocol_error;
+
+    // Compute the resulting board. This is shared by the
+    // remaining stages, so we do it once.
+    const board_after = compute_board_after(move);
+    if (board_after === undefined) {
         return {
             stage: "inventory",
-            message: "some stacks_to_remove not found on board",
+            message: "stacks_to_remove contains a stack not on the board",
         };
     }
-    const board_after = [...remaining, ...move.stacks_to_add];
 
-    // Stage 2: Geometry — stacks fit on the board.
-    const geo_errors = validate_board_geometry(
-        board_after.map(s => s.toJSON()),
-        bounds,
-    );
-    if (geo_errors.length > 0) {
-        return { stage: "geometry", message: geo_errors[0].message };
+    // Stage 2: Geometry.
+    const geometry_error = check_geometry(board_after, bounds);
+    if (geometry_error) return geometry_error;
+
+    // Stage 3: Semantics.
+    const semantics_error = check_semantics(board_after);
+    if (semantics_error) return semantics_error;
+
+    // Stage 4: Inventory.
+    const inventory_error = check_inventory(move, board_after);
+    if (inventory_error) return inventory_error;
+
+    return undefined;
+}
+
+// --- Stage 1: Protocol ---
+//
+// Serialize the move to JSON form and validate the shape.
+// Catches type errors, missing fields, out-of-range values.
+
+function check_protocol(move: RefereeMove): RefereeError | undefined {
+    const json_remove = [];
+    for (const stack of move.stacks_to_remove) {
+        json_remove.push(stack.toJSON());
     }
 
-    // Stage 3: Semantics — all stacks are valid card groups.
+    const json_add = [];
+    for (const stack of move.stacks_to_add) {
+        json_add.push(stack.toJSON());
+    }
+
+    const errors = validate_move({
+        stacks_to_remove: json_remove,
+        stacks_to_add: json_add,
+    });
+
+    if (errors.length > 0) {
+        const parts = [];
+        for (const e of errors) {
+            parts.push(e.path + ": " + e.message);
+        }
+        return { stage: "protocol", message: parts.join("; ") };
+    }
+
+    return undefined;
+}
+
+// --- Compute resulting board ---
+//
+// Remove the stacks_to_remove, add the stacks_to_add.
+// Returns undefined if any stack in stacks_to_remove is
+// not found on the board.
+
+function compute_board_after(move: RefereeMove): CardStack[] | undefined {
+    const remaining: CardStack[] = [];
+    const to_remove = [...move.stacks_to_remove];
+
+    for (const board_stack of move.board_before) {
+        const match_idx = find_matching_stack(to_remove, board_stack);
+        if (match_idx >= 0) {
+            to_remove.splice(match_idx, 1);
+        } else {
+            remaining.push(board_stack);
+        }
+    }
+
+    // If any stacks_to_remove were not matched, the move is invalid.
+    if (to_remove.length > 0) {
+        return undefined;
+    }
+
+    const board_after: CardStack[] = [];
+    for (const stack of remaining) {
+        board_after.push(stack);
+    }
+    for (const stack of move.stacks_to_add) {
+        board_after.push(stack);
+    }
+    return board_after;
+}
+
+function find_matching_stack(stacks: CardStack[], target: CardStack): number {
+    for (let i = 0; i < stacks.length; i++) {
+        if (stacks[i].equals(target)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// --- Stage 2: Geometry ---
+//
+// Check that all stacks on the resulting board fit within bounds
+// and don't overlap each other.
+
+function check_geometry(
+    board_after: CardStack[],
+    bounds: BoardBounds,
+): RefereeError | undefined {
+    const json_stacks = [];
     for (const stack of board_after) {
-        const st = stack.stack_type;
-        if (st === CardStackType.INCOMPLETE ||
-            st === CardStackType.BOGUS ||
-            st === CardStackType.DUP) {
+        json_stacks.push(stack.toJSON());
+    }
+
+    const errors = validate_board_geometry(json_stacks, bounds);
+    if (errors.length > 0) {
+        return { stage: "geometry", message: errors[0].message };
+    }
+
+    return undefined;
+}
+
+// --- Stage 3: Semantics ---
+//
+// Every stack on the resulting board must be a valid card group:
+// SET, PURE_RUN, or RED_BLACK_RUN. Reject INCOMPLETE, BOGUS, DUP.
+
+function check_semantics(board_after: CardStack[]): RefereeError | undefined {
+    for (const stack of board_after) {
+        const stack_type = stack.stack_type;
+
+        if (stack_type === CardStackType.INCOMPLETE ||
+            stack_type === CardStackType.BOGUS ||
+            stack_type === CardStackType.DUP) {
             return {
                 stage: "semantics",
-                message: `stack "${stack.str()}" is ${st}`,
+                message: "stack \"" + stack.str() + "\" is " + stack_type,
             };
         }
     }
 
-    // Stage 4: Inventory — cards are conserved.
-    return check_inventory(move, board_after);
+    return undefined;
 }
+
+// --- Stage 4: Inventory ---
+//
+// Cards are conserved. Every card that appears on the resulting
+// board must have a source: either it was already on the board
+// (via stacks_to_remove) or it came from the player's hand.
+//
+// Also checks: no duplicate cards on the resulting board, and
+// every declared hand card was actually placed.
 
 function check_inventory(
     move: RefereeMove,
     board_after: CardStack[],
 ): RefereeError | undefined {
-    // Collect cards leaving the board.
-    const removed_cards: Card[] = [];
+
+    // Build a pool of available cards: cards from removed stacks
+    // plus cards from hand.
+    const pool: Card[] = [];
+
     for (const stack of move.stacks_to_remove) {
-        for (const bc of stack.board_cards) {
-            removed_cards.push(bc.card);
+        for (const board_card of stack.board_cards) {
+            pool.push(board_card.card);
         }
     }
 
-    // Collect cards entering the board.
-    const added_cards: Card[] = [];
-    for (const stack of move.stacks_to_add) {
-        for (const bc of stack.board_cards) {
-            added_cards.push(bc.card);
-        }
-    }
-
-    // Cards from hand.
-    const from_hand: Card[] = [];
+    const hand_cards: Card[] = [];
     if (move.hand_cards_played) {
-        for (const hc of move.hand_cards_played) {
-            from_hand.push(hc.card);
+        for (const hand_card of move.hand_cards_played) {
+            hand_cards.push(hand_card.card);
+            pool.push(hand_card.card);
         }
     }
 
-    // Every added card must come from either removed stacks
-    // or the hand.
-    const pool = [...removed_cards, ...from_hand];
-
-    for (const card of added_cards) {
-        const idx = pool.findIndex(c => c.equals(card));
-        if (idx < 0) {
-            return {
-                stage: "inventory",
-                message: `card ${card.str()} appeared on the board with no source`,
-            };
+    // Every card in stacks_to_add must consume one card from
+    // the pool. If we can't find a match, the card appeared
+    // from nowhere.
+    for (const stack of move.stacks_to_add) {
+        for (const board_card of stack.board_cards) {
+            const idx = find_card_in_pool(pool, board_card.card);
+            if (idx < 0) {
+                return {
+                    stage: "inventory",
+                    message: "card " + board_card.card.str() + " appeared on the board with no source",
+                };
+            }
+            pool.splice(idx, 1);
         }
-        pool.splice(idx, 1);
     }
 
-    // Hand cards declared but never placed.
-    for (const card of from_hand) {
-        const still_in_pool = pool.findIndex(c => c.equals(card));
-        if (still_in_pool >= 0) {
+    // Any hand card still in the pool was declared played but
+    // never placed on the board.
+    for (const card of hand_cards) {
+        if (find_card_in_pool(pool, card) >= 0) {
             return {
                 stage: "inventory",
-                message: `hand card ${card.str()} was declared played but not placed on the board`,
+                message: "hand card " + card.str() + " was declared played but not placed on the board",
             };
         }
     }
 
     // No duplicate cards on the resulting board.
-    const all_cards = flatten_board(board_after);
-    const dup = find_duplicate(all_cards);
+    const all_board_cards = collect_board_cards(board_after);
+    const dup = find_first_duplicate(all_board_cards);
     if (dup !== undefined) {
         return {
             stage: "inventory",
-            message: `duplicate card on board: ${dup.str()}`,
+            message: "duplicate card on board: " + dup.str(),
         };
     }
 
     return undefined;
 }
 
-function flatten_board(board: CardStack[]): Card[] {
+// --- Helpers ---
+
+function find_card_in_pool(pool: Card[], target: Card): number {
+    for (let i = 0; i < pool.length; i++) {
+        if (pool[i].equals(target)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+function collect_board_cards(board: CardStack[]): Card[] {
     const cards: Card[] = [];
     for (const stack of board) {
-        for (const bc of stack.board_cards) {
-            cards.push(bc.card);
+        for (const board_card of stack.board_cards) {
+            cards.push(board_card.card);
         }
     }
     return cards;
 }
 
-function find_duplicate(cards: Card[]): Card | undefined {
+function find_first_duplicate(cards: Card[]): Card | undefined {
     for (let i = 0; i < cards.length; i++) {
         for (let j = i + 1; j < cards.length; j++) {
             if (cards[i].equals(cards[j])) {

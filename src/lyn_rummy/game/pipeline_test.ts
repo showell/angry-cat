@@ -439,7 +439,7 @@ function test_inventory_rejects_missing_remove() {
     });
     assert.ok(err !== undefined);
     assert.strictEqual(err!.stage, "inventory");
-    assert.ok(err!.message.includes("not found"));
+    assert.ok(err!.message.includes("not on the board"));
 }
 
 // --- Run all ---
