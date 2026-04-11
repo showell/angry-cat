@@ -37,7 +37,8 @@ export { CardStack } from "../core/card_stack";
 import { get_hint, HintLevel } from "../hints/hints";
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "../core/score";
-import { validate_wire_event } from "./wire_validation";
+import { validate_wire_event, DEFAULT_BOARD_BOUNDS } from "./wire_validation";
+import { classify_board_geometry, BoardGeometryStatus } from "./board_geometry";
 
 enum GameEventType {
     ADVANCE_TURN,
@@ -1945,11 +1946,30 @@ class EventManagerSingleton {
     }
 
     process_and_push_player_action(player_action: PlayerAction): void {
+        const geo_before = classify_board_geometry(
+            CurrentBoard.card_stacks.map(s => s.toJSON()),
+            DEFAULT_BOARD_BOUNDS,
+        );
+
         GameEventTracker.push_event(
             new GameEvent(GameEventType.PLAYER_ACTION, player_action),
         );
 
         TheGame.process_player_action(player_action);
+
+        const geo_after = classify_board_geometry(
+            CurrentBoard.card_stacks.map(s => s.toJSON()),
+            DEFAULT_BOARD_BOUNDS,
+        );
+
+        if (geo_before === BoardGeometryStatus.CROWDED &&
+            geo_after === BoardGeometryStatus.CLEANLY_SPACED) {
+            SoundEffects.play_ding_sound();
+            StatusBar.celebrate("Nice and tidy!");
+        } else if (geo_after === BoardGeometryStatus.CROWDED &&
+                   geo_before === BoardGeometryStatus.CLEANLY_SPACED) {
+            StatusBar.inform("Board is getting tight — try spacing stacks out.");
+        }
     }
 
     split_stack(player_action: PlayerAction): void {
