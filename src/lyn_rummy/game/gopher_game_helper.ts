@@ -9,7 +9,7 @@
 
 import { gopher_url, get_headers } from "../../backend/api_helpers";
 import type * as webxdc from "../../backend/webxdc";
-import type { EventRow, PuzzleSetup } from "./game";
+import type { EventRow, PuzzleSetup, GameSetup } from "./game";
 
 export class GopherGameHelper {
     game_id: number;
@@ -37,14 +37,15 @@ export class GopherGameHelper {
         };
     }
 
-    // Store the shuffled deck as the first event so both players
-    // get the same deal. The payload is { deck: JsonCard[] }.
-    async post_deck(json_cards: object[]): Promise<void> {
+    // Post the dealt game state as the first event. This is the
+    // "photo" — board, hands, and remaining deck — so both sides
+    // reconstruct the same game without running dealer logic.
+    async post_setup(setup: GameSetup): Promise<void> {
         const url = gopher_url(`games/${this.game_id}/events`);
         const resp = await fetch(url, {
             method: "POST",
             headers: { ...get_headers(), "Content-Type": "application/json" },
-            body: JSON.stringify({ deck: json_cards }),
+            body: JSON.stringify({ game_setup: setup }),
         });
         if (resp.ok) {
             const data = await resp.json();
@@ -52,8 +53,8 @@ export class GopherGameHelper {
         }
     }
 
-    // Fetch the deck from the first event and track its ID.
-    async get_deck(): Promise<object[] | undefined> {
+    // Fetch the game setup from the first event.
+    async get_setup(): Promise<GameSetup | undefined> {
         const url = gopher_url(`games/${this.game_id}/events?after=0`);
         const resp = await fetch(url, { headers: get_headers() });
         if (!resp.ok) return undefined;
@@ -62,7 +63,7 @@ export class GopherGameHelper {
         if (events.length === 0) return undefined;
         this.last_seen_event_id = events[0].id;
         const first = events[0].payload as any;
-        return first.deck;
+        return first.game_setup;
     }
 
     // Puzzle games carry their setup snapshot as the very first

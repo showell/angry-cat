@@ -82,6 +82,14 @@ export type PuzzleSetup = {
     player1_hand: JsonCard[];
 };
 
+// The "photo" the dealer sends over the wire after setup.
+// Both sides reconstruct the same game state from this snapshot.
+export type GameSetup = {
+    board: JsonCardStack[];
+    hands: [JsonCard[], JsonCard[]];
+    deck: JsonCard[];
+};
+
 function get_sorted_cards_for_suit(
     suit: Suit,
     hand_cards: HandCard[],
@@ -214,7 +222,12 @@ class Deck {
 // The Dealer sets up the game: pulls the initial board stacks
 // from the deck, then deals hands to each player. After dealing,
 // the Dealer's job is done — the Deck lives on for mid-game draws.
-class Dealer {
+//
+// The Dealer can also serialize the dealt state as a GameSetup
+// "photo" for sending over the wire. Both sides reconstruct the
+// same game from this snapshot — no need to independently run
+// the dealer logic.
+export class Dealer {
     static setup(deck: Deck): { board: Board; } {
         const board = Dealer.build_initial_board(deck);
         return { board };
@@ -225,6 +238,43 @@ class Dealer {
             const cards = deck.take_from_top(15);
             player.hand.add_cards(cards, HandCardState.NORMAL);
         }
+    }
+
+    // Build the full dealt state from a shuffled deck. This is
+    // what gets sent over the wire as the first event.
+    static deal_full_game(shuffled_cards: Card[]): GameSetup {
+        const deck = new Deck([...shuffled_cards]);
+        const board = Dealer.build_initial_board(deck);
+        const hand1 = deck.take_from_top(15);
+        const hand2 = deck.take_from_top(15);
+        return {
+            board: board.card_stacks.map(s => s.toJSON()),
+            hands: [
+                hand1.map(c => c.toJSON()),
+                hand2.map(c => c.toJSON()),
+            ],
+            deck: deck.cards.map(c => c.toJSON()),
+        };
+    }
+
+    // Reconstruct a game from a GameSetup snapshot received
+    // over the wire.
+    static from_setup(setup: GameSetup): {
+        board: Board;
+        hands: [Card[], Card[]];
+        deck: Deck;
+    } {
+        const board = new Board(
+            setup.board.map(s => CardStack.from_json(s)),
+        );
+        const hands: [Card[], Card[]] = [
+            setup.hands[0].map(c => Card.from_json(c)),
+            setup.hands[1].map(c => Card.from_json(c)),
+        ];
+        const deck = new Deck(
+            setup.deck.map(c => Card.from_json(c)),
+        );
+        return { board, hands, deck };
     }
 
     private static build_initial_board(deck: Deck): Board {
@@ -2885,6 +2935,68 @@ export function gui() {
     start_game(deck_cards, container, webxdc, event_rows, "Susan", "Lyn");
 }
 
+function init_singletons(webxdc: WebXdc): void {
+    DragDropHelper = new DragDropHelperSingleton();
+    Popup = new PopupSingleton();
+    SoundEffects = new SoundEffectsSingleton();
+    StatusBar = new StatusBarSingleton();
+    EventManager = new EventManagerSingleton();
+    TheGame = new Game();
+}
+
+function finish_start(
+    container: HTMLElement,
+    webxdc: WebXdc,
+    event_rows: EventRow[],
+): void {
+    ActivePlayer.start_turn();
+    new MainGamePage(container);
+
+    const json_game_events = event_rows.map(
+        (event_row) => event_row.json_game_event,
+    );
+    GameEventTracker.handle_initial_events(json_game_events);
+
+    function listener(update: Update): void {
+        const event_row = update.payload as EventRow;
+
+        console.log("addrs", event_row.addr, webxdc.selfAddr);
+
+        if (event_row.addr !== webxdc.selfAddr) {
+            GameEventTracker.handle_event(event_row.json_game_event);
+        }
+    }
+
+    webxdc.setUpdateListener(listener);
+}
+
+// Start a game from a GameSetup snapshot (the "photo" from the
+// dealer on the other end of the phone).
+export function start_game_from_setup(
+    setup: GameSetup,
+    container: HTMLElement,
+    webxdc: WebXdc,
+    event_rows: EventRow[],
+    player1_name: string,
+    player2_name: string,
+) {
+    const { board, hands, deck } = Dealer.from_setup(setup);
+    TheDeck = deck;
+    CurrentBoard = board;
+
+    init_singletons(webxdc);
+    GameEventTracker = new GameEventTrackerSingleton(webxdc);
+
+    PlayerGroup = new PlayerGroupSingleton(
+        [player1_name, player2_name],
+        { deal: false },
+    );
+    PlayerGroup.players[0].hand.add_cards(hands[0], HandCardState.NORMAL);
+    PlayerGroup.players[1].hand.add_cards(hands[1], HandCardState.NORMAL);
+
+    finish_start(container, webxdc, event_rows);
+}
+
 export function start_game(
     deck_cards: Card[],
     container: HTMLElement,
@@ -2895,18 +3007,11 @@ export function start_game(
     puzzle_setup?: PuzzleSetup,
 ) {
     TheDeck = new Deck(deck_cards);
-    DragDropHelper = new DragDropHelperSingleton();
-    Popup = new PopupSingleton();
-    SoundEffects = new SoundEffectsSingleton();
-    StatusBar = new StatusBarSingleton();
-    EventManager = new EventManagerSingleton();
-    TheGame = new Game();
+
+    init_singletons(webxdc);
 
     // Puzzle games override the usual Dealer setup with a snapshot
-    // from the puzzle setup payload. The board gets the puzzle's
-    // pre-built stacks, player 1 gets the stubborn hand cards,
-    // player 2 starts empty, and the deck is left as whatever the
-    // caller passed in (typically empty for v1).
+    // from the puzzle setup payload.
     if (puzzle_setup) {
         CurrentBoard = new Board(
             puzzle_setup.board_stacks.map((js) => CardStack.from_json(js)),
@@ -2932,25 +3037,7 @@ export function start_game(
         );
     }
 
-    ActivePlayer.start_turn();
-    new MainGamePage(container);
-
-    const json_game_events = event_rows.map(
-        (event_row) => event_row.json_game_event,
-    );
-    GameEventTracker.handle_initial_events(json_game_events);
-
-    function listener(update: Update): void {
-        const event_row = update.payload as EventRow;
-
-        console.log("addrs", event_row.addr, webxdc.selfAddr);
-
-        if (event_row.addr !== webxdc.selfAddr) {
-            GameEventTracker.handle_event(event_row.json_game_event);
-        }
-    }
-
-    webxdc.setUpdateListener(listener);
+    finish_start(container, webxdc, event_rows);
 }
 
 function assert(

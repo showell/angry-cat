@@ -7,7 +7,7 @@ import { NetworkHelper } from "../../backend/network";
 import { Button } from "../../button";
 import { MessageRow } from "../../backend/message_row";
 import type { Plugin, PluginContext } from "../../plugin_helper";
-import type { JsonCard } from "./game";
+import type { JsonCard, GameSetup } from "./game";
 import * as lyn_rummy from "./game";
 import { GameHelper } from "./game_helper";
 import {
@@ -49,14 +49,14 @@ function gopher_plugin(div: HTMLDivElement): Plugin {
         div.innerHTML = "";
         div.innerText = "Creating game...";
         const game_id = await create_gopher_game();
-        // Store the shuffled deck as the first event so the other
-        // player gets the same deal.
+        // The dealer deals the full game and sends the "photo"
+        // (board, hands, deck) as the first event.
         const deck_cards = lyn_rummy.build_full_double_deck();
-        const json_cards = deck_cards.map((c) => c.toJSON());
+        const setup = lyn_rummy.Dealer.deal_full_game(deck_cards);
         const helper = new GopherGameHelper({ game_id, user_id: DB.current_user_id });
-        await helper.post_deck(json_cards);
+        await helper.post_setup(setup);
         div.innerHTML = "";
-        gopher_start_game_with_helper(helper, json_cards, div);
+        gopher_start_game_from_setup(helper, setup, div);
     });
 
     lobby_div.append(launch_button.div);
@@ -125,18 +125,15 @@ async function populate_lobby(
     }
 }
 
-// Start a new game with a known deck and an already-initialized helper
-// (which has last_seen_event_id set from posting the deck).
-function gopher_start_game_with_helper(
+// Start a new game from a setup snapshot.
+function gopher_start_game_from_setup(
     helper: GopherGameHelper,
-    json_cards: JsonCard[],
+    setup: GameSetup,
     div: HTMLDivElement,
 ): void {
     const webxdc = helper.xdc_interface();
-    const deck_cards = json_cards.map(lyn_rummy.Card.from_json);
-
-    lyn_rummy.start_game(
-        deck_cards,
+    lyn_rummy.start_game_from_setup(
+        setup,
         div,
         webxdc,
         [],
@@ -145,7 +142,7 @@ function gopher_start_game_with_helper(
     );
 }
 
-// Resume or join a game — fetch the deck from the server.
+// Resume or join a game — fetch the setup from the server.
 async function gopher_resume_game(
     game_id: number,
     div: HTMLDivElement,
@@ -153,25 +150,18 @@ async function gopher_resume_game(
     const user_id = DB.current_user_id;
     const helper = new GopherGameHelper({ game_id, user_id });
 
-    const json_cards = await helper.get_deck();
-    if (!json_cards) {
-        div.innerText = "Could not load game deck.";
+    const setup = await helper.get_setup();
+    if (!setup) {
+        div.innerText = "Could not load game setup.";
         return;
     }
 
     const webxdc = helper.xdc_interface();
-    const deck_cards = (json_cards as JsonCard[]).map(lyn_rummy.Card.from_json);
-
-    // Fetch all game events after the deck event for replay.
-    // get_deck() already set last_seen_event_id to the deck event's ID.
     const event_rows = await helper.get_events_after(helper.last_seen_event_id);
 
-    // Clear the "Loading game..." placeholder before start_game
-    // appends the game UI; otherwise the text lingers above the
-    // board.
     div.innerHTML = "";
-    lyn_rummy.start_game(
-        deck_cards,
+    lyn_rummy.start_game_from_setup(
+        setup,
         div,
         webxdc,
         event_rows,
