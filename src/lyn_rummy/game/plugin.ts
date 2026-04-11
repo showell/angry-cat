@@ -13,6 +13,7 @@ import { GameHelper } from "./game_helper";
 import {
     GopherGameHelper,
     create_gopher_game,
+    create_gopher_puzzle_game,
     list_gopher_games,
     join_gopher_game,
 } from "./gopher_game_helper";
@@ -68,13 +69,13 @@ function gopher_plugin(div: HTMLDivElement): Plugin {
         console.log("[lynrummy] Starting open game");
         div.innerHTML = "";
         div.innerText = "Creating game...";
-        const game_id = await create_gopher_game();
+        // Client shuffles, Host deals — one round trip.
         const deck_cards = lyn_rummy.build_full_double_deck();
-        const setup = lyn_rummy.Dealer.deal_full_game(deck_cards);
+        const json_deck = deck_cards.map(c => c.toJSON());
+        const { game_id, game_setup } = await create_gopher_game(json_deck);
         const helper = new GopherGameHelper({ game_id, user_id: DB.current_user_id });
-        await helper.post_setup(setup);
         div.innerHTML = "";
-        gopher_start_game_from_setup(helper, setup, div);
+        gopher_start_game_from_setup(helper, game_setup, div);
     });
 
     lobby_div.append(solitaire_button.div);

@@ -9,6 +9,7 @@
 
 import { gopher_url, get_headers } from "../../backend/api_helpers";
 import type * as webxdc from "../../backend/webxdc";
+import type { JsonCard } from "../core/card";
 import type { EventRow, PuzzleSetup, GameSetup } from "./game";
 
 export class GopherGameHelper {
@@ -176,19 +177,32 @@ type GopherEvent = {
 // If puzzle_name is provided, the game is marked as a puzzle on
 // the server (an opaque label, the server doesn't interpret it).
 // The lobby uses the label to render puzzle games differently.
+// Create a game and have the Host's Dealer set it up in one trip.
+// The client sends a shuffled deck; the server deals and returns
+// the GameSetup photo.
 export async function create_gopher_game(
-    puzzle_name?: string,
+    shuffled_deck: JsonCard[],
+): Promise<{ game_id: number; game_setup: GameSetup }> {
+    const url = gopher_url("games");
+    const resp = await fetch(url, {
+        method: "POST",
+        headers: { ...get_headers(), "Content-Type": "application/json" },
+        body: JSON.stringify({ shuffled_deck }),
+    });
+    const data = await resp.json();
+    return { game_id: data.game_id, game_setup: data.game_setup };
+}
+
+// Create a puzzle game (no deck — puzzle setup is posted separately).
+export async function create_gopher_puzzle_game(
+    puzzle_name: string,
 ): Promise<number> {
     const url = gopher_url("games");
-    const init: RequestInit = {
+    const resp = await fetch(url, {
         method: "POST",
-        headers: get_headers(),
-    };
-    if (puzzle_name !== undefined) {
-        init.headers = { ...init.headers, "Content-Type": "application/json" };
-        init.body = JSON.stringify({ puzzle_name });
-    }
-    const resp = await fetch(url, init);
+        headers: { ...get_headers(), "Content-Type": "application/json" },
+        body: JSON.stringify({ puzzle_name }),
+    });
     const data = await resp.json();
     return data.game_id;
 }
