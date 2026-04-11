@@ -3,72 +3,48 @@
 // Validates a chain of board states for card correctness.
 // Locations are completely ignored — this engine only sees
 // card values, suits, and origin decks.
-//
-// Validates that every stack is a valid type (pure run, set,
-// or red/black run) with 3+ cards. No BOGUS, no INCOMPLETE.
-//
-// Usage:
-//   const engine = new SemanticReplay(initial_board);
-//   engine.apply_move(move);
-//   engine.is_valid()
+// Operates on CardStack, not JSON.
 
-import { Card, type JsonCard } from "../core/card";
-import { CardStackType, get_stack_type } from "../core/stack_type";
-
-export type SemanticStack = {
-    id: number;
-    cards: JsonCard[];
-};
-
-export type SemanticMove = {
-    stacks_to_remove: number[];
-    stacks_to_add: SemanticStack[];
-};
+import { CardStack } from "../core/card_stack";
+import { CardStackType } from "../core/stack_type";
+import type { CardStackMove } from "./geometry_replay";
 
 export type SemanticError = {
     message: string;
-    stack_id: number;
     stack_type: CardStackType;
 };
 
 export class SemanticReplay {
-    board: SemanticStack[];
+    board: CardStack[];
     errors: SemanticError[];
     step: number;
 
-    constructor(initial_board: SemanticStack[]) {
+    constructor(initial_board: CardStack[]) {
         this.board = [...initial_board];
         this.errors = [];
         this.step = 0;
         this.validate("initial board");
     }
 
-    apply_move(move: SemanticMove): void {
+    apply_move(move: CardStackMove): void {
         this.step++;
 
-        // Check removed stacks exist.
-        const existing_ids = new Set(this.board.map(s => s.id));
-        for (const id of move.stacks_to_remove) {
-            if (!existing_ids.has(id)) {
-                this.errors.push({
-                    message: `Step ${this.step}: cannot remove stack ${id} — not on board`,
-                    stack_id: id,
-                    stack_type: CardStackType.BOGUS,
-                });
-            }
+        const remaining = this.board.filter(
+            s => !move.stacks_to_remove.some(r => r.equals(s))
+        );
+
+        if (remaining.length + move.stacks_to_remove.length !== this.board.length) {
+            this.errors.push({
+                message: `Step ${this.step}: some stacks_to_remove not found on board`,
+                stack_type: CardStackType.BOGUS,
+            });
         }
 
-        // Remove and add.
-        const remove_set = new Set(move.stacks_to_remove);
-        this.board = [
-            ...this.board.filter(s => !remove_set.has(s.id)),
-            ...move.stacks_to_add,
-        ];
-
+        this.board = [...remaining, ...move.stacks_to_add];
         this.validate(`step ${this.step}`);
     }
 
-    get_board(): SemanticStack[] {
+    get_board(): CardStack[] {
         return this.board;
     }
 
@@ -78,16 +54,14 @@ export class SemanticReplay {
 
     private validate(label: string): void {
         for (const stack of this.board) {
-            const cards = stack.cards.map(c => Card.from_json(c));
-            const stack_type = get_stack_type(cards);
+            const st = stack.stack_type;
 
-            if (stack_type === CardStackType.INCOMPLETE ||
-                stack_type === CardStackType.BOGUS ||
-                stack_type === CardStackType.DUP) {
+            if (st === CardStackType.INCOMPLETE ||
+                st === CardStackType.BOGUS ||
+                st === CardStackType.DUP) {
                 this.errors.push({
-                    message: `${label}: stack ${stack.id} is ${stack_type}`,
-                    stack_id: stack.id,
-                    stack_type,
+                    message: `${label}: stack "${stack.str()}" at (${stack.loc.left},${stack.loc.top}) is ${st}`,
+                    stack_type: st,
                 });
             }
         }
