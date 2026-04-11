@@ -376,6 +376,67 @@ class GameState {
     }
 }
 
+// --- Board tidy-up ---
+//
+// Re-layout stacks in neat rows. Sends move events to relocate
+// each stack that needs to move.
+
+const CARD_PITCH = 27 + 6; // CARD_WIDTH + gap
+const ROW_SPACING = 76;
+const TOP_MARGIN = 20;
+const LEFT_BASE = 20;
+const GAP_PX = Math.round(3.5 * CARD_PITCH);
+const MAX_CARDS_PER_ROW = 20;
+
+function stack_width(card_count: number): number {
+    if (card_count <= 0) return 0;
+    return 27 + (card_count - 1) * CARD_PITCH;
+}
+
+function compute_tidy_locations(board: JsonCardStack[]): BoardLocation[] {
+    const locs: BoardLocation[] = [];
+    let row = 0;
+    let cards_in_row = 0;
+    let left = LEFT_BASE;
+
+    for (const s of board) {
+        const n = s.board_cards.length;
+        if (cards_in_row > 0 && cards_in_row + n > MAX_CARDS_PER_ROW) {
+            row++;
+            cards_in_row = 0;
+            left = LEFT_BASE;
+        }
+        locs.push({ top: TOP_MARGIN + row * ROW_SPACING, left });
+        left += stack_width(n) + GAP_PX;
+        cards_in_row += n;
+    }
+    return locs;
+}
+
+async function tidy_board(
+    state: GameState, game_id: number, addr: string,
+): Promise<void> {
+    const tidy_locs = compute_tidy_locations(state.board);
+    let moved = 0;
+
+    for (let i = 0; i < state.board.length; i++) {
+        const s = state.board[i];
+        const new_loc = tidy_locs[i];
+        if (s.loc.top === new_loc.top && s.loc.left === new_loc.left) {
+            continue; // already in the right place
+        }
+
+        const moved_stack = { ...s, loc: new_loc };
+        const be = make_board_event([s], [moved_stack]);
+        await state.send_move(game_id, addr, be);
+        moved++;
+    }
+
+    if (moved > 0) {
+        console.log(`Tidied ${moved} stacks.`);
+    }
+}
+
 // --- Auto-play using hints ---
 
 async function auto_play_turn(
@@ -450,6 +511,7 @@ async function auto_play_turn(
                 // and let the human handle it for now.
                 console.log(`  (complex hint — stopping auto-play)`);
                 if (moves_played > 0) {
+                    await tidy_board(state, game_id, addr);
                     await state.send_turn_complete(game_id, addr);
                 }
                 return;
@@ -457,7 +519,9 @@ async function auto_play_turn(
         }
     }
 
-    console.log(`\nPlayed ${moves_played} cards. Completing turn.`);
+    console.log(`\nPlayed ${moves_played} cards. Tidying board.`);
+    await tidy_board(state, game_id, addr);
+    console.log("Completing turn.");
     await state.send_turn_complete(game_id, addr);
 }
 
