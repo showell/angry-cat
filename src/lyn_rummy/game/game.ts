@@ -183,6 +183,14 @@ class Board {
     }
 }
 
+function board_fingerprint(stacks: CardStack[]): string {
+    const parts = stacks.map(s => {
+        const cards = s.board_cards.map(bc => bc.card.str()).join(" ");
+        return `(${s.loc.left},${s.loc.top}) [${cards}]`;
+    });
+    return parts.join(" | ");
+}
+
 /***********************************************
 
 PLAYER, DECK, ETC. vvvv
@@ -749,10 +757,15 @@ class GameEventTrackerSingleton {
             case GameEventType.PLAYER_ACTION:
                 if (this.replay_in_progress) {
                     const action = game_event.player_action!;
+                    console.log("[board] before wire move:", board_fingerprint(CurrentBoard.card_stacks));
+                    console.log("[board] stacks_to_remove:", board_fingerprint(action.board_event.stacks_to_remove));
+                    console.log("[board] stacks_to_add:", board_fingerprint(action.board_event.stacks_to_add));
+                    console.log("[board] hand_cards_released:", action.hand_cards_to_release.map(hc => hc.card.str() + ":" + hc.card.origin_deck).join(", "));
                     const referee_error = validate_game_move({
                         board_before: CurrentBoard.card_stacks,
                         stacks_to_remove: action.board_event.stacks_to_remove,
                         stacks_to_add: action.board_event.stacks_to_add,
+                        hand_cards_played: action.hand_cards_to_release,
                     }, DEFAULT_BOARD_BOUNDS);
                     if (referee_error) {
                         console.error(`[referee] ${referee_error.stage}: ${referee_error.message}`);
@@ -2984,6 +2997,7 @@ export function start_game_from_setup(
     const { board, hands, deck } = Dealer.from_setup(setup);
     TheDeck = deck;
     CurrentBoard = board;
+    console.log("[board] setup:", board_fingerprint(CurrentBoard.card_stacks));
 
     init_singletons(webxdc);
     GameEventTracker = new GameEventTrackerSingleton(webxdc);
@@ -3021,6 +3035,7 @@ export function start_game(
         const { board } = Dealer.setup(TheDeck);
         CurrentBoard = board;
     }
+    console.log("[board] setup:", board_fingerprint(CurrentBoard.card_stacks));
 
     GameEventTracker = new GameEventTrackerSingleton(webxdc);
     PlayerGroup = new PlayerGroupSingleton(
