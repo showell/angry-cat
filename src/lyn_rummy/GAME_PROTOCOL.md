@@ -216,11 +216,35 @@ retrieved via `GET /gopher/games/{id}/events?after=N`.
 
 **Event types posted to the host:**
 
-The first event is always the deck:
+The first event is the game setup — the "photo" from the dealer.
+It contains the dealt board, both hands, and the remaining deck:
 
 ```json
-{"deck": [{"value": 9, "suit": 0, "origin_deck": 0}, ...]}
+{
+    "game_setup": {
+        "board": [
+            {
+                "board_cards": [
+                    {"card": {"value": 13, "suit": 2, "origin_deck": 0}, "state": 0},
+                    {"card": {"value": 1, "suit": 2, "origin_deck": 0}, "state": 0},
+                    {"card": {"value": 2, "suit": 2, "origin_deck": 0}, "state": 0},
+                    {"card": {"value": 3, "suit": 2, "origin_deck": 0}, "state": 0}
+                ],
+                "loc": {"top": 20, "left": 70}
+            }
+        ],
+        "hands": [
+            [{"value": 9, "suit": 0, "origin_deck": 0}, ...],
+            [{"value": 5, "suit": 1, "origin_deck": 1}, ...]
+        ],
+        "deck": [{"value": 7, "suit": 2, "origin_deck": 0}, ...]
+    }
+}
 ```
+
+Both sides reconstruct the same game from this snapshot. The
+dealer runs once on the creating side; the receiving side just
+reads the photo. No independent dealer logic needed.
 
 Subsequent events are game events wrapped in an `EventRow`:
 
