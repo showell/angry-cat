@@ -143,7 +143,7 @@ async function process_message_rows_from_server(
                 stream_id: row.stream_id,
                 timestamp: row.timestamp,
                 topic_id: topic.topic_id,
-                type: row.type,
+                type: row.type as "stream",
             };
 
             parse.parse_content(message, db);

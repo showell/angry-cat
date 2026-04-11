@@ -531,8 +531,6 @@ export function do_board_improvements_with_dissolve(board: CardStack[]): Improve
 // Score: lose 2×60=120 (two 3-sets), gain 120 (4-set) + run extensions.
 // Net gain = run extensions only. Always positive if dups find homes.
 
-import { is_pair_of_dups } from "../core/card";
-
 type SixToFour = {
     set_index_a: number;
     set_index_b: number;

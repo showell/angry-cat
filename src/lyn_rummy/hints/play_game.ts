@@ -14,6 +14,7 @@ import { get_test_deck } from "../core/test_deck";
 import {
     get_hint, can_extract, join_adjacent_runs,
     HintLevel,
+    type HandStack, type LooseCardPlay, find_rearrangement_plays,
 } from "./hints";
 import { CardStackType, get_stack_type, predecessor, successor } from "../core/stack_type";
 import { is_pair_of_dups as is_dup } from "../core/card";

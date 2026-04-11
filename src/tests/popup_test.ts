@@ -38,7 +38,7 @@ import { get_last_focused, clear_focus_tracking, MockElement } from "./shims";
     });
 
     // Simulate clicking the confirm button.
-    p.confirm_button.button._fire("click");
+    (p.confirm_button.button as any)._fire("click");
     assert(confirmed, "callback should fire on confirm click");
 }
 

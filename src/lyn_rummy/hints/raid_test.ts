@@ -30,7 +30,7 @@ function assert_no_bogus_stacks(board: Board, where: string): void {
         if (!valid) {
             throw new Error(
                 where + ": found bogus 3+ stack: [" +
-                stack.map(cs).join(" ") + "] (type=" + CardStackType[t] + ")",
+                stack.map(cs).join(" ") + "] (type=" + t + ")",
             );
         }
     }
@@ -503,7 +503,7 @@ console.log("\n=== RAID tests ===\n");
     const family = raid(board, ace_set);
     assert_no_bogus_stacks(board, "test 9");
 
-    assert.equal(family.length, 3, "Ace family should be exactly 3 (no extenders)");
+    assert.equal(family!.length, 3, "Ace family should be exactly 3 (no extenders)");
     // Diamond run should now be 4 cards (lost AD).
     const diamond_stack = board.stacks.find((s) =>
         s.length === 4 && s.some((card) => cs(card) === "TD"),
