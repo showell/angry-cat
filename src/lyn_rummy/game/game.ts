@@ -37,9 +37,10 @@ export { CardStack } from "../core/card_stack";
 import { get_hint, HintLevel } from "../hints/hints";
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "../core/score";
-import { validate_wire_event, DEFAULT_BOARD_BOUNDS } from "./wire_validation";
+import { DEFAULT_BOARD_BOUNDS } from "./wire_validation";
 import { classify_board_geometry, BoardGeometryStatus } from "./board_geometry";
 import { validate_move, type ProtocolError } from "./protocol_validation";
+import { validate_game_move } from "./referee";
 
 enum GameEventType {
     ADVANCE_TURN,
@@ -687,13 +688,13 @@ class GameEventTrackerSingleton {
             case GameEventType.PLAYER_ACTION:
                 if (this.replay_in_progress) {
                     const action = game_event.player_action!;
-                    const geo_errors = validate_wire_event(
-                        CurrentBoard.card_stacks,
-                        action.board_event.stacks_to_remove,
-                        action.board_event.stacks_to_add,
-                    );
-                    if (geo_errors.length > 0) {
-                        console.error("[wire] Geometry violation:", geo_errors);
+                    const referee_error = validate_game_move({
+                        board_before: CurrentBoard.card_stacks,
+                        stacks_to_remove: action.board_event.stacks_to_remove,
+                        stacks_to_add: action.board_event.stacks_to_add,
+                    }, DEFAULT_BOARD_BOUNDS);
+                    if (referee_error) {
+                        console.error(`[referee] ${referee_error.stage}: ${referee_error.message}`);
                     }
                 }
                 TheGame.process_player_action(game_event.player_action!);
