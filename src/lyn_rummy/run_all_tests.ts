@@ -10,3 +10,4 @@ import "./strategy/simulation_test";
 import "./strategy/viability_test";
 import "./game/puzzle_layout_test";
 import "./game/place_stack_test";
+import "./game/pipeline_test";
