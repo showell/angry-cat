@@ -7,7 +7,7 @@ import * as model from "./backend/model";
 import { get_current_realm_nickname } from "./backend/config";
 import * as page_widget from "./dom/page_widget";
 import * as layout from "./layout";
-import * as lyn_rummy from "./lyn_rummy/plugin";
+import * as lyn_rummy from "./lyn_rummy/game/plugin";
 import { MessageRow } from "./backend/message_row";
 import * as buddy_list from "./buddy_list";
 import * as navigator from "./navigator";

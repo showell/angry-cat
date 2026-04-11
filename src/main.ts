@@ -10,7 +10,7 @@ import * as buddy_list from "./buddy_list";
 import * as dm_model from "./dm/model";
 import * as local_storage from "./localstorage";
 import * as login_manager from "./login_manager";
-import * as game from "./lyn_rummy/game";
+import * as game from "./lyn_rummy/game/game";
 import { Page } from "./page";
 import * as splash from "./splash";
 import { StatusBar } from "./status_bar";

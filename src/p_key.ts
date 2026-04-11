@@ -9,7 +9,7 @@ import { is_gopher_realm } from "./backend/config";
 import * as model from "./backend/model";
 import { Button } from "./button";
 import * as dm from "./dm/plugin";
-import * as lyn_rummy from "./lyn_rummy/plugin";
+import * as lyn_rummy from "./lyn_rummy/game/plugin";
 import type { PluginFactory } from "./plugin_helper";
 import * as activity from "./plugins/activity";
 import * as admin from "./plugins/admin";
