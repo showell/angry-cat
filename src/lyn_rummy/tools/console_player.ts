@@ -1,8 +1,7 @@
 // LynRummy console player — talks to the Angry Gopher game host via HTTP.
 //
 // Tracks board and hand state by polling game events. Can send moves
-// as any authenticated player. Used for spectating, advising, and
-// playing via the command line.
+// as any authenticated player. Uses the hints system to find plays.
 //
 // Required env vars:
 //   GOPHER_URL      — base URL (e.g. http://localhost:9000)
@@ -12,20 +11,24 @@
 // CLI args:
 //   --game-id N     — game to join/spectate
 //   --player N      — 1 or 2 (default 2)
+//   --play          — auto-play a turn using hints
 //
 // Example:
 //   GOPHER_URL=http://localhost:9000 \
 //   GOPHER_EMAIL=apoorva@example.com \
 //   GOPHER_API_KEY=... \
-//   npx vite-node src/lyn_rummy/tools/console_player.ts -- --game-id 7
+//   npx vite-node src/lyn_rummy/tools/console_player.ts -- --game-id 7 --play
 
 import {
-    Card, type JsonCard, value_str, suit_emoji_str,
+    Card, type JsonCard, value_str,
     Suit, OriginDeck,
 } from "../core/card";
-import type {
-    JsonCardStack, JsonBoardCard, BoardLocation,
+import {
+    CardStack, HandCard, HandCardState, BoardCardState,
+    type JsonCardStack, type JsonBoardCard, type BoardLocation,
 } from "../core/card_stack";
+import { get_hint, HintLevel } from "../hints/hints";
+import { find_open_loc, type BoardBounds } from "../game/place_stack";
 
 // --- Env / CLI ---
 
@@ -38,10 +41,11 @@ function require_env(name: string): string {
     return v;
 }
 
-function parse_args(): { game_id: number; player: number } {
+function parse_args(): { game_id: number; player: number; play: boolean } {
     const args = process.argv.slice(2);
     let game_id = 0;
     let player = 2;
+    let play = false;
     for (let i = 0; i < args.length; i++) {
         if (args[i] === "--game-id" && args[i + 1]) {
             game_id = parseInt(args[i + 1]);
@@ -51,17 +55,27 @@ function parse_args(): { game_id: number; player: number } {
             player = parseInt(args[i + 1]);
             i++;
         }
+        if (args[i] === "--play") {
+            play = true;
+        }
     }
     if (!game_id) {
-        console.error("Usage: --game-id N [--player N]");
+        console.error("Usage: --game-id N [--player N] [--play]");
         process.exit(1);
     }
-    return { game_id, player };
+    return { game_id, player, play };
 }
 
 const GOPHER_URL = require_env("GOPHER_URL");
 const GOPHER_EMAIL = require_env("GOPHER_EMAIL");
 const GOPHER_API_KEY = require_env("GOPHER_API_KEY");
+
+const BOARD_BOUNDS: BoardBounds = {
+    max_width: 800,
+    max_height: 600,
+    margin: 5,
+    step: 10,
+};
 
 // --- Card display ---
 
@@ -109,38 +123,30 @@ function show_board(board: JsonCardStack[]): void {
 
 // --- Stack helpers ---
 
-function cards_equal(a: JsonCard, b: JsonCard): boolean {
+function json_cards_equal(a: JsonCard, b: JsonCard): boolean {
     return a.value === b.value && a.suit === b.suit && a.origin_deck === b.origin_deck;
 }
 
 function stacks_match(a: JsonCardStack, b: JsonCardStack): boolean {
     if (a.board_cards.length !== b.board_cards.length) return false;
     for (let i = 0; i < a.board_cards.length; i++) {
-        if (!cards_equal(a.board_cards[i].card as JsonCard, b.board_cards[i].card as JsonCard)) {
+        if (!json_cards_equal(a.board_cards[i].card as JsonCard, b.board_cards[i].card as JsonCard)) {
             return false;
         }
     }
     return a.loc.top === b.loc.top && a.loc.left === b.loc.left;
 }
 
-function find_stack_by_cards(
-    board: JsonCardStack[],
-    card_tuples: [number, number, number][],
-): JsonCardStack | undefined {
-    for (const stack of board) {
-        if (stack.board_cards.length !== card_tuples.length) continue;
-        let match = true;
-        for (let i = 0; i < card_tuples.length; i++) {
-            const [v, s, d] = card_tuples[i];
-            const c = stack.board_cards[i].card as JsonCard;
-            if (c.value !== v || c.suit !== s || c.origin_deck !== d) {
-                match = false;
-                break;
-            }
-        }
-        if (match) return stack;
-    }
-    return undefined;
+// --- Type conversion ---
+// The hints system works with CardStack/HandCard objects.
+// The wire format uses plain JSON. These functions convert.
+
+function json_to_card_stacks(board: JsonCardStack[]): CardStack[] {
+    return board.map(s => CardStack.from_json(s));
+}
+
+function json_to_hand_cards(hand: JsonCard[]): HandCard[] {
+    return hand.map(c => new HandCard(Card.from_json(c), HandCardState.NORMAL));
 }
 
 // --- HTTP client ---
@@ -234,7 +240,7 @@ function make_event_row(
     }
     return {
         json_game_event: {
-            type: 2, // PLAYER_ACTION
+            type: 2,
             player_action: {
                 board_event,
                 hand_cards_to_release,
@@ -244,44 +250,6 @@ function make_event_row(
     };
 }
 
-// --- Move helpers ---
-
-export function extend_stack_right_event(
-    stack: JsonCardStack, hand_card: JsonCard,
-): WireBoardEvent {
-    const new_board_cards = [...stack.board_cards, make_board_card(hand_card, 1)];
-    return make_board_event([stack], [make_stack(new_board_cards, stack.loc)]);
-}
-
-export function extend_stack_left_event(
-    stack: JsonCardStack, hand_card: JsonCard,
-): WireBoardEvent {
-    const new_board_cards = [make_board_card(hand_card, 1), ...stack.board_cards];
-    return make_board_event([stack], [make_stack(new_board_cards, stack.loc)]);
-}
-
-export function place_new_stack_event(
-    hand_cards: JsonCard[], loc: BoardLocation,
-): WireBoardEvent {
-    const board_cards = hand_cards.map(c => make_board_card(c, 1));
-    return make_board_event([], [make_stack(board_cards, loc)]);
-}
-
-export function split_stack_event(
-    stack: JsonCardStack, split_at: number,
-    left_loc: BoardLocation, right_loc: BoardLocation,
-): WireBoardEvent {
-    const left = make_stack(stack.board_cards.slice(0, split_at), left_loc);
-    const right = make_stack(stack.board_cards.slice(split_at), right_loc);
-    return make_board_event([stack], [left, right]);
-}
-
-export function move_stack_event(
-    stack: JsonCardStack, new_loc: BoardLocation,
-): WireBoardEvent {
-    return make_board_event([stack], [make_stack(stack.board_cards, new_loc)]);
-}
-
 // --- Game state tracker ---
 
 class GameState {
@@ -289,6 +257,7 @@ class GameState {
     hands: [JsonCard[], JsonCard[]];
     remaining_deck: JsonCard[];
     last_event_id: number;
+    played_cards: [JsonCard[], JsonCard[]]; // track cards played from each hand
 
     constructor(setup_event: GopherEvent) {
         const payload = setup_event.payload;
@@ -298,13 +267,12 @@ class GameState {
             this.board = setup.board;
             this.hands = [setup.hands[0], setup.hands[1]];
             this.remaining_deck = setup.deck;
-        } else if (payload.deck) {
-            throw new Error("Legacy deck format not supported in TS player");
         } else {
             throw new Error("First event must be game_setup");
         }
 
         this.last_event_id = setup_event.id;
+        this.played_cards = [[], []];
         console.log(`[board] ts setup: ${board_fingerprint(this.board)}`);
     }
 
@@ -321,6 +289,20 @@ class GameState {
         const to_remove = be.stacks_to_remove;
         const to_add = be.stacks_to_add;
 
+        // Track hand cards played.
+        const released = ge.player_action.hand_cards_to_release || [];
+        for (const hc of released) {
+            const card = hc.card as JsonCard;
+            // Figure out which hand this card came from.
+            for (let p = 0; p < 2; p++) {
+                const idx = this.hands[p].findIndex(c => json_cards_equal(c, card));
+                if (idx >= 0) {
+                    this.played_cards[p].push(card);
+                    break;
+                }
+            }
+        }
+
         // Validate all removes before applying.
         const indices_to_remove: number[] = [];
         for (const rem of to_remove) {
@@ -332,10 +314,9 @@ class GameState {
                     break;
                 }
             }
-            if (!found) return; // invalid move — skip
+            if (!found) return;
         }
 
-        // Remove in reverse order.
         for (const i of indices_to_remove.sort((a, b) => b - a)) {
             this.board.splice(i, 1);
         }
@@ -345,10 +326,26 @@ class GameState {
         }
     }
 
+    get_remaining_hand(player_index: number): JsonCard[] {
+        const initial = this.hands[player_index];
+        const played = this.played_cards[player_index];
+        const remaining: JsonCard[] = [];
+        const used = [...played];
+        for (const c of initial) {
+            const idx = used.findIndex(u => json_cards_equal(u, c));
+            if (idx >= 0) {
+                used.splice(idx, 1);
+            } else {
+                remaining.push(c);
+            }
+        }
+        return remaining;
+    }
+
     show(player_index: number): void {
         show_board(this.board);
-        show_hand("Player 1 hand", this.hands[0]);
-        show_hand("Player 2 hand", this.hands[1]);
+        const hand = this.get_remaining_hand(player_index);
+        show_hand(`Player ${player_index + 1} hand (${hand.length} cards)`, hand);
         console.log(`Deck: ${this.remaining_deck.length} cards remaining`);
     }
 
@@ -356,23 +353,124 @@ class GameState {
         game_id: number, addr: string,
         board_event: WireBoardEvent, hand_cards?: JsonCard[],
     ): Promise<any> {
-        console.log(`[board] ts before move: ${board_fingerprint(this.board)}`);
         const payload = make_event_row(addr, board_event, hand_cards);
         const result = await gopher_post(`games/${game_id}/events`, payload);
         const event_id = result.event_id;
         if (event_id) {
-            console.log(`Sent event ${event_id}`);
+            console.log(`  -> event ${event_id}`);
             this.apply_event({ id: event_id, user_id: 0, payload, created_at: 0 });
+        } else if (result.result === "error") {
+            console.log(`  -> REJECTED: ${result.msg}`);
         }
         return result;
     }
+
+    async send_turn_complete(game_id: number, addr: string): Promise<void> {
+        const r1 = await gopher_post(`games/${game_id}/events`,
+            { json_game_event: { type: 1 }, addr });
+        console.log(`MAYBE_COMPLETE_TURN: event ${r1.event_id}`);
+
+        const r2 = await gopher_post(`games/${game_id}/events`,
+            { json_game_event: { type: 0 }, addr });
+        console.log(`ADVANCE_TURN: event ${r2.event_id}`);
+    }
+}
+
+// --- Auto-play using hints ---
+
+async function auto_play_turn(
+    state: GameState,
+    game_id: number,
+    player_index: number,
+    addr: string,
+): Promise<void> {
+    let moves_played = 0;
+
+    while (true) {
+        const hand_json = state.get_remaining_hand(player_index);
+        if (hand_json.length === 0) break;
+
+        const hand_cards = json_to_hand_cards(hand_json);
+        const board_stacks = json_to_card_stacks(state.board);
+
+        const hint = get_hint(hand_cards, board_stacks);
+
+        if (hint.level === HintLevel.NO_MOVES ||
+            hint.level === HintLevel.REARRANGE_PLAY) {
+            console.log(`Hint: ${hint.level}`);
+            break;
+        }
+
+        console.log(`Hint: ${hint.level}`);
+
+        switch (hint.level) {
+            case HintLevel.HAND_STACKS: {
+                const group = hint.hand_stacks[0];
+                const cards_json = group.cards.map(hc => hc.card.toJSON());
+                const loc = find_open_loc(state.board, group.cards.length, BOARD_BOUNDS);
+                const board_cards = cards_json.map(c => make_board_card(c, BoardCardState.FRESHLY_PLAYED));
+                const new_stack = make_stack(board_cards, loc);
+                const be = make_board_event([], [new_stack]);
+                await state.send_move(game_id, addr, be, cards_json);
+                moves_played += group.cards.length;
+                break;
+            }
+
+            case HintLevel.DIRECT_PLAY: {
+                const hc = hint.playable_cards[0];
+                const card_json = hc.card.toJSON();
+                const single = CardStack.from_hand_card(hc, { top: 0, left: 0 });
+
+                // Find which board stack this card merges onto.
+                let played = false;
+                for (let i = 0; i < board_stacks.length; i++) {
+                    const merged = board_stacks[i].left_merge(single)
+                        ?? board_stacks[i].right_merge(single);
+                    if (merged) {
+                        const old_stack = state.board[i];
+                        const new_stack_json = merged.toJSON();
+                        // Preserve the board stack's location.
+                        new_stack_json.loc = old_stack.loc;
+                        const be = make_board_event([old_stack], [new_stack_json]);
+                        await state.send_move(game_id, addr, be, [card_json]);
+                        moves_played++;
+                        played = true;
+                        break;
+                    }
+                }
+                if (!played) {
+                    console.log(`  Could not find merge target for ${card_label(card_json)}`);
+                    return;
+                }
+                break;
+            }
+
+            default: {
+                // For complex hints (swap, split, peel, etc.) we stop
+                // and let the human handle it for now.
+                console.log(`  (complex hint — stopping auto-play)`);
+                if (moves_played > 0) {
+                    await state.send_turn_complete(game_id, addr);
+                }
+                return;
+            }
+        }
+    }
+
+    console.log(`\nPlayed ${moves_played} cards. Completing turn.`);
+    await state.send_turn_complete(game_id, addr);
 }
 
 // --- Main ---
 
 async function main(): Promise<void> {
-    const { game_id, player } = parse_args();
+    const { game_id, player, play } = parse_args();
     const player_index = player - 1;
+    // addr is the Gopher user_id. We derive it from the email.
+    // For now, use a simple lookup since we know our users.
+    const addr = GOPHER_EMAIL.includes("apoorva") ? "2"
+        : GOPHER_EMAIL.includes("showell") ? "3"
+        : "1";
 
     const data = await gopher_get(`games/${game_id}/events?after=0`);
     const events: GopherEvent[] = data.events || [];
@@ -388,6 +486,13 @@ async function main(): Promise<void> {
     }
 
     state.show(player_index);
+
+    if (play) {
+        console.log("\n--- Auto-playing turn ---\n");
+        await auto_play_turn(state, game_id, player_index, addr);
+        console.log("\n--- After turn ---\n");
+        state.show(player_index);
+    }
 }
 
 main();
