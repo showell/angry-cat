@@ -756,6 +756,7 @@ class GameEventTrackerSingleton {
                     }, DEFAULT_BOARD_BOUNDS);
                     if (referee_error) {
                         console.error(`[referee] ${referee_error.stage}: ${referee_error.message}`);
+                        break; // reject the move
                     }
                 }
                 TheGame.process_player_action(game_event.player_action!);
