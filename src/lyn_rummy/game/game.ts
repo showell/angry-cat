@@ -39,6 +39,7 @@ import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "../core/score";
 import { validate_wire_event, DEFAULT_BOARD_BOUNDS } from "./wire_validation";
 import { classify_board_geometry, BoardGeometryStatus } from "./board_geometry";
+import { validate_move, type ProtocolError } from "./protocol_validation";
 
 enum GameEventType {
     ADVANCE_TURN,
@@ -805,8 +806,20 @@ class GameEvent {
         return { type: this.type, player_action: json_player_action };
     }
 
+    // Protocol validation step in the Lyn Rummy pipeline.
+    // Validate the raw JSON shape before deserializing into
+    // typed objects.
     static from_json(json: JsonGameEvent): GameEvent {
         const type = json.type;
+
+        if (json.player_action?.board_event) {
+            const errors = validate_move(json.player_action.board_event);
+            if (errors.length > 0) {
+                const detail = errors.map((e: ProtocolError) => `${e.path}: ${e.message}`).join("; ");
+                throw new Error(`Protocol validation failed: ${detail}`);
+            }
+        }
+
         const player_action = json.player_action
             ? PlayerAction.from_json(json.player_action)
             : undefined;
@@ -1966,9 +1979,8 @@ class EventManagerSingleton {
             geo_after === BoardGeometryStatus.CLEANLY_SPACED) {
             SoundEffects.play_ding_sound();
             StatusBar.celebrate("Nice and tidy!");
-        } else if (geo_after === BoardGeometryStatus.CROWDED &&
-                   geo_before === BoardGeometryStatus.CLEANLY_SPACED) {
-            StatusBar.inform("Board is getting tight — try spacing stacks out.");
+        } else if (geo_after === BoardGeometryStatus.CROWDED) {
+            StatusBar.scold("Board is getting tight — try spacing stacks out!");
         }
     }
 
@@ -1980,13 +1992,13 @@ class EventManagerSingleton {
     }
 
     place_hand_card_on_board(player_action: PlayerAction): void {
-        this.process_and_push_player_action(player_action);
         StatusBar.inform("On the board!");
+        this.process_and_push_player_action(player_action);
     }
 
     move_stack(player_action: PlayerAction): void {
-        this.process_and_push_player_action(player_action);
         StatusBar.inform("Moved!");
+        this.process_and_push_player_action(player_action);
     }
 
     // This function works for both dragging board stacks
@@ -2356,6 +2368,34 @@ function overlap(e1: HTMLElement, e2: HTMLElement) {
     return overlap;
 }
 
+const CROWDING_MARGIN = 5; // px — must match DEFAULT_BOARD_BOUNDS.margin
+
+function nearby(e1: HTMLElement, e2: HTMLElement, margin: number): boolean {
+    const r1 = e1.getBoundingClientRect();
+    const r2 = e2.getBoundingClientRect();
+    // Expand r2 by margin on each side, then check overlap.
+    return !(
+        r1.right < r2.left - margin ||
+        r1.left > r2.right + margin ||
+        r1.bottom < r2.top - margin ||
+        r1.top > r2.bottom + margin
+    );
+}
+
+type StackProximity = "clear" | "crowded" | "overlapping";
+
+function check_stack_proximity(div: HTMLElement): StackProximity {
+    for (const pcs of PhysicalBoard.physical_card_stacks) {
+        if (pcs.div === div) continue;
+        if (overlap(div, pcs.div)) return "overlapping";
+    }
+    for (const pcs of PhysicalBoard.physical_card_stacks) {
+        if (pcs.div === div) continue;
+        if (nearby(div, pcs.div, CROWDING_MARGIN)) return "crowded";
+    }
+    return "clear";
+}
+
 type DropTarget = {
     div: HTMLElement;
     on_over: () => void;
@@ -2542,7 +2582,12 @@ class DragDropHelperSingleton {
             if (hovered_target) {
                 hovered_target.on_drop();
             } else {
-                handle_ordinary_move();
+                const proximity = check_stack_proximity(div);
+                if (proximity === "overlapping") {
+                    StatusBar.scold("Cards can't overlap! Drop it on a stack to merge, or find an open spot.");
+                } else {
+                    handle_ordinary_move();
+                }
             }
         }
 
@@ -2784,9 +2829,10 @@ class SoundEffectsSingleton {
         this.ding = document.createElement("audio");
         this.purr = document.createElement("audio");
         this.bark = document.createElement("audio");
-        this.ding.src = "ding.mp3";
-        this.purr.src = "purr.mp3";
-        this.bark.src = "bark.mp3";
+        const base = import.meta.env.BASE_URL ?? "/";
+        this.ding.src = `${base}ding.mp3`;
+        this.purr.src = `${base}purr.mp3`;
+        this.bark.src = `${base}bark.mp3`;
     }
 
     play_ding_sound() {
