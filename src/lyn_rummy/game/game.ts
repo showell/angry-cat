@@ -37,6 +37,7 @@ export { CardStack } from "../core/card_stack";
 import { get_hint, HintLevel } from "../hints/hints";
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "../core/score";
+import { validate_wire_event } from "./wire_validation";
 
 enum GameEventType {
     ADVANCE_TURN,
@@ -682,6 +683,17 @@ class GameEventTrackerSingleton {
     play_game_event(game_event: GameEvent) {
         switch (game_event.type) {
             case GameEventType.PLAYER_ACTION:
+                if (this.replay_in_progress) {
+                    const action = game_event.player_action!;
+                    const geo_errors = validate_wire_event(
+                        CurrentBoard.card_stacks,
+                        action.board_event.stacks_to_remove,
+                        action.board_event.stacks_to_add,
+                    );
+                    if (geo_errors.length > 0) {
+                        console.error("[wire] Geometry violation:", geo_errors);
+                    }
+                }
                 TheGame.process_player_action(game_event.player_action!);
                 break;
 
