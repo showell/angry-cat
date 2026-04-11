@@ -45,12 +45,30 @@ function gopher_plugin(div: HTMLDivElement): Plugin {
     lobby_div.style.justifyContent = "center";
     lobby_div.style.gap = "20px";
 
-    const launch_button = new Button("Launch new game", 150, async () => {
+    const solitaire_button = new Button("Solitaire", 150, async () => {
+        console.log("[lynrummy] Starting solitaire game");
+        div.innerHTML = "";
+        div.innerText = "Dealing...";
+        const deck_cards = lyn_rummy.build_full_double_deck();
+        const setup = lyn_rummy.Dealer.deal_full_game(deck_cards);
+        // Solitaire: no game host, play locally with both hands.
+        const webxdc = {
+            selfAddr: "solitaire",
+            sendUpdate(_update: any) {},
+            setUpdateListener(_callback: any) {},
+        };
+        div.innerHTML = "";
+        lyn_rummy.start_game_from_setup(
+            setup, div, webxdc, [],
+            model.current_user_name(), "Player Two",
+        );
+    });
+
+    const open_button = new Button("Open game", 150, async () => {
+        console.log("[lynrummy] Starting open game");
         div.innerHTML = "";
         div.innerText = "Creating game...";
         const game_id = await create_gopher_game();
-        // The dealer deals the full game and sends the "photo"
-        // (board, hands, deck) as the first event.
         const deck_cards = lyn_rummy.build_full_double_deck();
         const setup = lyn_rummy.Dealer.deal_full_game(deck_cards);
         const helper = new GopherGameHelper({ game_id, user_id: DB.current_user_id });
@@ -59,7 +77,8 @@ function gopher_plugin(div: HTMLDivElement): Plugin {
         gopher_start_game_from_setup(helper, setup, div);
     });
 
-    lobby_div.append(launch_button.div);
+    lobby_div.append(solitaire_button.div);
+    lobby_div.append(open_button.div);
 
     // Populate the lobby with existing games we can resume or join.
     populate_lobby(lobby_div, div);
