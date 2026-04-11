@@ -1,29 +1,13 @@
 # LynRummy Game Protocol
 
-Data structures and JSON representations for computer-vs-computer
-play. An agent reading this document should be able to understand
-the game state, make valid moves, and communicate with another
-agent.
-
-## Overview
-
-LynRummy is a two-player card game played with a double deck
-(104 cards). Players take turns drawing cards from the deck and
-placing them onto a shared board. The board consists of "stacks"
-— groups of 3+ cards that form valid patterns. The goal is to
-empty your hand. You score points for cards placed, board
-improvements, and bonuses for emptying your hand.
+Data structures for computer-vs-computer play.
 
 ## Cards
 
 A card has three properties:
 
 ```json
-{
-    "value": 1,
-    "suit": 0,
-    "origin_deck": 0
-}
+{"value": 5, "suit": 3, "origin_deck": 0}
 ```
 
 **Values:** 1=Ace through 13=King.
@@ -31,191 +15,121 @@ A card has three properties:
 **Suits:** 0=Club, 1=Diamond, 2=Spade, 3=Heart.
 Clubs and Spades are black. Diamonds and Hearts are red.
 
-**Origin deck:** 0 or 1. Since we use a double deck, two cards
-can have the same value and suit but come from different decks.
-Two such cards are "duplicates" — they look identical but are
-tracked separately. Duplicates cannot appear in the same set.
+**Origin deck:** 0 or 1. Double deck — two cards can share value
+and suit but differ in origin. Such cards are "duplicates" and
+cannot appear together in a set.
 
-### Card shorthand
-
-For logging and debugging, cards use a two-character notation:
-value letter + suit letter. Values: A 2 3 4 5 6 7 8 9 T J Q K.
-Suits: C D S H. Example: `AH` = Ace of Hearts, `TD` = Ten of
-Diamonds.
+**Shorthand:** Two characters — value + suit. Values: A 2 3 4 5
+6 7 8 9 T J Q K. Suits: C D S H. Example: `AH` = Ace of Hearts.
 
 ## Stacks
 
-A stack is an ordered group of cards on the board. Each stack
-has a type determined by its cards:
+A stack is an ordered list of cards. Valid stack types:
 
-| Type | Rule | Example | Score per card |
-|------|------|---------|---------------|
-| `pure run` | 3+ consecutive same-suit cards | 5H 6H 7H | 100 |
-| `red/black alternating` | 3+ consecutive alternating-color cards | 5H 6S 7D | 50 |
-| `set` | 3-4 cards of same value, different suits, no duplicates | 5H 5D 5S | 60 |
-| `incomplete` | Fewer than 3 cards (valid temporarily during a turn) | 5H 6H | 0 |
-| `bogus` | Invalid pattern (must not exist at end of turn) | 5H 7H 8H | 0 |
+| Type | Rule | Example |
+|------|------|---------|
+| Pure run | 3+ consecutive, same suit | 5H 6H 7H |
+| Red/black run | 3+ consecutive, alternating color | 5H 6S 7D |
+| Set | 3-4 same value, different suits, no duplicates | 5H 5D 5S |
 
-Runs wrap: ...Q K A 2 3... (King connects to Ace).
+Runs wrap: ...Q K A 2 3...
 
-A stack in JSON:
+A stack in JSON is simply an array of cards:
 
 ```json
-{
-    "board_cards": [
-        {"card": {"value": 5, "suit": 3, "origin_deck": 0}, "state": 1},
-        {"card": {"value": 6, "suit": 3, "origin_deck": 0}, "state": 0},
-        {"card": {"value": 7, "suit": 3, "origin_deck": 1}, "state": 0}
-    ],
-    "loc": {"top": 100, "left": 200}
-}
+[
+    {"value": 5, "suit": 3, "origin_deck": 0},
+    {"value": 6, "suit": 3, "origin_deck": 0},
+    {"value": 7, "suit": 3, "origin_deck": 1}
+]
 ```
 
-**Board card states:** 0=firmly on board (from a prior turn),
-1=freshly played (placed this turn), 2=freshly played by the
-previous player (visual indicator only).
+## Board
 
-The `loc` (board location in pixels) matters for the UI but not
-for game logic. Agents can ignore it.
-
-## Game state
-
-The full game state at any point:
+The board is an array of stacks. All stacks must be valid.
 
 ```json
 {
     "board": [
-        {"board_cards": [...], "loc": {...}},
-        {"board_cards": [...], "loc": {...}}
+        [{"value": 5, "suit": 3, "origin_deck": 0}, ...],
+        [{"value": 5, "suit": 1, "origin_deck": 0}, ...]
+    ]
+}
+```
+
+## Hand
+
+An unordered collection of cards the player holds.
+
+```json
+{
+    "hand": [
+        {"value": 1, "suit": 0, "origin_deck": 0},
+        {"value": 9, "suit": 2, "origin_deck": 1}
+    ]
+}
+```
+
+## Game state
+
+```json
+{
+    "board": [[...], [...]],
+    "hands": [
+        [...],
+        [...]
     ],
-    "hands": {
-        "player1": [
-            {"card": {"value": 1, "suit": 0, "origin_deck": 0}, "state": 0}
-        ],
-        "player2": [...]
-    },
-    "deck_remaining": 52,
-    "current_player": "player1",
-    "turn_phase": "play",
-    "scores": {"player1": 0, "player2": 0}
+    "deck_size": 52
 }
 ```
 
-**Hand card states:** 0=normal, 1=freshly drawn (drawn this
-turn), 2=back from board (was on board but returned to hand
-during rearrangement).
+The deck contents are hidden. Players only know its size.
 
-**Turn phases:**
-- `draw` — player must draw a card from the deck
-- `play` — player places cards and/or rearranges the board
-- `end_turn` — player's turn is complete
+## Move
 
-## Moves
-
-A move is a JSON event that transitions the game state. There
-are a small number of move types:
-
-### Draw
-
-```json
-{"type": "draw"}
-```
-
-The player draws the top card from the deck. The card is added
-to their hand with state `freshly_drawn`.
-
-### Place card
+A move is a transition: cards leave the hand, the board changes,
+and the board remains valid.
 
 ```json
 {
-    "type": "place",
-    "hand_index": 2,
-    "target_stack": 0,
-    "position": "right"
+    "cards_played": [
+        {"value": 8, "suit": 3, "origin_deck": 0}
+    ],
+    "resulting_board": [
+        [{"value": 5, "suit": 3, "origin_deck": 0}, ...],
+        [...]
+    ]
 }
 ```
 
-Take the card at `hand_index` from your hand and place it on the
-right (or left) end of `target_stack` on the board. The stack must
-remain valid after placement.
+`cards_played` lists the cards that left the hand.
+`resulting_board` is the complete new board state.
 
-### New stack
+The player may rearrange existing board stacks freely as part of
+the move — splitting stacks, merging stacks, moving cards between
+stacks — as long as the resulting board is valid. The only
+constraint is that every card that was on the board before the
+move must still be on the board after (no stealing cards to your
+hand), and every card in `cards_played` must have come from the
+hand.
 
-```json
-{
-    "type": "new_stack",
-    "hand_indices": [0, 3, 5]
-}
-```
-
-Take 3+ cards from your hand and create a new stack on the board.
-The resulting stack must be a valid type (run or set).
-
-### Split stack
-
-```json
-{
-    "type": "split",
-    "stack_index": 2,
-    "at_position": 3
-}
-```
-
-Split a board stack into two stacks at the given position. Both
-resulting stacks must be valid (3+ cards each) by end of turn.
-Splits are often combined with placements to rearrange the board.
-
-### Move card between stacks
-
-```json
-{
-    "type": "move",
-    "from_stack": 0,
-    "from_position": "right",
-    "to_stack": 3,
-    "to_position": "left"
-}
-```
-
-Take a card from one end of a stack and place it on another. Both
-stacks must be valid by end of turn.
-
-### End turn
-
-```json
-{"type": "end_turn"}
-```
-
-Ends the current player's turn. At this point:
-- All board stacks must be valid (3+ cards, valid type)
-- No `bogus` or `incomplete` stacks allowed
-- Score is calculated from board improvements + cards played
+A player may also pass (play zero cards) if they cannot or choose
+not to play.
 
 ## Scoring
 
-Each card in a valid 3+ stack scores its type value:
-- Pure run: 100 per card
-- Set: 60 per card
-- Red/black alternating run: 50 per card
+Each card in a valid stack scores its type value:
 
-Turn score = (board score after − board score before)
-           + cards-played bonus
-           + empty-hand bonus (1000 if you emptied your hand)
-           + victory bonus (500 additional if this ends the game)
+| Type | Points per card |
+|------|----------------|
+| Pure run | 100 |
+| Set | 60 |
+| Red/black run | 50 |
 
-## Board validity
+Turn score = board score improvement + cards-played bonus.
+Emptying your hand: +1000. Ending the game: +500 additional.
 
-The board is "clean" when every stack has 3+ cards and a valid
-type. During a turn, the board may temporarily have incomplete
-or bogus stacks as the player rearranges. But at `end_turn`, the
-board must be clean.
+## Validity
 
-This is the key constraint: you can rearrange freely during your
-turn, but you must leave the board in a valid state.
-
-## Solitaire mode
-
-In solitaire mode, there is one player. The deck starts with a
-pre-arranged sequence (a puzzle). The goal is to place all cards
-from the deck onto the board, maximizing score. There is no
-opponent and no hand limit.
+The board is valid when every stack is a valid type with 3+
+cards. This must hold after every move.
