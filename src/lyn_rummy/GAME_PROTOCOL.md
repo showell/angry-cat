@@ -133,3 +133,27 @@ Emptying your hand: +1000. Ending the game: +500 additional.
 
 The board is valid when every stack is a valid type with 3+
 cards. This must hold after every move.
+
+## Presentation layer
+
+Everything above describes the game logic layer. Location is a
+separate concern.
+
+Each stack occupies a position on a 2D board when displayed to
+a human. Cards within a stack fan out horizontally. Stack
+locations have no effect on scoring, validity, or strategy.
+Solvers and agents ignore them entirely.
+
+The computer computes locations in exactly two scenarios:
+
+1. **Rendering for a human** — after deciding a move, the
+   computer assigns non-overlapping positions to all stacks
+   so the human can see the board.
+
+2. **Accepting human input** — when a human drags a card, the
+   computer uses positions to determine which stack is the
+   drop target.
+
+In computer-vs-computer play, locations do not exist. The
+presentation layer is a post-processing step applied only when
+a human is involved.
