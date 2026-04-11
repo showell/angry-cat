@@ -1,10 +1,12 @@
 # LynRummy Game Protocol
 
-Data structures for computer-vs-computer play.
+Data structures for computer-vs-computer play. All JSON shapes
+match the TypeScript types in `core/card.ts`, `core/card_stack.ts`,
+and `game/game.ts`.
 
 ## Cards
 
-A card has three properties:
+A card (`JsonCard`) has three properties:
 
 ```json
 {"value": 5, "suit": 3, "origin_deck": 0}
@@ -22,9 +24,38 @@ cannot appear together in a set.
 **Shorthand:** Two characters — value + suit. Values: A 2 3 4 5
 6 7 8 9 T J Q K. Suits: C D S H. Example: `AH` = Ace of Hearts.
 
+## Board cards
+
+A board card (`JsonBoardCard`) wraps a card with a state:
+
+```json
+{"card": {"value": 5, "suit": 3, "origin_deck": 0}, "state": 0}
+```
+
+**States:** 0=firmly on board, 1=freshly played this turn,
+2=freshly played by the previous player. States are a
+presentation concern — validators and solvers ignore them.
+
 ## Stacks
 
-A stack is an ordered list of cards. Valid stack types:
+A stack (`JsonCardStack`) is an ordered list of board cards with
+a location:
+
+```json
+{
+    "board_cards": [
+        {"card": {"value": 5, "suit": 3, "origin_deck": 0}, "state": 0},
+        {"card": {"value": 6, "suit": 3, "origin_deck": 0}, "state": 0},
+        {"card": {"value": 7, "suit": 3, "origin_deck": 1}, "state": 0}
+    ],
+    "loc": {"top": 100, "left": 200}
+}
+```
+
+Cards fan out horizontally from the location. The TypeScript class
+`CardStack` is deserialized from this via `CardStack.from_json()`.
+
+Valid stack types:
 
 | Type | Rule | Example |
 |------|------|---------|
@@ -34,39 +65,23 @@ A stack is an ordered list of cards. Valid stack types:
 
 Runs wrap: ...Q K A 2 3...
 
-A stack in JSON is an array of cards with a location:
-
-```json
-{
-    "cards": [
-        {"value": 5, "suit": 3, "origin_deck": 0},
-        {"value": 6, "suit": 3, "origin_deck": 0},
-        {"value": 7, "suit": 3, "origin_deck": 1}
-    ],
-    "loc": {"top": 100, "left": 200}
-}
-```
-
-Cards within a stack fan out horizontally from the location.
-The location is always present in communicated board states.
-
 ## Board
 
-The board is an array of stacks. All stacks must be valid and
-non-overlapping.
+The board is an array of `JsonCardStack`. All stacks must be
+valid and non-overlapping.
 
 ```json
 {
     "board": [
-        {"cards": [...], "loc": {"top": 100, "left": 200}},
-        {"cards": [...], "loc": {"top": 100, "left": 500}}
+        {"board_cards": [...], "loc": {"top": 100, "left": 200}},
+        {"board_cards": [...], "loc": {"top": 100, "left": 500}}
     ]
 }
 ```
 
 ## Hand
 
-An unordered collection of cards the player holds.
+An unordered collection of bare `JsonCard` (no state, no location).
 
 ```json
 {
@@ -81,9 +96,12 @@ An unordered collection of cards the player holds.
 
 ```json
 {
-    "board": [[...], [...]],
+    "board": [
+        {"board_cards": [...], "loc": {...}},
+        {"board_cards": [...], "loc": {...}}
+    ],
     "hands": [
-        [...],
+        [{"value": 1, "suit": 0, "origin_deck": 0}, ...],
         [...]
     ],
     "deck_size": 52
@@ -94,34 +112,34 @@ The deck contents are hidden. Players only know its size.
 
 ## Move
 
-A move is a transition: cards leave the hand, the board changes,
-and the board remains valid.
+A move (`JsonBoardEvent`) is a delta: stacks to remove and stacks
+to add.
 
 ```json
 {
-    "cards_played": [
-        {"value": 8, "suit": 3, "origin_deck": 0}
+    "stacks_to_remove": [
+        {"board_cards": [...], "loc": {"top": 100, "left": 200}}
     ],
-    "resulting_board": [
-        {"cards": [...], "loc": {"top": 100, "left": 200}},
-        {"cards": [...], "loc": {"top": 100, "left": 500}}
+    "stacks_to_add": [
+        {"board_cards": [...], "loc": {"top": 100, "left": 200}},
+        {"board_cards": [...], "loc": {"top": 100, "left": 500}}
     ]
 }
 ```
 
-`cards_played` lists the cards that left the hand.
-`resulting_board` is the complete new board state.
+Both fields are arrays of `JsonCardStack`. Stacks to remove are
+matched by identity (location + cards). Stacks to add include
+their new locations.
 
-The player may rearrange existing board stacks freely as part of
-the move — splitting stacks, merging stacks, moving cards between
-stacks — as long as the resulting board is valid. The only
-constraint is that every card that was on the board before the
-move must still be on the board after (no stealing cards to your
-hand), and every card in `cards_played` must have come from the
-hand.
+Constraints:
+- Every card on the board before must still be on the board after
+  (no stealing cards to your hand).
+- Any new cards must have come from the player's hand.
+- The resulting board must be valid.
 
-A player may also pass (play zero cards) if they cannot or choose
-not to play.
+A player may pass (empty remove + empty add).
+
+Undo is the inverse: swap `stacks_to_remove` and `stacks_to_add`.
 
 ## Scoring
 
@@ -136,18 +154,29 @@ Each card in a valid stack scores its type value:
 Turn score = board score improvement + cards-played bonus.
 Emptying your hand: +1000. Ending the game: +500 additional.
 
-## Validity
+## Validation pipeline
 
-A board state is checked in this order:
+A board state is validated in three stages. Each stage runs
+independently on the same data:
 
-1. **No overlapping stacks.** Every stack must occupy its own
-   space on the board. This is checked first — an overlapping
-   board is rejected before any game logic is evaluated.
+1. **Protocol validation.** Well-formed JSON matching the
+   `JsonCardStack` / `JsonBoardEvent` shapes. Card values 1-13,
+   suits 0-3, origin_deck 0-1. Stacks have `board_cards` and
+   `loc`. Operates on raw JSON.
 
-2. **Every stack is a valid type** (pure run, red/black run,
-   or set) with 3+ cards.
+2. **Geometry validation.** Every stack fits within the board
+   bounds. No two stacks overlap (with margin). Checked before
+   card patterns — an overlapping board is rejected immediately.
+   Operates on `CardStack`.
 
-Both constraints must hold after every move.
+3. **Semantic validation.** Every stack is a valid type (pure
+   run, red/black run, or set) with 3+ cards. No bogus, no
+   incomplete, no duplicate-card sets. Operates on `CardStack`.
+
+After protocol validation, `CardStack.from_json()` deserializes
+the wire format. Both geometry and semantic engines accept
+`CardStack[]` and share the `CardStackMove` type for replaying
+move chains.
 
 ## Presentation layer
 
