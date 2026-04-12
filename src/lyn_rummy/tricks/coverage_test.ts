@@ -11,7 +11,7 @@ import {
     BoardCard, BoardCardState, CardStack, HandCard, HandCardState,
 } from "../core/card_stack";
 import { direct_play } from "./direct_play";
-import { swap } from "./swap";
+import { rb_swap } from "./rb_swap";
 import { pair_peel } from "./pair_peel";
 import { hand_stacks } from "./hand_stacks";
 import type { Trick } from "./trick";
@@ -46,7 +46,7 @@ const FIXTURES: Fixture[] = [
         expected_card_count: 1,
     },
     {
-        trick: swap,
+        trick: rb_swap,
         description: "5♦ swaps into rb run at 5♥; 5♥ is kicked onto pure-hearts run.",
         hand: [hc("5D")],
         board: [

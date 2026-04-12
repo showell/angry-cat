@@ -13,11 +13,11 @@ import {
 import { join_adjacent_runs } from "../core/board_physics";
 import { TrickBag } from "../tricks/bag";
 import { direct_play } from "../tricks/direct_play";
-import { swap } from "../tricks/swap";
+import { rb_swap } from "../tricks/rb_swap";
 import { pair_peel } from "../tricks/pair_peel";
 import { hand_stacks } from "../tricks/hand_stacks";
 
-const BAG = new TrickBag([hand_stacks, direct_play, swap, pair_peel]);
+const BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel]);
 
 const DUMMY_LOC = { top: 0, left: 0 };
 const suit_letter: Record<Suit, string> = {

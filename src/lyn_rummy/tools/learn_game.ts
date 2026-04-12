@@ -3,8 +3,10 @@
 // play count on the same deal.
 //
 //   Pass 1: only direct_play
-//   Pass 2: direct_play + swap
-//   Pass 3: direct_play + swap + pair_peel
+//   Pass 2: direct_play + rb_swap
+//   Pass 3: direct_play + rb_swap + pair_peel
+//
+// (rb_swap is the kick-a-card-out-of-an-rb-run "substitute trick".)
 //
 // Usage: npx vite-node src/lyn_rummy/tools/learn_game.ts
 
@@ -15,7 +17,7 @@ import {
 import { join_adjacent_runs } from "../core/board_physics";
 import { TrickBag } from "../tricks/bag";
 import { direct_play } from "../tricks/direct_play";
-import { swap } from "../tricks/swap";
+import { rb_swap } from "../tricks/rb_swap";
 import { pair_peel } from "../tricks/pair_peel";
 import { TurnStatsRecorder } from "../tricks/stats";
 import type { Trick } from "../tricks/trick";
@@ -152,9 +154,9 @@ const starter_hands: [HandCard[], HandCard[]] = [
 const starter = { deck: starter_deck, board: starter_board, hands: starter_hands };
 
 const passes: { label: string; tricks: Trick[] }[] = [
-    { label: "Beginner (DIRECT_PLAY only)",        tricks: [direct_play] },
-    { label: "Learned SWAP (DIRECT + SWAP)",       tricks: [direct_play, swap] },
-    { label: "Learned PAIR_PEEL (+ PAIR_PEEL)",    tricks: [direct_play, swap, pair_peel] },
+    { label: "Beginner (DIRECT_PLAY only)",             tricks: [direct_play] },
+    { label: "Learned RB_SWAP (DIRECT + RB_SWAP)",      tricks: [direct_play, rb_swap] },
+    { label: "Learned PAIR_PEEL (+ PAIR_PEEL)",         tricks: [direct_play, rb_swap, pair_peel] },
 ];
 
 // Optional: emit JSONL stats when STATS_PATH is set.

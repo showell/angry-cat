@@ -8,11 +8,11 @@ import {
 } from "../core/card_stack";
 import { TrickBag } from "../tricks/bag";
 import { direct_play } from "../tricks/direct_play";
-import { swap } from "../tricks/swap";
+import { rb_swap } from "../tricks/rb_swap";
 import { pair_peel } from "../tricks/pair_peel";
 import { hand_stacks } from "../tricks/hand_stacks";
 
-const BAG = new TrickBag([hand_stacks, direct_play, swap, pair_peel]);
+const BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel]);
 
 const path = process.argv[2];
 if (!path) { console.error("Usage: test_puzzle.ts PATH"); process.exit(1); }

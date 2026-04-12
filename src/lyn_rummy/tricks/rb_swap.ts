@@ -1,15 +1,32 @@
-// SWAP ("substitute trick"): kick a same-value, same-color, different-
-// suit card out of an rb run and slot the hand card into its seat.
-// The kicked card must find a home on a pure run or a not-yet-full set.
+// RB_SWAP ("substitute trick"): kick a same-value, same-color, different-
+// suit card out of an rb (red/black alternating) run and slot the hand
+// card into its seat. The kicked card must find a home on a pure run
+// or a not-yet-full set.
 //
-// Pattern (value V, color C in hand):
+// Pattern (hand card value V, color C):
 //   rb run contains another card at value V, color C, different suit
 //   AND the kicked card can land on some OTHER stack (pure run or
 //   set of size < 4 of that value).
 //
-// At a real card table this is a single two-handed gesture: slide
-// the hand card in, catch the kicked card popping out, flick it to
-// its new home. In the UI it's several operations.
+// Why RB specifically, and not pure runs or sets:
+//
+//   Pure run: substitute would have to be same value + same color +
+//   different suit. But pure runs are single-suit. Inserting a card
+//   of a different suit makes the stack non-pure, and its colors all
+//   match (all red or all black) so it isn't rb either — a bogus
+//   stack. If the hand card is the SAME suit (other deck), swapping
+//   just trades one deck-tagged card for the other; net zero.
+//
+//   Set: a set has all distinct suits by rule. There is no "same
+//   value same color different suit" slot to target — suits are
+//   already maximally distinct. The set's own extraction primitive
+//   (peel from size >= 4) covers what kicking-from-a-set means in
+//   practice, and shows up inside SPLIT_FOR_SET / PEEL_FOR_RUN /
+//   PAIR_DISSOLVE rather than as its own swap trick.
+//
+// At a real card table the substitute is a single two-handed gesture:
+// slide the hand card in, catch the kicked card popping out, flick
+// it to its new home. In the UI it's several operations.
 
 import { Card } from "../core/card";
 import {
@@ -22,8 +39,8 @@ import { CardStackType, get_stack_type } from "../core/stack_type";
 import type { Play, Trick } from "./trick";
 import { DUMMY_LOC, single_stack_from_card } from "./helpers";
 
-export const swap: Trick = {
-    id: "swap",
+export const rb_swap: Trick = {
+    id: "rb_swap",
     description: "Substitute your card for a same-color one in an rb run; the kicked card goes to a set or pure run.",
 
     find_plays(hand: HandCard[], board: CardStack[]): Play[] {
@@ -67,7 +84,7 @@ function make_play(
     home_idx: number,
 ): Play {
     return {
-        trick: swap,
+        trick: rb_swap,
         hand_cards: [hc],
         apply(board: CardStack[]): HandCard[] {
             // Re-verify everything at apply time. If the board shifted,

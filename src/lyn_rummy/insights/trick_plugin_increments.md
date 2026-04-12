@@ -8,7 +8,13 @@ line per game + summary. Run with `npx vite-node src/lyn_rummy/tools/benchmark_b
 
 ---
 
-## Baseline (tricks = direct_play + swap + pair_peel)
+## Baseline (tricks = direct_play + rb_swap + pair_peel)
+
+*Originally named "swap" — renamed to "rb_swap" in the HAND_STACKS
+increment cleanup to make clear it applies only to red/black runs,
+not pure runs or sets. See rb_swap.ts for the why-not rationale.*
+
+
 
 Captured on branch `trick-plugins` at the first step of the trick-porting
 phase. These three tricks were the seed set used to prove the plugin
@@ -17,7 +23,7 @@ are measured against this row.
 
 ```
 games: 5   avg_cards_played: 78.0   avg_completion: 96.9%   stuck_turns: 103
-tricks: direct_play=223  pair_peel=67  swap=33
+tricks: direct_play=223  pair_peel=67  rb_swap=33
 ```
 
 Per-seed completion: 98.1 / 100 / 97.1 / 94.2 / 95.2 (seed 2 finished all
@@ -33,7 +39,7 @@ apply() pushes the group to the board as a new stack.
 
 ```
 games: 5   avg_cards_played: 77.6 (-0.4)   avg_completion: 96.8% (-0.1)   stuck_turns: 104 (+1)
-tricks: hand_stacks=30  direct_play=171  pair_peel=46  swap=28
+tricks: hand_stacks=30  direct_play=171  pair_peel=46  rb_swap=28
 ```
 
 Per-seed completion: 93.3 / 98.1 / 98.1 / 96.2 / 98.1.
