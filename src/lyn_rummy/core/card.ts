@@ -230,18 +230,15 @@ export class Card {
     }
 }
 
-function shuffle(array: any[]) {
+function shuffle(array: any[], rand: () => number = Math.random) {
     for (let i = array.length - 1; i > 0; i--) {
-        // Pick a random index from 0 to i
-        const j = Math.floor(Math.random() * (i + 1));
-
-        // Swap elements at i and j
+        const j = Math.floor(rand() * (i + 1));
         [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
 }
 
-export function build_full_double_deck(): Card[] {
+export function build_full_double_deck(rand?: () => number): Card[] {
     // Returns a shuffled deck of 2 packs of normal cards.
 
     function suit_run(suit: Suit, origin_deck: OriginDeck) {
@@ -263,5 +260,17 @@ export function build_full_double_deck(): Card[] {
     // Use the old-school idiom to flatten the array.
     const all_cards = all_runs.reduce((acc, lst) => acc.concat(lst));
 
-    return shuffle(all_cards);
+    return shuffle(all_cards, rand);
+}
+
+// Deterministic PRNG (mulberry32). Useful for benchmarks that need
+// reproducibility across runs and branches.
+export function seeded_rand(seed: number): () => number {
+    let t = seed >>> 0;
+    return function () {
+        t = (t + 0x6D2B79F5) >>> 0;
+        let r = Math.imul(t ^ (t >>> 15), 1 | t);
+        r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+        return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
 }

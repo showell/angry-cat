@@ -1,0 +1,10 @@
+{
+  "saved_at": "2026-04-12T17:00:00Z",
+  "note": "Live-smoke fixture for PEEL_FOR_RUN: hand has 5H; board has 4H peelable from a 4-set and 6H peelable from a 6-set. Trick should form pure-heart run [4H 5H 6H].",
+  "player": 0,
+  "hand": ["5H:1"],
+  "board": [
+    {"cards": ["4S", "4C", "4D", "4H"]},
+    {"cards": ["6S", "6C", "6D", "6H"]}
+  ]
+}

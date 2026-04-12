@@ -10,10 +10,17 @@ import { Card, OriginDeck, Suit, value_str, build_full_double_deck } from "../co
 import {
     BoardCard, BoardCardState, CardStack, HandCard, HandCardState,
 } from "../core/card_stack";
-import {
-    get_hint, join_adjacent_runs, HintLevel,
-} from "../hints/hints";
-import { execute_complex_hint } from "../hints/execute_complex";
+import { join_adjacent_runs } from "../core/board_physics";
+import { TrickBag } from "../tricks/bag";
+import { direct_play } from "../tricks/direct_play";
+import { rb_swap } from "../tricks/rb_swap";
+import { pair_peel } from "../tricks/pair_peel";
+import { hand_stacks } from "../tricks/hand_stacks";
+import { split_for_set } from "../tricks/split_for_set";
+import { peel_for_run } from "../tricks/peel_for_run";
+import { loose_card_play } from "../tricks/loose_card_play";
+
+const BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel, split_for_set, peel_for_run, loose_card_play]);
 
 const MAX_GAMES = parseInt(process.env.MAX_GAMES || "50", 10);
 const STUCK_TURN_MIN = 7;
@@ -97,9 +104,9 @@ function play_game(): StuckInfo | null {
         let played = 0;
 
         while (hands[p].length > 0) {
-            const hint = get_hint(hands[p], board);
-            if (hint.level === HintLevel.NO_MOVES || hint.level === HintLevel.REARRANGE_PLAY) break;
-            const played_cards = execute_complex_hint(hint, board);
+            const play = BAG.first_play(hands[p], board);
+            if (!play) break;
+            const played_cards = play.apply(board);
             if (played_cards.length === 0) break;
             const used = new Set(played_cards);
             hands[p] = hands[p].filter(hc => !used.has(hc));

@@ -34,7 +34,18 @@ export type {
 } from "../core/card_stack";
 export { CardStack } from "../core/card_stack";
 
-import { get_hint, HintLevel, assert_never } from "../hints/hints";
+import { TrickBag } from "../tricks/bag";
+import { direct_play } from "../tricks/direct_play";
+import { rb_swap } from "../tricks/rb_swap";
+import { pair_peel } from "../tricks/pair_peel";
+import { hand_stacks } from "../tricks/hand_stacks";
+import { split_for_set } from "../tricks/split_for_set";
+import { peel_for_run } from "../tricks/peel_for_run";
+import { loose_card_play } from "../tricks/loose_card_play";
+
+// The tricks the UI knows about. Add a trick here to make it a
+// concept the Angry Cat UI surfaces; omit to keep it invisible.
+const TRICK_BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel, split_for_set, peel_for_run, loose_card_play]);
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "../core/score";
 import { DEFAULT_BOARD_BOUNDS } from "./wire_validation";
@@ -1954,72 +1965,18 @@ class EventManagerSingleton {
     }
 
     show_hints(): void {
-        const hint = get_hint(
+        // Plugin-only: the TrickBag is the single source of hint truth.
+        // If no ported trick fires, the user sees "no hint available"
+        // — un-ported tricks are not concepts the UI knows about.
+        const bag_play = TRICK_BAG.first_play(
             ActivePlayer.hand.hand_cards,
             CurrentBoard.card_stacks,
         );
-
-        switch (hint.level) {
-            case HintLevel.HAND_STACKS: {
-                const count = hint.hand_stacks[0].cards.length;
-                StatusBar.inform(
-                    `You have ${count} cards that form a ${hint.hand_stacks[0].stack_type} in your hand!`,
-                );
-                PlayerArea.show_hints(new Set(hint.hand_stacks[0].cards));
-                break;
-            }
-
-            case HintLevel.DIRECT_PLAY: {
-                const count = hint.playable_cards.length;
-                StatusBar.inform(
-                    `${count} card${count === 1 ? "" : "s"} can play directly onto the board.`,
-                );
-                PlayerArea.show_hints(new Set(hint.playable_cards));
-                break;
-            }
-
-            case HintLevel.SWAP: {
-                StatusBar.inform(hint.level);
-                PlayerArea.show_hints(new Set(hint.playable_cards));
-                break;
-            }
-
-            case HintLevel.LOOSE_CARD_PLAY: {
-                StatusBar.inform(hint.level);
-                PlayerArea.show_hints(new Set(hint.plays[0].playable_cards));
-                break;
-            }
-
-            case HintLevel.SPLIT_FOR_SET:
-            case HintLevel.SPLIT_AND_INJECT:
-            case HintLevel.PEEL_FOR_RUN:
-            case HintLevel.PAIR_PEEL:
-            case HintLevel.PAIR_DISSOLVE:
-            case HintLevel.SIX_TO_FOUR: {
-                StatusBar.inform(hint.level);
-                PlayerArea.show_hints(new Set(hint.playable_cards));
-                break;
-            }
-
-            case HintLevel.REARRANGE_PLAY: {
-                const play = hint.plays[0];
-                const dest_labels = play.destination_cards
-                    .map((c) => value_display_str(c.value) + suit_emoji_str(c.suit))
-                    .join(" ");
-                StatusBar.inform(
-                    `Rearrange the board! Your card can join [${dest_labels}] (${play.destination_type}).`,
-                );
-                PlayerArea.show_hints(new Set([play.hand_card]));
-                break;
-            }
-
-            case HintLevel.NO_MOVES: {
-                StatusBar.scold(hint.level);
-                break;
-            }
-
-            default:
-                assert_never(hint);
+        if (bag_play) {
+            StatusBar.inform(bag_play.trick.description);
+            PlayerArea.show_hints(new Set(bag_play.hand_cards));
+        } else {
+            StatusBar.scold("No hint available from the current tricks.");
         }
     }
 

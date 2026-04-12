@@ -1,13 +1,21 @@
-// Test what hint the algorithm gives for a saved puzzle.
-// Doesn't play the puzzle — just reports what get_hint returns.
+// Show what plays the TrickBag proposes for a saved puzzle, and
+// exercise the chosen play's executor to verify round-trip.
 
 import * as fs from "fs";
 import { Card, OriginDeck } from "../core/card";
 import {
     CardStack, BoardCard, BoardCardState, HandCard, HandCardState,
 } from "../core/card_stack";
-import { get_hint, HintLevel } from "../hints/hints";
-import { execute_complex_hint } from "../hints/execute_complex";
+import { TrickBag } from "../tricks/bag";
+import { direct_play } from "../tricks/direct_play";
+import { rb_swap } from "../tricks/rb_swap";
+import { pair_peel } from "../tricks/pair_peel";
+import { hand_stacks } from "../tricks/hand_stacks";
+import { split_for_set } from "../tricks/split_for_set";
+import { peel_for_run } from "../tricks/peel_for_run";
+import { loose_card_play } from "../tricks/loose_card_play";
+
+const BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel, split_for_set, peel_for_run, loose_card_play]);
 
 const path = process.argv[2];
 if (!path) { console.error("Usage: test_puzzle.ts PATH"); process.exit(1); }
@@ -35,37 +43,28 @@ for (const s of board_stacks) {
     console.log("  [" + s.board_cards.map(bc => bc.card.str()).join(" ") + "]");
 }
 
-const hint = get_hint(hand_cards, board_stacks);
-console.log("\nHint level:", hint.level);
-if ("playable_cards" in hint) {
-    console.log("Playable cards:", hint.playable_cards.map(hc => hc.card.str()).join(" "));
-}
-if ("hand_stacks" in hint) {
-    for (const group of hint.hand_stacks) {
-        console.log("Hand stack:", group.cards.map(hc => hc.card.str()).join(" "), `(${group.stack_type})`);
-    }
-}
-if ("plays" in hint) {
-    for (const play of hint.plays) {
-        console.log("Loose play:", JSON.stringify(play).slice(0, 200));
-    }
+const all_plays = BAG.find_all_plays(hand_cards, board_stacks);
+console.log(`\nAll plays found across the bag: ${all_plays.length}`);
+for (const p of all_plays) {
+    console.log(`  [${p.trick.id}] ${p.hand_cards.map(hc => hc.card.str()).join("+")}`);
 }
 
-// Run the executor to see if the hint actually turns into a played move.
-if (hint.level !== HintLevel.HAND_STACKS &&
-    hint.level !== HintLevel.DIRECT_PLAY &&
-    hint.level !== HintLevel.REARRANGE_PLAY &&
-    hint.level !== HintLevel.NO_MOVES) {
-    const board_clone = board_stacks.map(s => s.clone());
-    const played = execute_complex_hint(hint, board_clone);
-    if (played.length === 0) {
-        console.log("\nExecutor: returned NO played cards — detector/executor drift!");
-    } else {
-        const played_labels = played.map(hc => hc.card.str()).join(" ");
-        console.log(`\nExecutor: played ${played.length} card(s): ${played_labels}`);
-        console.log("Resulting board:");
-        for (const s of board_clone) {
-            console.log("  [" + s.board_cards.map(bc => bc.card.str()).join(" ") + "]");
-        }
+const picked = BAG.first_play(hand_cards, board_stacks);
+if (!picked) {
+    console.log("\nNo trick fires on this puzzle.");
+    process.exit(0);
+}
+console.log(`\nFirst play: [${picked.trick.id}] ${picked.trick.description}`);
+console.log(`Hand cards: ${picked.hand_cards.map(hc => hc.card.str()).join(" ")}`);
+
+const board_clone = board_stacks.map(s => s.clone());
+const played = picked.apply(board_clone);
+if (played.length === 0) {
+    console.log("\nExecutor returned NO played cards — detector/executor drift!");
+} else {
+    console.log(`\nExecutor played ${played.length} card(s): ${played.map(hc => hc.card.str()).join(" ")}`);
+    console.log("Resulting board:");
+    for (const s of board_clone) {
+        console.log("  [" + s.board_cards.map(bc => bc.card.str()).join(" ") + "]");
     }
 }

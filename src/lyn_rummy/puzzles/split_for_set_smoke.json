@@ -1,0 +1,10 @@
+{
+  "saved_at": "2026-04-12T16:40:00Z",
+  "note": "Live-smoke fixture for SPLIT_FOR_SET: hand has one 8H; board has 8S and 8D peelable from pure runs. Trick should form a new 3-set [8H 8S 8D].",
+  "player": 0,
+  "hand": ["8H:1"],
+  "board": [
+    {"cards": ["5S", "6S", "7S", "8S"]},
+    {"cards": ["5D", "6D", "7D", "8D"]}
+  ]
+}

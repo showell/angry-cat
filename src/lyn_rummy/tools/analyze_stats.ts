@@ -1,10 +1,16 @@
 // Analyze turn stats to see what patterns are working.
+//
+// Accepts two formats of JSONL record:
+//   - Legacy:    hint_types: Record<description_string, count>
+//   - Plugin:    tricks:     Record<trick_id, count>
+// Both get bucketed together; keys stay distinct so you can see
+// which format a given record came from.
 
 import * as fs from "fs";
 
-const path = "src/lyn_rummy/stats.jsonl";
+const path = process.argv[2] ?? "src/lyn_rummy/stats.jsonl";
 if (!fs.existsSync(path)) {
-    console.log("No stats file yet. Play some games first.");
+    console.log(`No stats file at ${path}. Play some games first.`);
     process.exit(0);
 }
 
@@ -13,31 +19,38 @@ const turns = lines.map(l => JSON.parse(l));
 
 console.log(`Total turns: ${turns.length}`);
 
-const total_cards = turns.reduce((n, t) => n + t.cards_played, 0);
+const total_cards = turns.reduce((n, t) => n + (t.cards_played ?? 0), 0);
 const stuck_count = turns.filter(t => t.got_stuck).length;
-const total_fumbles = turns.reduce((n, t) => n + t.fumbles, 0);
+const total_fumbles = turns.reduce((n, t) => n + (t.fumbles ?? 0), 0);
 
 console.log(`Total cards played: ${total_cards} (${(total_cards / turns.length).toFixed(1)} per turn)`);
 console.log(`Got stuck: ${stuck_count} turns (${(stuck_count * 100 / turns.length).toFixed(0)}%)`);
-console.log(`Fumbles: ${total_fumbles}`);
+if (total_fumbles > 0) console.log(`Fumbles: ${total_fumbles}`);
 
-// Hint type distribution.
+// Trick / hint distribution. Legacy records use `hint_types` keyed
+// by the full description string; plugin records use `tricks` keyed
+// by trick id. We bucket both into the same map.
 const hint_counts: Record<string, number> = {};
 for (const t of turns) {
-    for (const [k, v] of Object.entries(t.hint_types)) {
+    const legacy = t.hint_types ?? {};
+    const plugin = t.tricks ?? {};
+    for (const [k, v] of Object.entries(legacy)) {
+        hint_counts[k] = (hint_counts[k] || 0) + (v as number);
+    }
+    for (const [k, v] of Object.entries(plugin)) {
         hint_counts[k] = (hint_counts[k] || 0) + (v as number);
     }
 }
-console.log("\nHint usage:");
+console.log("\nTrick / hint usage:");
 const sorted = Object.entries(hint_counts).sort((a, b) => b[1] - a[1]);
 for (const [k, v] of sorted) {
     console.log(`  ${v.toString().padStart(4)} ${k}`);
 }
 
-// Idioms.
+// Idioms (legacy-only field).
 const idiom_counts: Record<string, number> = {};
 for (const t of turns) {
-    for (const [k, v] of Object.entries(t.idioms_fired)) {
+    for (const [k, v] of Object.entries(t.idioms_fired ?? {})) {
         idiom_counts[k] = (idiom_counts[k] || 0) + (v as number);
     }
 }

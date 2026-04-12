@@ -17,7 +17,7 @@ import {
 } from "../core/card_stack";
 import { CardStackType, get_stack_type, successor } from "../core/stack_type";
 import { Score } from "../core/score";
-import { can_extract, join_adjacent_runs } from "../hints/hints";
+import { can_extract, join_adjacent_runs } from "../core/board_physics";
 
 const loc: BoardLocation = { top: 0, left: 0 };
 
