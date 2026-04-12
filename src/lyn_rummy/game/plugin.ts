@@ -16,6 +16,7 @@ import {
     create_gopher_puzzle_game,
     list_gopher_games,
     join_gopher_game,
+    delete_gopher_game,
 } from "./gopher_game_helper";
 
 export function plugin(context: PluginContext): Plugin {
@@ -43,9 +44,9 @@ function gopher_plugin(div: HTMLDivElement): Plugin {
     const lobby_div = document.createElement("div");
     lobby_div.style.paddingTop = "30px";
     lobby_div.style.display = "flex";
-    lobby_div.style.flexWrap = "wrap";
-    lobby_div.style.justifyContent = "center";
-    lobby_div.style.gap = "10px";
+    lobby_div.style.flexDirection = "column";
+    lobby_div.style.alignItems = "center";
+    lobby_div.style.gap = "8px";
 
     const solitaire_button = new Button("Solitaire", 150, async () => {
         console.log("[lynrummy] Starting solitaire game");
@@ -108,10 +109,13 @@ async function populate_lobby(
         const is_open = game.player2_id === null;
 
         if (is_puzzle) {
-            // Puzzles share the lobby with regular games but use
-            // a distinct label and a puzzle-aware loader.
+            const row = document.createElement("div");
+            row.style.display = "flex";
+            row.style.gap = "6px";
+            row.style.alignItems = "center";
+
             const label = `Play puzzle: ${game.puzzle_name}`;
-            const button = new Button(label, 200, async () => {
+            const button = new Button(label, 260, async () => {
                 if (is_open && !is_my_game) {
                     const ok = await join_gopher_game(game.id);
                     if (!ok) return;
@@ -120,21 +124,44 @@ async function populate_lobby(
                 div.innerText = "Loading puzzle...";
                 await gopher_resume_puzzle_game(game.id, div);
             });
-            lobby_div.append(button.div);
+            row.append(button.div);
+
+            const del = new Button("\u2716", 36, async () => {
+                await delete_gopher_game(game.id);
+                row.remove();
+            });
+            del.div.title = "Delete this puzzle";
+            row.append(del.div);
+
+            lobby_div.append(row);
             continue;
         }
 
         if (is_my_game) {
+            const row = document.createElement("div");
+            row.style.display = "flex";
+            row.style.gap = "6px";
+            row.style.alignItems = "center";
+
             const label = `Resume game ${game.id} (${game.event_count} events)`;
-            const button = new Button(label, 200, async () => {
+            const button = new Button(label, 260, async () => {
                 div.innerHTML = "";
                 div.innerText = "Loading game...";
                 await gopher_resume_game(game.id, div);
             });
-            lobby_div.append(button.div);
+            row.append(button.div);
+
+            const del = new Button("\u2716", 36, async () => {
+                await delete_gopher_game(game.id);
+                row.remove();
+            });
+            del.div.title = "Delete this game";
+            row.append(del.div);
+
+            lobby_div.append(row);
         } else if (is_open) {
             const label = `Join game ${game.id}`;
-            const button = new Button(label, 150, async () => {
+            const button = new Button(label, 260, async () => {
                 const ok = await join_gopher_game(game.id);
                 if (!ok) return;
                 div.innerHTML = "";

@@ -228,6 +228,17 @@ export async function list_gopher_games(): Promise<GopherGameInfo[]> {
     return data.games || [];
 }
 
+// Delete a game from the server (used when a puzzle is solved).
+export async function delete_gopher_game(game_id: number): Promise<boolean> {
+    const url = gopher_url(`games/${game_id}`);
+    const resp = await fetch(url, {
+        method: "DELETE",
+        headers: get_headers(),
+    });
+    const data = await resp.json();
+    return data.result === "success";
+}
+
 // Join an existing game on the Gopher server.
 export async function join_gopher_game(game_id: number): Promise<boolean> {
     const url = gopher_url(`games/${game_id}/join`);
