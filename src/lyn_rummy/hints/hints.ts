@@ -42,6 +42,13 @@ function suits_of_color(color: CardColor): Suit[] {
         : [Suit.SPADE, Suit.CLUB];
 }
 
+// Exhaustiveness helper. Use as `default: assert_never(hint)` in switches
+// over HintLevel so TypeScript refuses to compile if a new case is missed.
+// See insights/hint_system_process.md for the rules.
+export function assert_never(x: never): never {
+    throw new Error(`Unhandled hint variant: ${JSON.stringify(x)}`);
+}
+
 // --- Hint cascade ---
 //
 // get_hint returns the simplest available move. We only progress to

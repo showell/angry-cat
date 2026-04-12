@@ -34,7 +34,7 @@ export type {
 } from "../core/card_stack";
 export { CardStack } from "../core/card_stack";
 
-import { get_hint, HintLevel } from "../hints/hints";
+import { get_hint, HintLevel, assert_never } from "../hints/hints";
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "../core/score";
 import { DEFAULT_BOARD_BOUNDS } from "./wire_validation";
@@ -2017,6 +2017,9 @@ class EventManagerSingleton {
                 StatusBar.scold(hint.level);
                 break;
             }
+
+            default:
+                assert_never(hint);
         }
     }
 

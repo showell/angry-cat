@@ -6,6 +6,7 @@ import "./game/player_turn_test";
 import "./hints/hints_test";
 import "./hints/hints_hard_test";
 import "./hints/rearrange_hint_test";
+import "./hints/hint_coverage_test";
 import "./strategy/simulation_test";
 import "./strategy/viability_test";
 import "./game/puzzle_layout_test";

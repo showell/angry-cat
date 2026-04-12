@@ -13,7 +13,7 @@ import {
 import { get_test_deck } from "../core/test_deck";
 import {
     get_hint, can_extract, join_adjacent_runs,
-    HintLevel,
+    HintLevel, assert_never,
     type HandStack, type LooseCardPlay, find_rearrangement_plays,
 } from "./hints";
 import { CardStackType, get_stack_type, predecessor, successor } from "../core/stack_type";
@@ -530,6 +530,11 @@ for (let turn = 1; turn <= 200; turn++) {
                 }
                 break;
             }
+
+            // NO_MOVES and REARRANGE_PLAY are filtered by the early-break
+            // above; TS narrows them out before reaching this switch.
+            default:
+                assert_never(hint);
         }
 
         if (!executed) break;
