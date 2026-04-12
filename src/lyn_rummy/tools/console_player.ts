@@ -28,7 +28,7 @@ import {
     CardStack, HandCard, HandCardState, BoardCardState,
     type JsonCardStack, type JsonBoardCard, type BoardLocation,
 } from "../core/card_stack";
-import { CardStackType } from "../core/stack_type";
+import { CardStackType, get_stack_type, predecessor, successor } from "../core/stack_type";
 import { get_hint, HintLevel, can_extract, type LooseCardPlay } from "../hints/hints";
 import { find_open_loc, type BoardBounds } from "../game/place_stack";
 
@@ -278,6 +278,162 @@ function execute_complex_hint(
             for (let i = 0; i < board.length; i++) {
                 const merged = board[i].left_merge(single) ?? board[i].right_merge(single);
                 if (merged) { board[i] = merged; return [hc]; }
+            }
+            return [];
+        }
+
+        case HintLevel.SPLIT_AND_INJECT: {
+            const hc = hint.playable_cards[0];
+            for (let si = 0; si < board.length; si++) {
+                const stack = board[si];
+                const st = stack.stack_type;
+                if (st !== CardStackType.PURE_RUN && st !== CardStackType.RED_BLACK_RUN) continue;
+                const cards = stack.board_cards;
+                const size = cards.length;
+
+                for (let split = 2; split <= size - 2; split++) {
+                    const left = new CardStack(cards.slice(0, split), stack.loc);
+                    const right = new CardStack(cards.slice(split), DUMMY_LOC);
+                    if (left.problematic() || right.problematic()) continue;
+
+                    const single = CardStack.from_hand_card(hc, DUMMY_LOC);
+                    if (!left.incomplete()) {
+                        const extended = right.left_merge(single);
+                        if (extended && !extended.incomplete() && !extended.problematic()) {
+                            board[si] = left;
+                            board.push(extended);
+                            return [hc];
+                        }
+                    }
+                    if (!right.incomplete()) {
+                        const extended = left.right_merge(single);
+                        if (extended && !extended.incomplete() && !extended.problematic()) {
+                            board[si] = extended;
+                            board.push(right);
+                            return [hc];
+                        }
+                    }
+                }
+            }
+            return [];
+        }
+
+        case HintLevel.PEEL_FOR_RUN: {
+            const hc = hint.playable_cards[0];
+            const v = hc.card.value;
+            type Candidate = { si: number; ci: number; card: Card };
+            const neighbors: Candidate[] = [];
+
+            for (let si = 0; si < board.length; si++) {
+                const cards = board[si].get_cards();
+                for (let ci = 0; ci < cards.length; ci++) {
+                    const bc = cards[ci];
+                    if (bc.equals(hc.card)) continue;
+                    if (bc.value === predecessor(v) || bc.value === successor(v)) {
+                        if (can_extract(board[si], ci)) {
+                            neighbors.push({ si, ci, card: bc });
+                        }
+                    }
+                }
+            }
+
+            for (let i = 0; i < neighbors.length; i++) {
+                for (let j = i + 1; j < neighbors.length; j++) {
+                    if (neighbors[i].si === neighbors[j].si) continue;
+                    const triple = [neighbors[i].card, hc.card, neighbors[j].card]
+                        .sort((a, b) => a.value - b.value);
+                    const st = get_stack_type(triple);
+                    if (st !== CardStackType.PURE_RUN && st !== CardStackType.RED_BLACK_RUN) continue;
+
+                    const extracts = [neighbors[i], neighbors[j]].sort((a, b) => b.si - a.si || b.ci - a.ci);
+                    const extracted: BoardCardClass[] = [];
+                    for (const ex of extracts) {
+                        const bc = extract_card(board, ex.si, ex.ci);
+                        if (bc) extracted.push(bc);
+                    }
+                    if (extracted.length < 2) continue;
+
+                    const run_cards = [
+                        new BoardCardClass(hc.card, BoardCardState.FRESHLY_PLAYED),
+                        ...extracted,
+                    ].sort((a, b) => a.card.value - b.card.value);
+                    const new_stack = new CardStack(run_cards, DUMMY_LOC);
+                    if (!new_stack.incomplete() && !new_stack.problematic()) {
+                        board.push(new_stack);
+                        return [hc];
+                    }
+                }
+            }
+            return [];
+        }
+
+        case HintLevel.PAIR_PEEL:
+        case HintLevel.PAIR_DISSOLVE:
+        case HintLevel.SIX_TO_FOUR: {
+            const playable = hint.playable_cards;
+            for (let i = 0; i < playable.length; i++) {
+                for (let j = i + 1; j < playable.length; j++) {
+                    const a = playable[i].card;
+                    const b = playable[j].card;
+                    if (a.equals(b)) continue;
+
+                    // Set pair: same value different suit.
+                    if (a.value === b.value && a.suit !== b.suit) {
+                        const needed_suits = [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]
+                            .filter(s => s !== a.suit && s !== b.suit);
+                        for (let si = 0; si < board.length; si++) {
+                            const cards = board[si].get_cards();
+                            for (let ci = 0; ci < cards.length; ci++) {
+                                const bc = cards[ci];
+                                if (bc.value === a.value && needed_suits.includes(bc.suit) &&
+                                    can_extract(board[si], ci)) {
+                                    const extracted = extract_card(board, si, ci);
+                                    if (extracted) {
+                                        board.push(new CardStack([
+                                            new BoardCardClass(a, BoardCardState.FRESHLY_PLAYED),
+                                            new BoardCardClass(b, BoardCardState.FRESHLY_PLAYED),
+                                            extracted,
+                                        ], DUMMY_LOC));
+                                        return [playable[i], playable[j]];
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Run pair: same suit, consecutive.
+                    if (a.suit === b.suit) {
+                        const lo = a.value < b.value ? a : b;
+                        const hi = a.value < b.value ? b : a;
+                        if (hi.value !== successor(lo.value)) continue;
+
+                        const needed = [
+                            { value: predecessor(lo.value), suit: lo.suit },
+                            { value: successor(hi.value), suit: hi.suit },
+                        ];
+                        for (const need of needed) {
+                            for (let si = 0; si < board.length; si++) {
+                                const cards = board[si].get_cards();
+                                for (let ci = 0; ci < cards.length; ci++) {
+                                    const bc = cards[ci];
+                                    if (bc.value === need.value && bc.suit === need.suit &&
+                                        can_extract(board[si], ci)) {
+                                        const extracted = extract_card(board, si, ci);
+                                        if (extracted) {
+                                            const run = [
+                                                new BoardCardClass(a, BoardCardState.FRESHLY_PLAYED),
+                                                new BoardCardClass(b, BoardCardState.FRESHLY_PLAYED),
+                                                extracted,
+                                            ].sort((x, y) => x.card.value - y.card.value);
+                                            board.push(new CardStack(run, DUMMY_LOC));
+                                            return [playable[i], playable[j]];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             return [];
         }
@@ -820,7 +976,12 @@ async function auto_play_turn(
 
             case HintLevel.SWAP:
             case HintLevel.SPLIT_FOR_SET:
-            case HintLevel.LOOSE_CARD_PLAY: {
+            case HintLevel.LOOSE_CARD_PLAY:
+            case HintLevel.SPLIT_AND_INJECT:
+            case HintLevel.PEEL_FOR_RUN:
+            case HintLevel.PAIR_PEEL:
+            case HintLevel.PAIR_DISSOLVE:
+            case HintLevel.SIX_TO_FOUR: {
                 // Complex hints: clone the board, run the mutation,
                 // diff to get wire events.
                 const board_clone = board_stacks.map(s => s.clone());
@@ -870,11 +1031,6 @@ async function auto_play_turn(
                 break;
             }
 
-            default: {
-                console.log(`  (unhandled hint: ${hint.level})`);
-                done = true;
-                break;
-            }
         }
         if (done) break;
     }
