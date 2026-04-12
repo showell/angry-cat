@@ -418,10 +418,12 @@ class GameState {
         console.log(`[board] ts setup: ${board_fingerprint(this.board)}`);
     }
 
+    quiet: boolean = true; // suppress logs during initial replay
+
     draw_cards(player: number, count: number): void {
         const drawn = this.remaining_deck.splice(0, count);
         this.hands[player].push(...drawn);
-        if (drawn.length > 0) {
+        if (drawn.length > 0 && !this.quiet) {
             console.log(`  Player ${player + 1} draws ${drawn.length} cards (deck: ${this.remaining_deck.length})`);
         }
     }
@@ -907,6 +909,7 @@ async function main(): Promise<void> {
     for (let i = 1; i < events.length; i++) {
         state.apply_event(events[i]);
     }
+    state.quiet = false;
 
     state.show(player_index);
 
