@@ -473,11 +473,32 @@ export function execute_complex_hint(
             return [];
         }
 
-        // Simple hints are handled by their own paths, not this function.
-        // Listed here so TS exhaustiveness enforces coverage of every
-        // HintLevel (see insights/hint_system_process.md).
-        case HintLevel.HAND_STACKS:
-        case HintLevel.DIRECT_PLAY:
+        case HintLevel.HAND_STACKS: {
+            // Push the complete hand group as a new board stack.
+            const group = hint.hand_stacks[0];
+            const bcs = group.cards.map(hc =>
+                new BoardCardClass(hc.card, BoardCardState.FRESHLY_PLAYED));
+            board.push(new CardStack(bcs, DUMMY_LOC));
+            return group.cards;
+        }
+
+        case HintLevel.DIRECT_PLAY: {
+            // First playable hand card; merge onto the first stack that accepts it.
+            const hc = hint.playable_cards[0];
+            const single = CardStack.from_hand_card(hc, DUMMY_LOC);
+            for (let i = 0; i < board.length; i++) {
+                const merged = board[i].left_merge(single) ?? board[i].right_merge(single);
+                if (merged) {
+                    board[i] = merged;
+                    return [hc];
+                }
+            }
+            return [];
+        }
+
+        // REARRANGE_PLAY is intentionally unhandled here (graph-solver
+        // fallback, not wired into get_hint). NO_MOVES is a signal, not
+        // an action. Listed for TS exhaustiveness.
         case HintLevel.REARRANGE_PLAY:
         case HintLevel.NO_MOVES:
             return [];
