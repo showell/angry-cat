@@ -12,7 +12,7 @@ import { Card, OriginDeck, Suit, value_str, build_full_double_deck } from "../co
 import {
     BoardCard, BoardCardState, CardStack, HandCard, HandCardState,
 } from "../core/card_stack";
-import { join_adjacent_runs } from "../hints/hints";
+import { join_adjacent_runs } from "../core/board_physics";
 import { TrickBag } from "../tricks/bag";
 import { direct_play } from "../tricks/direct_play";
 import { swap } from "../tricks/swap";

@@ -16,7 +16,7 @@ import {
     HandCard,
 } from "../core/card_stack";
 import { predecessor, successor } from "../core/stack_type";
-import { can_extract } from "../hints/hints";
+import { can_extract } from "../core/board_physics";
 import type { Play, Trick } from "./trick";
 import { DUMMY_LOC, extract_card, freshly_played } from "./helpers";
 
