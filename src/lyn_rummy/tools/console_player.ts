@@ -396,6 +396,8 @@ class GameState {
     remaining_deck: JsonCard[];
     last_event_id: number;
     played_cards: [JsonCard[], JsonCard[]]; // track cards played from each hand
+    current_player: number; // 0 or 1
+    cards_played_this_turn: number;
 
     constructor(setup_event: GopherEvent) {
         const payload = setup_event.payload;
@@ -403,15 +405,25 @@ class GameState {
         if (payload.game_setup) {
             const setup: WireGameSetup = payload.game_setup;
             this.board = setup.board;
-            this.hands = [setup.hands[0], setup.hands[1]];
-            this.remaining_deck = setup.deck;
+            this.hands = [[...setup.hands[0]], [...setup.hands[1]]];
+            this.remaining_deck = [...setup.deck];
         } else {
             throw new Error("First event must be game_setup");
         }
 
         this.last_event_id = setup_event.id;
         this.played_cards = [[], []];
+        this.current_player = 0;
+        this.cards_played_this_turn = 0;
         console.log(`[board] ts setup: ${board_fingerprint(this.board)}`);
+    }
+
+    draw_cards(player: number, count: number): void {
+        const drawn = this.remaining_deck.splice(0, count);
+        this.hands[player].push(...drawn);
+        if (drawn.length > 0) {
+            console.log(`  Player ${player + 1} draws ${drawn.length} cards (deck: ${this.remaining_deck.length})`);
+        }
     }
 
     apply_event(event: GopherEvent): void {
@@ -421,23 +433,41 @@ class GameState {
         if (!payload.json_game_event) return;
 
         const ge = payload.json_game_event;
+
+        // Turn completion: determine if cards need to be drawn.
+        if (ge.type === 1) { // MAYBE_COMPLETE_TURN
+            const p = this.current_player;
+            if (this.cards_played_this_turn === 0) {
+                // Stuck — draw 3.
+                this.draw_cards(p, 3);
+            } else if (this.get_remaining_hand(p).length === 0) {
+                // Emptied hand — draw 5.
+                this.draw_cards(p, 5);
+            }
+            return;
+        }
+
+        if (ge.type === 0) { // ADVANCE_TURN
+            this.current_player = (this.current_player + 1) % 2;
+            this.cards_played_this_turn = 0;
+            return;
+        }
+
         if (ge.type !== 2 || !ge.player_action) return;
 
         const be: WireBoardEvent = ge.player_action.board_event;
         const to_remove = be.stacks_to_remove;
         const to_add = be.stacks_to_add;
 
-        // Track hand cards played.
+        // Track hand cards played and remove from hand.
         const released = ge.player_action.hand_cards_to_release || [];
         for (const hc of released) {
             const card = hc.card as JsonCard;
-            // Figure out which hand this card came from.
-            for (let p = 0; p < 2; p++) {
-                const idx = this.hands[p].findIndex(c => json_cards_equal(c, card));
-                if (idx >= 0) {
-                    this.played_cards[p].push(card);
-                    break;
-                }
+            const p = this.current_player;
+            const idx = this.hands[p].findIndex(c => json_cards_equal(c, card));
+            if (idx >= 0) {
+                this.hands[p].splice(idx, 1);
+                this.cards_played_this_turn++;
             }
         }
 
@@ -465,19 +495,7 @@ class GameState {
     }
 
     get_remaining_hand(player_index: number): JsonCard[] {
-        const initial = this.hands[player_index];
-        const played = this.played_cards[player_index];
-        const remaining: JsonCard[] = [];
-        const used = [...played];
-        for (const c of initial) {
-            const idx = used.findIndex(u => json_cards_equal(u, c));
-            if (idx >= 0) {
-                used.splice(idx, 1);
-            } else {
-                remaining.push(c);
-            }
-        }
-        return remaining;
+        return this.hands[player_index];
     }
 
     show(player_index: number): void {
