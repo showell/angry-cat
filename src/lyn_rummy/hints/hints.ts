@@ -94,64 +94,69 @@ export function get_hint(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): Hint {
-    // Level 1: Complete sets or runs in the hand.
+    // Bag of tricks — no preference ordering among them except
+    // HAND_STACKS first (it's a pure hand check, no board cost).
+    // Each detector is locally complete; we return whichever trick
+    // fires first in the list below.
+
+    // Complete sets or runs in the hand — free, no board touch.
     const hand_stacks = find_hand_stacks(hand_cards);
     if (hand_stacks.length > 0) {
         return { level: HintLevel.HAND_STACKS, hand_stacks };
     }
 
-    // Level 2: A hand card that directly merges onto a board stack.
-    const playable = find_playable_hand_cards(hand_cards, board_stacks);
-    if (playable.length > 0) {
-        return { level: HintLevel.DIRECT_PLAY, playable_cards: playable };
-    }
-
-    // Level 2b: Swap — replace a same-color card in an rb run.
-    const swap_plays = find_swap_plays(hand_cards, board_stacks);
-    if (swap_plays.length > 0) {
-        return { level: HintLevel.SWAP, playable_cards: swap_plays };
-    }
-
-    // Level 3: Move one board card, then play one hand card.
-    const loose_plays = find_loose_card_plays(hand_cards, board_stacks);
-    if (loose_plays.length > 0) {
-        return { level: HintLevel.LOOSE_CARD_PLAY, plays: loose_plays };
-    }
-
-    // Level 4: Split a run to extract a card, form a set with hand card.
-    const split_plays = find_split_for_set_plays(hand_cards, board_stacks);
-    if (split_plays.length > 0) {
-        return { level: HintLevel.SPLIT_FOR_SET, playable_cards: split_plays };
-    }
-
-    // Level 4b: Split a run, inject hand card at the split point.
-    const inject_plays = find_split_and_inject_plays(hand_cards, board_stacks);
-    if (inject_plays.length > 0) {
-        return { level: HintLevel.SPLIT_AND_INJECT, playable_cards: inject_plays };
-    }
-
-    // Level 4c: Peel two board cards to form a run with hand card.
-    const peel_run_plays = find_peel_for_run_plays(hand_cards, board_stacks);
-    if (peel_run_plays.length > 0) {
-        return { level: HintLevel.PEEL_FOR_RUN, playable_cards: peel_run_plays };
-    }
-
-    // Level 5: Pair in hand + peel from board.
+    // Pair in hand + peel from board.
     const pair_plays = find_pair_peel_plays(hand_cards, board_stacks);
     if (pair_plays.length > 0) {
         return { level: HintLevel.PAIR_PEEL, playable_cards: pair_plays };
     }
 
-    // Level 5b: Pair in hand + dissolve a 3-set from board.
+    // Pair in hand + dissolve a 3-set from board.
     const pair_dissolve_plays = find_pair_dissolve_plays(hand_cards, board_stacks);
     if (pair_dissolve_plays.length > 0) {
         return { level: HintLevel.PAIR_DISSOLVE, playable_cards: pair_dissolve_plays };
     }
 
-    // Level 5c: Six-to-four — merge two 3-sets, free dups, play hand card.
+    // Six-to-four — merge two 3-sets, free dups, play hand card.
     const six_to_four_plays = find_six_to_four_plays(hand_cards, board_stacks);
     if (six_to_four_plays.length > 0) {
         return { level: HintLevel.SIX_TO_FOUR, playable_cards: six_to_four_plays };
+    }
+
+    // A hand card that directly merges onto a board stack.
+    const playable = find_playable_hand_cards(hand_cards, board_stacks);
+    if (playable.length > 0) {
+        return { level: HintLevel.DIRECT_PLAY, playable_cards: playable };
+    }
+
+    // Swap — replace a same-color card in an rb run.
+    const swap_plays = find_swap_plays(hand_cards, board_stacks);
+    if (swap_plays.length > 0) {
+        return { level: HintLevel.SWAP, playable_cards: swap_plays };
+    }
+
+    // Move one board card, then play one hand card.
+    const loose_plays = find_loose_card_plays(hand_cards, board_stacks);
+    if (loose_plays.length > 0) {
+        return { level: HintLevel.LOOSE_CARD_PLAY, plays: loose_plays };
+    }
+
+    // Split a run to extract a card, form a set with hand card.
+    const split_plays = find_split_for_set_plays(hand_cards, board_stacks);
+    if (split_plays.length > 0) {
+        return { level: HintLevel.SPLIT_FOR_SET, playable_cards: split_plays };
+    }
+
+    // Split a run, inject hand card at the split point.
+    const inject_plays = find_split_and_inject_plays(hand_cards, board_stacks);
+    if (inject_plays.length > 0) {
+        return { level: HintLevel.SPLIT_AND_INJECT, playable_cards: inject_plays };
+    }
+
+    // Peel two board cards to form a run with hand card.
+    const peel_run_plays = find_peel_for_run_plays(hand_cards, board_stacks);
+    if (peel_run_plays.length > 0) {
+        return { level: HintLevel.PEEL_FOR_RUN, playable_cards: peel_run_plays };
     }
 
     // Level 6: Board cleanup — join adjacent runs, then re-run
@@ -200,10 +205,10 @@ export function find_swap_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    const unplayable = get_unplayable(hand_cards, board_stacks);
-
+    // Locally complete: consider every hand card, regardless of whether
+    // easier tricks could also play it. Cascade policy handles preference.
     const results: HandCard[] = [];
-    for (const hc of unplayable) {
+    for (const hc of hand_cards) {
         if (find_swap_for_card(hc, board_stacks)) {
             results.push(hc);
         }
@@ -912,7 +917,7 @@ function try_free_card(
 // cards that need the newly-extended runs.
 
 function try_set_dissolution(
-    unplayable: HandCard[],
+    hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): LooseCardPlay | undefined {
     for (const set_stack of board_stacks) {
@@ -928,8 +933,8 @@ function try_set_dissolution(
         // Build the dissolved board: remove the set, apply all merges.
         const new_board = apply_dissolution(other_stacks, assignment);
 
-        // Check if any unplayable hand card becomes playable.
-        const now_playable = find_playable_hand_cards(unplayable, new_board);
+        // Check if any hand card becomes playable after dissolving.
+        const now_playable = find_playable_hand_cards(hand_cards, new_board);
         if (now_playable.length > 0) {
             const moves: BoardMove[] = assignment.map((a) => ({
                 card_label: card_label_for(a.set_card),
@@ -1019,16 +1024,17 @@ export function find_loose_card_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): LooseCardPlay[] {
+    // Locally complete: consider every hand card. See find_swap_plays
+    // for the rationale.
     const already_playable = new Set(
         find_playable_hand_cards(hand_cards, board_stacks).map((hc) => hc),
     );
-    const unplayable = hand_cards.filter((hc) => !already_playable.has(hc));
 
-    if (unplayable.length === 0) return [];
+    if (hand_cards.length === 0) return [];
 
-    // Phase 1: Demand-driven. For each unplayable hand card, find
-    // board cards that would enable it and try to free them.
-    for (const hc of unplayable) {
+    // Phase 1: Demand-driven. For each hand card, find board cards
+    // that would enable it and try to free them.
+    for (const hc of hand_cards) {
         const demands = compute_demands(hc, board_stacks);
 
         for (const demand of demands) {
@@ -1079,7 +1085,7 @@ export function find_loose_card_plays(
     // Phase 2: Set dissolution. Break apart a set if every card has
     // a distinct run to merge into, then check if a hand card plays.
     {
-        const dissolution = try_set_dissolution(unplayable, board_stacks);
+        const dissolution = try_set_dissolution(hand_cards, board_stacks);
         if (dissolution) return [dissolution];
     }
 
@@ -1091,6 +1097,7 @@ export function find_loose_card_plays(
             if (!new_board) continue;
 
             const now_playable = find_playable_hand_cards(hand_cards, new_board);
+            // new_plays = cards that weren't playable before but are now
             const new_plays = now_playable.filter((hc) => !already_playable.has(hc));
 
             if (new_plays.length > 0) {
@@ -1205,13 +1212,12 @@ export function find_split_for_set_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    // Filter to hand cards not playable by earlier levels.
-    const unplayable = get_unplayable(hand_cards, board_stacks);
-    if (unplayable.length === 0) return [];
+    // Locally complete: consider every hand card. Cascade policy picks.
+    if (hand_cards.length === 0) return [];
 
     const results: HandCard[] = [];
 
-    for (const hc of unplayable) {
+    for (const hc of hand_cards) {
         const v = hc.card.value;
         const hc_suit = hc.card.suit;
 
@@ -1273,12 +1279,11 @@ export function find_split_and_inject_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    const unplayable = get_unplayable(hand_cards, board_stacks);
-    if (unplayable.length === 0) return [];
+    if (hand_cards.length === 0) return [];
 
     const results: HandCard[] = [];
 
-    for (const hc of unplayable) {
+    for (const hc of hand_cards) {
         let found = false;
 
         for (const stack of board_stacks) {
@@ -1368,15 +1373,15 @@ export function find_peel_for_run_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    const unplayable = get_unplayable(hand_cards, board_stacks);
-    if (unplayable.length === 0) return [];
+    // Locally complete: consider every hand card. Cascade policy picks.
+    if (hand_cards.length === 0) return [];
 
     const peelable = find_peelable_cards(board_stacks);
     if (peelable.length < 2) return [];
 
     const results: HandCard[] = [];
 
-    for (const hc of unplayable) {
+    for (const hc of hand_cards) {
         const v = hc.card.value;
         const s = hc.card.suit;
         const c = hc.card.color;
@@ -1510,11 +1515,12 @@ export function find_pair_peel_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    // Only consider hand cards not playable by earlier levels.
-    const unplayable = get_unplayable(hand_cards, board_stacks);
-    if (unplayable.length < 2) return [];
+    // Locally complete: consider pairs among ALL hand cards, not just
+    // those earlier tricks couldn't claim. This is the fix for the
+    // puzzle-2 bug where J♦+T♠ was missed because J♦ was direct-playable.
+    if (hand_cards.length < 2) return [];
 
-    const pairs = find_hand_pairs(unplayable);
+    const pairs = find_hand_pairs(hand_cards);
     if (pairs.length === 0) return [];
 
     const playable = new Set<HandCard>();
@@ -1615,10 +1621,10 @@ export function find_pair_dissolve_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    const unplayable = get_unplayable(hand_cards, board_stacks);
-    if (unplayable.length < 2) return [];
+    // Locally complete: consider pairs among ALL hand cards.
+    if (hand_cards.length < 2) return [];
 
-    const pairs = find_hand_pairs(unplayable);
+    const pairs = find_hand_pairs(hand_cards);
     if (pairs.length === 0) return [];
 
     // Find all 3-card sets on the board.
@@ -1731,8 +1737,8 @@ export function find_six_to_four_plays(
     hand_cards: HandCard[],
     board_stacks: CardStack[],
 ): HandCard[] {
-    const unplayable = get_unplayable(hand_cards, board_stacks);
-    if (unplayable.length === 0) return [];
+    // Locally complete: consider every hand card.
+    if (hand_cards.length === 0) return [];
 
     // Find all pairs of 3-card sets with the same value.
     const sets_by_value = new Map<CardValue, { index: number; stack: CardStack }[]>();
@@ -1758,8 +1764,8 @@ export function find_six_to_four_plays(
                 const sim_board = simulate_six_to_four(board_stacks, a, b);
                 if (!sim_board) continue;
 
-                // Check which unplayable hand cards are now playable.
-                const now_playable = find_playable_hand_cards(unplayable, sim_board);
+                // Check which hand cards are now playable after the merge.
+                const now_playable = find_playable_hand_cards(hand_cards, sim_board);
                 for (const hc of now_playable) results.add(hc);
 
                 // Also check: after six-to-four, can any hand card
@@ -1859,13 +1865,12 @@ export function find_rearrangement_plays(
         }
     }
 
-    // Filter to hand cards not already playable by earlier levels.
-    const unplayable = get_unplayable(hand_cards, board_stacks);
-    if (unplayable.length === 0) return [];
+    // Locally complete: consider every hand card.
+    if (hand_cards.length === 0) return [];
 
     const results: RearrangePlay[] = [];
 
-    for (const hc of unplayable) {
+    for (const hc of hand_cards) {
         // Quick orphan check: does the board have ANY neighbor?
         if (is_hand_card_orphan(hc, all_board_cards)) continue;
 
