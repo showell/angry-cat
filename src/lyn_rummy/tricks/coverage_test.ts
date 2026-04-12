@@ -14,6 +14,7 @@ import { direct_play } from "./direct_play";
 import { rb_swap } from "./rb_swap";
 import { pair_peel } from "./pair_peel";
 import { hand_stacks } from "./hand_stacks";
+import { split_for_set } from "./split_for_set";
 import type { Trick } from "./trick";
 
 function card(label: string, deck: OriginDeck = OriginDeck.DECK_ONE): Card {
@@ -63,6 +64,18 @@ const FIXTURES: Fixture[] = [
         hand: [hc("7H"), hc("7S"), hc("7D"), hc("2C")],
         board: [st(card("AH"), card("2H"), card("3H"))],
         expected_card_count: 3,
+    },
+    {
+        trick: split_for_set,
+        description: "Hand 8♥; pull 8♠ and 8♦ off two pure runs; new 3-set [8♥ 8♠ 8♦].",
+        hand: [hc("8H")],
+        board: [
+            // 8♠ peelable (right end of size-4 pure spades)
+            st(card("5S"), card("6S"), card("7S"), card("8S")),
+            // 8♦ peelable (right end of size-4 pure diamonds)
+            st(card("5D"), card("6D"), card("7D"), card("8D")),
+        ],
+        expected_card_count: 1,
     },
     {
         trick: pair_peel,

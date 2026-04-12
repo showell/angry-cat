@@ -67,3 +67,41 @@ prematurely optimize. The trick still fires on positions that
 have no extension path, which is where it genuinely helps.
 
 ---
+
+## Increment 2: added SPLIT_FOR_SET
+
+Hand card V finds two same-value, different-suit board cards via the
+`can_extract` primitive (end-peel of size-4+ runs, set-peel of 4-sets,
+or middle-peel of size-7+ runs). The three cards form a new 3-set on
+the board.
+
+```
+games: 5   avg_cards_played: 80.6 (+3.0)   avg_completion: 98.3% (+1.5)   stuck_turns: 61 (-43)
+tricks: hand_stacks=29  direct_play=187  rb_swap=25  pair_peel=30  split_for_set=38
+```
+
+Per-seed completion: 100 / 98.1 / 99.0 / 97.1 / 97.1.
+
+**Big jump.** 3 cards/game improvement and the **stuck-turn rate
+nearly halved** (104 → 61). Seed 1 finished all 104 cards. The
+fixture suggested this would be a useful trick; the bench
+confirmed it dramatically.
+
+**Substitution within compound tricks**: pair_peel dropped 46 → 30
+because some former pair-peel positions are now resolved earlier
+by split_for_set finding the third card directly. That's not a
+regression — the cards still get played, just via a different
+chunk-recognition path. Total cards rose despite pair_peel firing
+less.
+
+**Confirmation of the island-vs-growth concern**: hand_stacks held
+basically steady (30 → 29). split_for_set creates 3-sets too, but
+those 3-sets feel less "isolated" because they're built from cards
+that were *already* on the board, just regrouped. The shape of the
+board doesn't lose any extension surface — it gains a new set.
+This is suggestive of a future heuristic we'll want eventually:
+"prefer plays that grow board structure over plays that island it."
+
+Live smoke: bot account, game 93 / event 3914.
+
+---
