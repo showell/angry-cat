@@ -34,15 +34,13 @@ export type {
 } from "../core/card_stack";
 export { CardStack } from "../core/card_stack";
 
-import { get_hint, HintLevel, assert_never } from "../hints/hints";
 import { TrickBag } from "../tricks/bag";
 import { direct_play } from "../tricks/direct_play";
 import { swap } from "../tricks/swap";
 import { pair_peel } from "../tricks/pair_peel";
 
-// The three tricks ported to the plugin system. As more tricks get
-// ported, add them here; the old cascade (get_hint below) handles
-// anything the bag doesn't recognize.
+// The tricks the UI knows about. Add a trick here to make it a
+// concept the Angry Cat UI surfaces; omit to keep it invisible.
 const TRICK_BAG = new TrickBag([direct_play, swap, pair_peel]);
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "../core/score";
@@ -1963,9 +1961,9 @@ class EventManagerSingleton {
     }
 
     show_hints(): void {
-        // Try the plugin bag first. If any ported trick fires, prefer
-        // it — its description and highlighted cards are the canonical
-        // plugin-system surfacing.
+        // Plugin-only: the TrickBag is the single source of hint truth.
+        // If no ported trick fires, the user sees "no hint available"
+        // — un-ported tricks are not concepts the UI knows about.
         const bag_play = TRICK_BAG.first_play(
             ActivePlayer.hand.hand_cards,
             CurrentBoard.card_stacks,
@@ -1973,76 +1971,8 @@ class EventManagerSingleton {
         if (bag_play) {
             StatusBar.inform(bag_play.trick.description);
             PlayerArea.show_hints(new Set(bag_play.hand_cards));
-            return;
-        }
-
-        // Fallback: old cascade for tricks not yet ported to the bag.
-        const hint = get_hint(
-            ActivePlayer.hand.hand_cards,
-            CurrentBoard.card_stacks,
-        );
-
-        switch (hint.level) {
-            case HintLevel.HAND_STACKS: {
-                const count = hint.hand_stacks[0].cards.length;
-                StatusBar.inform(
-                    `You have ${count} cards that form a ${hint.hand_stacks[0].stack_type} in your hand!`,
-                );
-                PlayerArea.show_hints(new Set(hint.hand_stacks[0].cards));
-                break;
-            }
-
-            case HintLevel.DIRECT_PLAY: {
-                const count = hint.playable_cards.length;
-                StatusBar.inform(
-                    `${count} card${count === 1 ? "" : "s"} can play directly onto the board.`,
-                );
-                PlayerArea.show_hints(new Set(hint.playable_cards));
-                break;
-            }
-
-            case HintLevel.SWAP: {
-                StatusBar.inform(hint.level);
-                PlayerArea.show_hints(new Set(hint.playable_cards));
-                break;
-            }
-
-            case HintLevel.LOOSE_CARD_PLAY: {
-                StatusBar.inform(hint.level);
-                PlayerArea.show_hints(new Set(hint.plays[0].playable_cards));
-                break;
-            }
-
-            case HintLevel.SPLIT_FOR_SET:
-            case HintLevel.SPLIT_AND_INJECT:
-            case HintLevel.PEEL_FOR_RUN:
-            case HintLevel.PAIR_PEEL:
-            case HintLevel.PAIR_DISSOLVE:
-            case HintLevel.SIX_TO_FOUR: {
-                StatusBar.inform(hint.level);
-                PlayerArea.show_hints(new Set(hint.playable_cards));
-                break;
-            }
-
-            case HintLevel.REARRANGE_PLAY: {
-                const play = hint.plays[0];
-                const dest_labels = play.destination_cards
-                    .map((c) => value_display_str(c.value) + suit_emoji_str(c.suit))
-                    .join(" ");
-                StatusBar.inform(
-                    `Rearrange the board! Your card can join [${dest_labels}] (${play.destination_type}).`,
-                );
-                PlayerArea.show_hints(new Set([play.hand_card]));
-                break;
-            }
-
-            case HintLevel.NO_MOVES: {
-                StatusBar.scold(hint.level);
-                break;
-            }
-
-            default:
-                assert_never(hint);
+        } else {
+            StatusBar.scold("No hint available from the current tricks.");
         }
     }
 
