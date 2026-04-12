@@ -555,6 +555,7 @@ class GameState {
     played_cards: [JsonCard[], JsonCard[]]; // track cards played from each hand
     current_player: number; // 0 or 1
     cards_played_this_turn: number;
+    last_clean_board: JsonCardStack[]; // snapshot from last turn boundary
 
     constructor(setup_event: GopherEvent) {
         const payload = setup_event.payload;
@@ -572,6 +573,7 @@ class GameState {
         this.played_cards = [[], []];
         this.current_player = 0;
         this.cards_played_this_turn = 0;
+        this.last_clean_board = JSON.parse(JSON.stringify(this.board));
         console.log(`[board] ts setup: ${board_fingerprint(this.board)}`);
     }
 
@@ -609,6 +611,7 @@ class GameState {
         if (ge.type === 0) { // ADVANCE_TURN
             this.current_player = (this.current_player + 1) % 2;
             this.cards_played_this_turn = 0;
+            this.last_clean_board = JSON.parse(JSON.stringify(this.board));
             return;
         }
 
@@ -1158,9 +1161,10 @@ async function auto_play_turn(
     }
 
     // Save puzzle if stuck with cards remaining.
+    // Use last_clean_board so the puzzle presents a valid board.
     const remaining = state.get_remaining_hand(player_index);
     if (remaining.length > 0 && moves_played === 0) {
-        save_puzzle(state.board, remaining, player_index);
+        save_puzzle(state.last_clean_board, remaining, player_index);
     }
 
     // Tidy at end of turn — the one time we do a full relayout.
