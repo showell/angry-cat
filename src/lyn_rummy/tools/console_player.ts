@@ -226,7 +226,77 @@ function execute_complex_hint(
     board: CardStack[],
 ): HandCard[] {
     switch (hint.level) {
-        case HintLevel.SWAP:
+        case HintLevel.SWAP: {
+            // Swap: replace a same-color, same-value card in an rb run,
+            // kick the replaced card to a set or pure run.
+            const hc = hint.playable_cards[0];
+            for (let si = 0; si < board.length; si++) {
+                const stack = board[si];
+                if (stack.stack_type !== CardStackType.RED_BLACK_RUN) continue;
+                const cards = stack.get_cards();
+
+                for (let ci = 0; ci < cards.length; ci++) {
+                    const bc = cards[ci];
+                    if (bc.value !== hc.card.value) continue;
+                    if (bc.color !== hc.card.color) continue;
+                    if (bc.suit === hc.card.suit) continue;
+
+                    // Verify the hand card fits in this position.
+                    const swapped = cards.map((c, i) => i === ci ? hc.card : c);
+                    if (get_stack_type(swapped) !== CardStackType.RED_BLACK_RUN) continue;
+
+                    // Find a home for the kicked card (set or pure run).
+                    const kicked = bc;
+                    let kicked_dest = -1;
+                    for (let j = 0; j < board.length; j++) {
+                        if (j === si) continue;
+                        const target = board[j];
+                        const tst = target.stack_type;
+                        if (tst === CardStackType.SET && target.board_cards.length < 4) {
+                            const suits = target.board_cards.map(b => b.card.suit);
+                            if (target.board_cards[0].card.value === kicked.value &&
+                                !suits.includes(kicked.suit)) {
+                                kicked_dest = j;
+                                break;
+                            }
+                        }
+                        if (tst === CardStackType.PURE_RUN) {
+                            const single = CardStack.from_hand_card(
+                                { card: kicked, state: 0 } as HandCard,
+                                DUMMY_LOC,
+                            );
+                            if (target.left_merge(single) || target.right_merge(single)) {
+                                kicked_dest = j;
+                                break;
+                            }
+                        }
+                    }
+                    if (kicked_dest < 0) continue;
+
+                    // Execute: replace in the run.
+                    const new_run_cards = stack.board_cards.map((b, i) =>
+                        i === ci ? new BoardCardClass(hc.card, BoardCardState.FRESHLY_PLAYED) : b);
+                    board[si] = new CardStack(new_run_cards, stack.loc);
+
+                    // Kick the old card to its destination.
+                    const dest = board[kicked_dest];
+                    if (dest.stack_type === CardStackType.SET) {
+                        const new_set = new CardStack(
+                            [...dest.board_cards, new BoardCardClass(kicked, BoardCardState.FIRMLY_ON_BOARD)],
+                            dest.loc);
+                        board[kicked_dest] = new_set;
+                    } else {
+                        const single = CardStack.from_hand_card({ card: kicked, state: 0 } as HandCard, DUMMY_LOC);
+                        const merged = dest.left_merge(single) ?? dest.right_merge(single);
+                        if (merged) board[kicked_dest] = merged;
+                    }
+
+                    return [hc];
+                }
+            }
+            return [];
+        }
+
         case HintLevel.SPLIT_FOR_SET: {
             const hc = hint.playable_cards[0];
             const v = hc.card.value;
