@@ -41,6 +41,17 @@ function extract_card(board: CardStack[], stack_idx: number, card_idx: number): 
         board[stack_idx] = new CardStack(remaining, stack.loc);
         return cards[card_idx];
     }
+
+    // Middle peel: split a run into two valid halves (both size >= 3)
+    // and extract the pivot. Matches can_extract's middle-peel case.
+    if ((st === CardStackType.PURE_RUN || st === CardStackType.RED_BLACK_RUN) &&
+        card_idx >= 3 && (size - card_idx - 1) >= 3) {
+        const left = new CardStack(cards.slice(0, card_idx), stack.loc);
+        const right = new CardStack(cards.slice(card_idx + 1), DUMMY_LOC);
+        board[stack_idx] = left;
+        board.push(right);
+        return cards[card_idx];
+    }
     return undefined;
 }
 
