@@ -35,6 +35,15 @@ export type {
 export { CardStack } from "../core/card_stack";
 
 import { get_hint, HintLevel, assert_never } from "../hints/hints";
+import { TrickBag } from "../tricks/bag";
+import { direct_play } from "../tricks/direct_play";
+import { swap } from "../tricks/swap";
+import { pair_peel } from "../tricks/pair_peel";
+
+// The three tricks ported to the plugin system. As more tricks get
+// ported, add them here; the old cascade (get_hint below) handles
+// anything the bag doesn't recognize.
+const TRICK_BAG = new TrickBag([direct_play, swap, pair_peel]);
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "../core/score";
 import { DEFAULT_BOARD_BOUNDS } from "./wire_validation";
@@ -1954,6 +1963,20 @@ class EventManagerSingleton {
     }
 
     show_hints(): void {
+        // Try the plugin bag first. If any ported trick fires, prefer
+        // it — its description and highlighted cards are the canonical
+        // plugin-system surfacing.
+        const bag_play = TRICK_BAG.first_play(
+            ActivePlayer.hand.hand_cards,
+            CurrentBoard.card_stacks,
+        );
+        if (bag_play) {
+            StatusBar.inform(bag_play.trick.description);
+            PlayerArea.show_hints(new Set(bag_play.hand_cards));
+            return;
+        }
+
+        // Fallback: old cascade for tricks not yet ported to the bag.
         const hint = get_hint(
             ActivePlayer.hand.hand_cards,
             CurrentBoard.card_stacks,
