@@ -862,6 +862,68 @@ async function nudge_if_needed(
 
 // --- Auto-play using hints ---
 
+// --- Stats feedback loop ---
+//
+// Accumulate stats across games so we can see what's working.
+// Written to src/lyn_rummy/stats.json and appended to.
+
+type TurnStats = {
+    game_id: number;
+    player: number;
+    cards_played: number;
+    hint_types: Record<string, number>;
+    idioms_fired: Record<string, number>;
+    fumbles: number;
+    got_stuck: boolean;
+    timestamp: string;
+};
+
+let current_turn_stats: TurnStats | null = null;
+
+function start_turn_stats(game_id: number, player: number): void {
+    current_turn_stats = {
+        game_id, player: player + 1,
+        cards_played: 0,
+        hint_types: {},
+        idioms_fired: {},
+        fumbles: 0,
+        got_stuck: false,
+        timestamp: new Date().toISOString(),
+    };
+}
+
+function record_hint(hint_level: string): void {
+    if (!current_turn_stats) return;
+    current_turn_stats.hint_types[hint_level] = (current_turn_stats.hint_types[hint_level] || 0) + 1;
+}
+
+function record_idiom(name: string): void {
+    if (!current_turn_stats) return;
+    current_turn_stats.idioms_fired[name] = (current_turn_stats.idioms_fired[name] || 0) + 1;
+}
+
+function record_fumble(): void {
+    if (!current_turn_stats) return;
+    current_turn_stats.fumbles += 1;
+}
+
+function record_cards_played(n: number): void {
+    if (!current_turn_stats) return;
+    current_turn_stats.cards_played = n;
+}
+
+function record_got_stuck(): void {
+    if (!current_turn_stats) return;
+    current_turn_stats.got_stuck = true;
+}
+
+function save_turn_stats(): void {
+    if (!current_turn_stats) return;
+    const path = "src/lyn_rummy/stats.jsonl";
+    fs.appendFileSync(path, JSON.stringify(current_turn_stats) + "\n");
+    current_turn_stats = null;
+}
+
 // --- Puzzle saving ---
 //
 // When stuck, save the board + hand as a puzzle file for human analysis.
@@ -1043,21 +1105,50 @@ function try_fumble(
 ): { mutated_board: CardStack[]; description: string } | null {
     const candidates = find_splittable_stacks(board);
 
+    // Level 1: single split.
     for (const { index, split_at } of candidates) {
-        // Clone the board and try the split.
         const clone = board.map(s => s.clone());
         const stack = clone[index];
         const left = new CardStack(stack.board_cards.slice(0, split_at), stack.loc);
         const right = new CardStack(stack.board_cards.slice(split_at), DUMMY_LOC);
-
-        // Replace the stack with the two halves.
         clone.splice(index, 1, left, right);
 
-        // Check if this opens up any hints.
         const hint = get_hint(hand_cards, clone);
         if (hint.level !== HintLevel.NO_MOVES && hint.level !== HintLevel.REARRANGE_PLAY) {
-            const desc = `Fumble: split stack [${stack.board_cards.map(bc => bc.card.str()).join(" ")}] → found ${hint.level}`;
+            const desc = `Fumble: split [${stack.board_cards.map(bc => bc.card.str()).join(" ")}] → ${hint.level}`;
             return { mutated_board: clone, description: desc };
+        }
+
+        // Level 2: also check idioms on the split board.
+        const idiom = try_idioms(hand_cards, clone);
+        if (idiom) {
+            const desc = `Fumble: split [${stack.board_cards.map(bc => bc.card.str()).join(" ")}] → idiom ${idiom.name}`;
+            return { mutated_board: clone, description: desc };
+        }
+    }
+
+    // Level 3: try two-level splits. Fumble on top of fumble.
+    // This is more expensive but captures "shuffle around, then peek" humans.
+    for (const first of candidates) {
+        const clone1 = board.map(s => s.clone());
+        const s1 = clone1[first.index];
+        clone1.splice(first.index, 1,
+            new CardStack(s1.board_cards.slice(0, first.split_at), s1.loc),
+            new CardStack(s1.board_cards.slice(first.split_at), DUMMY_LOC));
+
+        const candidates2 = find_splittable_stacks(clone1);
+        for (const second of candidates2) {
+            const clone2 = clone1.map(s => s.clone());
+            const s2 = clone2[second.index];
+            clone2.splice(second.index, 1,
+                new CardStack(s2.board_cards.slice(0, second.split_at), s2.loc),
+                new CardStack(s2.board_cards.slice(second.split_at), DUMMY_LOC));
+
+            const hint = get_hint(hand_cards, clone2);
+            if (hint.level !== HintLevel.NO_MOVES && hint.level !== HintLevel.REARRANGE_PLAY) {
+                const desc = `Deep fumble: 2 splits → ${hint.level}`;
+                return { mutated_board: clone2, description: desc };
+            }
         }
     }
 
@@ -1070,6 +1161,7 @@ async function auto_play_turn(
     player_index: number,
     addr: string,
 ): Promise<void> {
+    start_turn_stats(game_id, player_index);
     let moves_played = 0;
 
     let consecutive_failures = 0;
@@ -1093,6 +1185,7 @@ async function auto_play_turn(
             const idiom = try_idioms(hand_cards, board_stacks);
             if (idiom) {
                 console.log(`Idiom: ${idiom.name}`);
+                record_idiom(idiom.name);
                 const diff = board_diff(board_stacks, idiom.mutated);
                 for (const s of diff.stacks_to_add) {
                     if (s.loc.top === 0 && s.loc.left === 0) {
@@ -1124,6 +1217,7 @@ async function auto_play_turn(
             const fumble = try_fumble(hand_cards, board_stacks);
             if (fumble) {
                 console.log(fumble.description);
+                record_fumble();
                 // Apply the fumble (split) to the real board via diff.
                 const diff = board_diff(board_stacks, fumble.mutated_board);
                 for (const s of diff.stacks_to_add) {
@@ -1156,6 +1250,7 @@ async function auto_play_turn(
         }
 
         console.log(`Hint: ${hint.level}`);
+        record_hint(hint.level);
 
         switch (hint.level) {
             case HintLevel.HAND_STACKS: {
@@ -1306,12 +1401,17 @@ async function auto_play_turn(
         if (done) break;
     }
 
+    record_cards_played(moves_played);
+
     // Save puzzle if stuck with cards remaining.
     // Use last_clean_board so the puzzle presents a valid board.
     const remaining = state.get_remaining_hand(player_index);
     if (remaining.length > 0 && moves_played === 0) {
+        record_got_stuck();
         save_puzzle(state.last_clean_board, remaining, player_index);
     }
+
+    save_turn_stats();
 
     // Tidy at end of turn — the one time we do a full relayout.
     console.log(`\nPlayed ${moves_played} cards.`);
