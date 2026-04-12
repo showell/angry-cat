@@ -47,8 +47,9 @@ compile the call if any `HintLevel` is unhandled. This catches:
 
 ### Rule 2 — Skips are explicit
 
-If an executor intentionally doesn't handle a level (e.g. `REARRANGE_PLAY`
-in `play_game.ts`), it must be a labelled `case`, not an early-return
+If an executor intentionally doesn't handle a level (e.g. `REARRANGE_PLAY`,
+which is STRATEGY.md's level-8 graph-solver fallback not currently wired
+into `get_hint`), it must be a labelled `case`, not an early-return
 filter before the switch. Otherwise Rule 1's exhaustiveness is bypassed.
 
 ```ts

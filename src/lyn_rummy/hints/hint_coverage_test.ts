@@ -179,9 +179,11 @@ const FIXTURES: Partial<Record<HintLevel, Fixture[]>> = {
     // a deeper refactor — left as a documented gap.
     [HintLevel.SIX_TO_FOUR]: [{ name: "TODO", hand: [], board: [] }],
 
-    // REARRANGE_PLAY is declared in the Hint union and handled by all
-    // three executors, but get_hint NEVER emits it. This is a dormant
-    // case — listed for exhaustiveness, not exercisable by the test.
+    // REARRANGE_PLAY is STRATEGY.md's level 8: the graph-solver
+    // fallback. Intentionally NOT wired into get_hint — levels 1–7
+    // reach perfect play (104/104) without it. Consumers still must
+    // type-check against it; it's listed here for exhaustiveness but
+    // can't be triggered by get_hint, so no meaningful fixture exists.
     [HintLevel.REARRANGE_PLAY]: [{ name: "TODO", hand: [], board: [] }],
     [HintLevel.NO_MOVES]: [{
         name: "empty hand",
