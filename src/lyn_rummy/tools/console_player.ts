@@ -19,6 +19,7 @@
 //   GOPHER_API_KEY=... \
 //   npx vite-node src/lyn_rummy/tools/console_player.ts -- --game-id 7 --play
 
+import * as fs from "fs";
 import {
     Card, type JsonCard, value_str,
     Suit, OriginDeck,
@@ -850,6 +851,101 @@ async function nudge_if_needed(
 
 // --- Auto-play using hints ---
 
+// --- Puzzle saving ---
+//
+// When stuck, save the board + hand as a puzzle file for human analysis.
+
+function save_puzzle(board: JsonCardStack[], hand: JsonCard[], player_index: number): void {
+    const SUIT_L: Record<number, string> = { 0: "C", 1: "D", 2: "S", 3: "H" };
+    const VAL_L: Record<number, string> = {
+        1: "A", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
+        8: "8", 9: "9", 10: "T", 11: "J", 12: "Q", 13: "K",
+    };
+    function cl(c: JsonCard): string {
+        const dk = c.origin_deck === 0 ? "1" : "2";
+        return VAL_L[c.value] + SUIT_L[c.suit] + ":" + dk;
+    }
+
+    const puzzle = {
+        saved_at: new Date().toISOString(),
+        player: player_index + 1,
+        hand: hand.map(cl),
+        board: board.map(s => ({
+            cards: s.board_cards.map(bc => cl(bc.card as JsonCard)),
+        })),
+    };
+
+    const dir = "src/lyn_rummy/puzzles";
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    const filename = `${dir}/stuck_${Date.now()}.json`;
+    fs.writeFileSync(filename, JSON.stringify(puzzle, null, 2));
+    console.log(`\nSaved puzzle: ${filename}`);
+    console.log(`  Hand: ${hand.map(cl).join(" ")}`);
+    console.log(`  Board: ${board.length} stacks`);
+}
+
+// --- Fumble mode ---
+//
+// When stuck, try random board manipulations like a human would:
+// split a 4-card set, free a card, see if that unlocks new hints.
+// If nothing works, put it back. Fumbling is thinking with your hands.
+
+function find_splittable_stacks(board: CardStack[]): { index: number; split_at: number }[] {
+    const candidates: { index: number; split_at: number }[] = [];
+    for (let i = 0; i < board.length; i++) {
+        const s = board[i];
+        const n = s.board_cards.length;
+        const st = s.stack_type;
+
+        // 4-card set: can remove any card, leaving a 3-card set.
+        if (st === CardStackType.SET && n === 4) {
+            // Try removing each end.
+            candidates.push({ index: i, split_at: 1 });  // peel first card
+            candidates.push({ index: i, split_at: n - 1 }); // peel last card
+        }
+
+        // Long run (5+): can peel from either end.
+        if ((st === CardStackType.PURE_RUN || st === CardStackType.RED_BLACK_RUN) && n >= 5) {
+            candidates.push({ index: i, split_at: 1 });  // peel first
+            candidates.push({ index: i, split_at: n - 1 }); // peel last
+        }
+
+        // Splittable run (6+): can split in the middle.
+        if ((st === CardStackType.PURE_RUN || st === CardStackType.RED_BLACK_RUN) && n >= 6) {
+            candidates.push({ index: i, split_at: 3 }); // split at midpoint-ish
+        }
+    }
+    return candidates;
+}
+
+function try_fumble(
+    hand_cards: HandCard[],
+    board: CardStack[],
+): { mutated_board: CardStack[]; description: string } | null {
+    const candidates = find_splittable_stacks(board);
+
+    for (const { index, split_at } of candidates) {
+        // Clone the board and try the split.
+        const clone = board.map(s => s.clone());
+        const stack = clone[index];
+        const left = new CardStack(stack.board_cards.slice(0, split_at), stack.loc);
+        const right = new CardStack(stack.board_cards.slice(split_at), DUMMY_LOC);
+
+        // Replace the stack with the two halves.
+        clone.splice(index, 1, left, right);
+
+        // Check if this opens up any hints.
+        const hint = get_hint(hand_cards, clone);
+        if (hint.level !== HintLevel.NO_MOVES && hint.level !== HintLevel.REARRANGE_PLAY) {
+            const desc = `Fumble: split stack [${stack.board_cards.map(bc => bc.card.str()).join(" ")}] → found ${hint.level}`;
+            return { mutated_board: clone, description: desc };
+        }
+    }
+
+    return null;
+}
+
 async function auto_play_turn(
     state: GameState,
     game_id: number,
@@ -875,6 +971,32 @@ async function auto_play_turn(
 
         if (hint.level === HintLevel.NO_MOVES ||
             hint.level === HintLevel.REARRANGE_PLAY) {
+            // Try fumbling before giving up.
+            const fumble = try_fumble(hand_cards, board_stacks);
+            if (fumble) {
+                console.log(fumble.description);
+                // Apply the fumble (split) to the real board via diff.
+                const diff = board_diff(board_stacks, fumble.mutated_board);
+                for (const s of diff.stacks_to_add) {
+                    if (s.loc.top === 0 && s.loc.left === 0) {
+                        const near = state.board.length > 0 ? state.board[state.board.length - 1] : undefined;
+                        s.loc = near
+                            ? find_nearby_loc(state.board, s.board_cards.length, near)
+                            : find_open_loc(state.board, s.board_cards.length, BOARD_BOUNDS);
+                    }
+                }
+                const real_removes: JsonCardStack[] = [];
+                for (const rem of diff.stacks_to_remove) {
+                    const rem_key = rem.board_cards.map(bc => `${(bc.card as JsonCard).value},${(bc.card as JsonCard).suit},${(bc.card as JsonCard).origin_deck}`).join("|");
+                    for (const bs of state.board) {
+                        const bs_key = bs.board_cards.map(bc => `${(bc.card as JsonCard).value},${(bc.card as JsonCard).suit},${(bc.card as JsonCard).origin_deck}`).join("|");
+                        if (rem_key === bs_key) { real_removes.push(bs); break; }
+                    }
+                }
+                const be = make_board_event(real_removes, diff.stacks_to_add);
+                await state.send_move(game_id, addr, be);
+                continue; // re-check hints with the new board
+            }
             console.log(`Hint: ${hint.level}`);
             break;
         }
@@ -1033,6 +1155,12 @@ async function auto_play_turn(
 
         }
         if (done) break;
+    }
+
+    // Save puzzle if stuck with cards remaining.
+    const remaining = state.get_remaining_hand(player_index);
+    if (remaining.length > 0 && moves_played === 0) {
+        save_puzzle(state.board, remaining, player_index);
     }
 
     // Tidy at end of turn — the one time we do a full relayout.
