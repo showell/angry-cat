@@ -10,8 +10,13 @@ import { Card, OriginDeck, Suit, value_str, build_full_double_deck } from "../co
 import {
     BoardCard, BoardCardState, CardStack, HandCard, HandCardState,
 } from "../core/card_stack";
-import { get_hint, HintLevel, join_adjacent_runs } from "../hints/hints";
-import { execute_complex_hint } from "../hints/execute_complex";
+import { join_adjacent_runs } from "../core/board_physics";
+import { TrickBag } from "../tricks/bag";
+import { direct_play } from "../tricks/direct_play";
+import { swap } from "../tricks/swap";
+import { pair_peel } from "../tricks/pair_peel";
+
+const BAG = new TrickBag([direct_play, swap, pair_peel]);
 
 const DUMMY_LOC = { top: 0, left: 0 };
 const suit_letter: Record<Suit, string> = {
@@ -83,17 +88,14 @@ while (turn < 200) {
     const turn_moves: string[] = [];
 
     while (hands[p].length > 0) {
-        const hint = get_hint(hands[p], board);
-        if (hint.level === HintLevel.NO_MOVES || hint.level === HintLevel.REARRANGE_PLAY) break;
-        const hand_before = hand_str(hands[p]);
-        const cards = execute_complex_hint(hint, board);
+        const play = BAG.first_play(hands[p], board);
+        if (!play) break;
+        const cards = play.apply(board);
         if (cards.length === 0) break;
         const used = new Set(cards);
         hands[p] = hands[p].filter(hc => !used.has(hc));
         turn_played += cards.length;
-        // Short level tag: first word/phrase of the level string.
-        const tag = level_tag(hint.level);
-        turn_moves.push(`${tag} | played ${cards.map(hc => card_deck_str(hc.card)).join("+")}`);
+        turn_moves.push(`[${play.trick.id}] played ${cards.map(hc => card_deck_str(hc.card)).join("+")}`);
     }
 
     {
@@ -129,17 +131,3 @@ console.log(`Deck: ${deck.length}`);
 console.log(`Board (${board.length} stacks):`);
 for (const s of board) console.log(`  [${s.get_cards().map(card_deck_str).join(" ")}]`);
 
-function level_tag(level: string): string {
-    // Abbreviate the verbose enum-value strings.
-    if (level.startsWith("You have")) return "HAND_STACK";
-    if (level.startsWith("You can play")) return "DIRECT     ";
-    if (level.startsWith("Swap"))        return "SWAP       ";
-    if (level.startsWith("Move a board")) return "LOOSE      ";
-    if (level.startsWith("Split a run to form")) return "SPLIT_SET  ";
-    if (level.startsWith("Split a run and inject")) return "SPLIT_INJ  ";
-    if (level.startsWith("Peel two"))    return "PEEL_RUN   ";
-    if (level.startsWith("Peel a board")) return "PAIR_PEEL  ";
-    if (level.startsWith("Dissolve"))    return "PAIR_DISS  ";
-    if (level.startsWith("Merge two"))   return "SIX_TO_FOUR";
-    return level.slice(0, 14);
-}
