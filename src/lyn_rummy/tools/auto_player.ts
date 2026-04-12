@@ -98,6 +98,10 @@ function apply_event(state: GameState, ev: any): void {
     if (p.game_setup) {
         state.board = p.game_setup.board.slice();
         state.hands = [p.game_setup.hands[0].slice(), p.game_setup.hands[1].slice()];
+    } else if (p.puzzle_setup) {
+        // Puzzle games: one human-controlled hand, no second player.
+        state.board = p.puzzle_setup.board_stacks.slice();
+        state.hands = [p.puzzle_setup.player1_hand.slice(), []];
     } else if (p.json_game_event?.player_action) {
         const be = p.json_game_event.player_action.board_event;
         const released = p.json_game_event.player_action.hand_cards_to_release ?? [];
@@ -201,6 +205,23 @@ async function play_one_move(state: GameState): Promise<"played" | "no-play"> {
     }
 
     const board_event = board_diff(board, mutated);
+    // The replay viewer expects the wrapped wire format:
+    //   { json_game_event: { type: 2, player_action: { board_event, hand_cards_to_release } }, addr }
+    // Wrap here so the stored payload round-trips through the existing
+    // replay code unchanged.
+    const wrapped = {
+        json_game_event: {
+            type: 2,
+            player_action: {
+                board_event,
+                hand_cards_to_release: played.map(hc => ({
+                    card: hc.card.toJSON(),
+                    state: BoardCardState.FRESHLY_PLAYED,
+                })),
+            },
+        },
+        addr: String(player),
+    };
     const record: PlayRecord = {
         trick_id: play.trick.id,
         description: play.trick.description,
@@ -208,13 +229,7 @@ async function play_one_move(state: GameState): Promise<"played" | "no-play"> {
         board_cards: [],
         detail: null,
         player: player - 1,
-        board_event: {
-            ...board_event,
-            hand_cards_to_release: played.map(hc => ({
-                card: hc.card.toJSON(),
-                state: BoardCardState.FRESHLY_PLAYED,
-            })),
-        },
+        board_event: wrapped as unknown as typeof record["board_event"],
     };
 
     const res = await http_post(`/gopher/games/${game_id}/plays`, record);
