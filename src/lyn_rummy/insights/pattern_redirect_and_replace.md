@@ -41,3 +41,29 @@ For each hand card `h` (value `v`, suit `s`):
   to B now pairs with a different hand card too.
 - **End-of-run peel for pair**: end-card could pair with a hand card
   of opposite color (one value different) to form the start of a new run.
+
+## Three-step idioms
+
+Humans think in chunks of three. A coherent plan is usually three
+moves that accomplish one goal. Each step alone is useless; the
+sequence creates value.
+
+1. **Peel, redirect, replace** (this pattern): peel an end-of-run
+   card, send it to a set, play a same-value hand card in the
+   vacated spot.
+
+2. **Split, extract, place**: split a stack to free a card, combine
+   that card with two hand cards to form a new group.
+
+3. **Merge, split, re-merge**: merge two runs into one, split the
+   result differently to free a problematic card, re-merge the halves
+   in a new configuration. This is the "reassemble" pattern.
+
+4. **Dissolve, pair, play**: dissolve a 4-card set into a 3-card set
+   + 1 loose card, the loose card makes a pair with a hand card,
+   play a third card to form a new group.
+
+The algorithm should test three-step sequences as atomic units —
+enumerate end-of-run peels, ask "where does this card want to go?",
+ask "what hand card can fill this spot?" All in one pass, not a
+sequential search.
