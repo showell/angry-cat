@@ -1,0 +1,10 @@
+{
+  "saved_at": "2026-04-12T17:30:00Z",
+  "note": "Live-smoke fixture for LOOSE_CARD_PLAY: hand has 8H. Board has [4H 5H 6H] (heart run) and [7S 7C 7D 7H] (4-set). 8H doesn't directly extend either, but peeling 7H from the set onto the heart run gives [4H 5H 6H 7H], which 8H then extends.",
+  "player": 0,
+  "hand": ["8H:1"],
+  "board": [
+    {"cards": ["4H", "5H", "6H"]},
+    {"cards": ["7S", "7C", "7D", "7H"]}
+  ]
+}

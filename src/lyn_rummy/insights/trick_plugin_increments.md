@@ -134,3 +134,35 @@ regroups cards already on the board; doesn't create isolation.
 Live smoke: bot account, game 94 / event 3916.
 
 ---
+
+## Increment 4: added LOOSE_CARD_PLAY
+
+For each peelable board card, try merging it onto every other stack;
+if the resulting board lets a stranded hand card directly extend
+some stack, that's a LOOSE_CARD_PLAY. Apply: peel, merge, play.
+
+```
+games: 5   avg_cards_played: 81.0 (+0.8)   avg_completion: 99.2% (+0.5)   stuck_turns: 35 (-19)
+tricks: hand_stacks=31  direct_play=178  rb_swap=22  pair_peel=20  split_for_set=36  peel_for_run=21  loose_card_play=7
+```
+
+Per-seed completion: 100 / 100 / 99.0 / 99.0 / 98.1.
+
+**Big stuck-turn drop** (54 → 35, almost a third). Two seeds completed
+all 104 cards; the remaining three came within 1–2 cards of perfect.
+LOOSE_CARD_PLAY only fired 7 times across 5 games — small absolute
+contribution to plays — but each firing apparently unsticks a
+position that other tricks couldn't see, freeing later cards through
+a cascade of direct plays.
+
+This is the trick that was suspected to be most-common in real
+human play. The benchmark suggests it's not high-frequency for the
+bot at this point in the bag, because hand_stacks + direct_play +
+split_for_set + peel_for_run already cover most easy cases. LOOSE
+fills specific gaps where a board card needs to relocate to expose
+a hand card's neighbor.
+
+Live smoke: bot account, game 95 / event 3918 — loose_card_play
+played 8H by first peeling 7H from a 4-set onto the heart run.
+
+---

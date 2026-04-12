@@ -18,8 +18,9 @@ import { pair_peel } from "../tricks/pair_peel";
 import { hand_stacks } from "../tricks/hand_stacks";
 import { split_for_set } from "../tricks/split_for_set";
 import { peel_for_run } from "../tricks/peel_for_run";
+import { loose_card_play } from "../tricks/loose_card_play";
 
-const BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel, split_for_set, peel_for_run]);
+const BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel, split_for_set, peel_for_run, loose_card_play]);
 
 const MAX_GAMES = parseInt(process.env.MAX_GAMES || "50", 10);
 const STUCK_TURN_MIN = 7;

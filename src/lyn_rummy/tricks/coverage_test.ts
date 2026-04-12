@@ -16,6 +16,7 @@ import { pair_peel } from "./pair_peel";
 import { hand_stacks } from "./hand_stacks";
 import { split_for_set } from "./split_for_set";
 import { peel_for_run } from "./peel_for_run";
+import { loose_card_play } from "./loose_card_play";
 import type { Trick } from "./trick";
 
 function card(label: string, deck: OriginDeck = OriginDeck.DECK_ONE): Card {
@@ -87,6 +88,19 @@ const FIXTURES: Fixture[] = [
             st(card("4S"), card("4C"), card("4D"), card("4H")),
             // 6♥ at right end of size-4 set
             st(card("6S"), card("6C"), card("6D"), card("6H")),
+        ],
+        expected_card_count: 1,
+    },
+    {
+        trick: loose_card_play,
+        description: "Move 7♥ from a 4-set onto the heart run, then 8♥ extends the new tail.",
+        // Before: [4H 5H 6H] (heart run), [7S 7C 7D 7H] (4-set of 7s).
+        // 8♥ doesn't directly extend either. But peeling 7♥ onto the
+        // heart run gives [4H 5H 6H 7H], which 8♥ then extends.
+        hand: [hc("8H")],
+        board: [
+            st(card("4H"), card("5H"), card("6H")),
+            st(card("7S"), card("7C"), card("7D"), card("7H")),
         ],
         expected_card_count: 1,
     },
