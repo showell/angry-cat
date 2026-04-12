@@ -78,3 +78,24 @@ export function stack_still_has_card(
 export function freshly_played(hc: HandCard): BoardCard {
     return new BoardCard(hc.card, BoardCardState.FRESHLY_PLAYED);
 }
+
+// Replace one card in a stack at a specific position; preserves the
+// stack's location. Used by rb_swap and any future trick that does
+// the human "substitute" gesture (slide one card in, push another
+// out of the same seat). Naming this verb so it isn't hidden inside
+// an inline .map() expression.
+export function substitute_in_stack(
+    stack: CardStack, position: number, new_card: BoardCard,
+): CardStack {
+    const new_cards = stack.board_cards.map(
+        (b, i) => i === position ? new_card : b);
+    return new CardStack(new_cards, stack.loc);
+}
+
+// Append a brand-new stack to the board. Several tricks "form a new
+// group" (set or run) at the end of their apply(); this gives that
+// verb a name so the call site reads as the trick's intent rather
+// than as plumbing.
+export function push_new_stack(board: CardStack[], board_cards: BoardCard[]): void {
+    board.push(new CardStack(board_cards, DUMMY_LOC));
+}

@@ -23,7 +23,7 @@ import { CardStack, HandCard } from "../core/card_stack";
 import { CardStackType, get_stack_type } from "../core/stack_type";
 import { can_extract } from "../core/board_physics";
 import type { Play, Trick } from "./trick";
-import { DUMMY_LOC, extract_card, freshly_played } from "./helpers";
+import { extract_card, freshly_played, push_new_stack } from "./helpers";
 
 type ExtractCandidate = {
     stack_idx: number;
@@ -106,11 +106,7 @@ function make_play(hc: HandCard, a: ExtractCandidate, b: ExtractCandidate): Play
             const ext_b = extract_card(board, cand_b.stack_idx, cand_b.card_idx);
             if (!ext_b) return [];
 
-            const new_set = new CardStack(
-                [freshly_played(hc), ext_a, ext_b],
-                DUMMY_LOC,
-            );
-            board.push(new_set);
+            push_new_stack(board, [freshly_played(hc), ext_a, ext_b]);
             return [hc];
         },
     };

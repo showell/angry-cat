@@ -15,7 +15,7 @@ import { Card, CardValue, Suit } from "../core/card";
 import { CardStack, HandCard } from "../core/card_stack";
 import { CardStackType, get_stack_type } from "../core/stack_type";
 import type { Play, Trick } from "./trick";
-import { DUMMY_LOC, freshly_played } from "./helpers";
+import { freshly_played, push_new_stack } from "./helpers";
 
 export const hand_stacks: Trick = {
     id: "hand_stacks",
@@ -155,8 +155,7 @@ function make_play(group: HandCard[]): Play {
             // — the caller is expected to not compose plays that share
             // hand cards, but this guard is cheap.
             if (!is_valid_group(group)) return [];
-            const bcs = group.map(freshly_played);
-            board.push(new CardStack(bcs, DUMMY_LOC));
+            push_new_stack(board, group.map(freshly_played));
             return group;
         },
     };

@@ -37,7 +37,7 @@ import {
 } from "../core/card_stack";
 import { CardStackType, get_stack_type } from "../core/stack_type";
 import type { Play, Trick } from "./trick";
-import { DUMMY_LOC, single_stack_from_card } from "./helpers";
+import { DUMMY_LOC, freshly_played, single_stack_from_card, substitute_in_stack } from "./helpers";
 
 export const rb_swap: Trick = {
     id: "rb_swap",
@@ -98,12 +98,9 @@ function make_play(
             if (current.value !== kicked.value || current.suit !== kicked.suit ||
                 current.origin_deck !== kicked.origin_deck) return [];
 
-            // Substitute in the run.
-            const new_run_cards = stack.board_cards.map((b, i) =>
-                i === run_pos ? new BoardCard(hc.card, BoardCardState.FRESHLY_PLAYED) : b);
-            board[run_idx] = new CardStack(new_run_cards, stack.loc);
-
-            // Home the kicked card.
+            // Substitute the hand card into the kicked card's seat,
+            // then home the kicked card on its destination stack.
+            board[run_idx] = substitute_in_stack(stack, run_pos, freshly_played(hc));
             place_kicked(board, home_idx, kicked);
             return [hc];
         },

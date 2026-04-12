@@ -31,6 +31,22 @@ If writing a test requires complex mocking, that's a signal that the real code m
 - Moved `can_navigate` from `reading_list.ts` to `address.ts` (it's about Address completeness, not the reading list)
 - Renamed `get_rows` to `get_unsorted_rows` (a test caught the misleading name)
 
+## Verbs in tests should be first-class in code
+
+A sharper version of the same idea: when a test description naturally reaches for a verb to describe what's happening, that verb usually deserves to be a function or method name in production. If the test says "SWAP should kick the Ace and place it on the diamond run," the word `kick` is the test telling you that `kick` is a real concept — not just a variable name to be hidden inside a `.map()` expression.
+
+This isn't about pedantic vocabulary alignment. It's about visibility: a function named `kick_into_set(...)` is something you can grep for, test in isolation, and reason about. An inline mutation expression is a pile of indices and `.map()` calls that requires reading to understand.
+
+Examples from the LynRummy tricks module:
+
+- The `rb_swap` trick already had `find_kicked_home(board, ...)` and `place_kicked(board, ...)` as named functions — the test verb "kicked" was first-class in the code. Good.
+- The same trick had its substitute step as `cards.map((b, i) => i === ci ? hc.card : b)` followed by `new CardStack(...)`. The test description said "5♦ swaps into the rb run at 5♥" — the verb "swaps into" was hidden behind index arithmetic. Extracted to `substitute_in_stack(stack, position, new_card)`.
+- Three tricks (`hand_stacks`, `split_for_set`, `pair_peel`) all ended their `apply()` with `board.push(new CardStack(cards, DUMMY_LOC))` — the universal "form a new group" verb appeared nowhere in code. Extracted to `push_new_stack(board, board_cards)`.
+
+Where we deliberately keep a vocabulary mismatch: the tests say "peel" but the code function is `extract_card`. We chose `extract` because it covers more cases than peel (end peel of a run, *and* picking any card from a 4-set, *and* middle-peel that splits a long run). The single name covers a primitive that includes peeling. The trade-off is documented at the call sites.
+
+When you write a test, list the verbs and nouns it uses to describe the behavior. Each one should appear as a first-class identifier in the production code, or have a deliberate reason it doesn't.
+
 ## The navigator pattern: Context interfaces
 
 The keyboard handlers (`arrow_keys.ts`, `enter_key.ts`, `esc_key.ts`, `n_key.ts`) are designed for testability. Each one takes a Context interface that describes what the navigator can do (select a channel, focus messages, mark read, etc.). In tests, we build a mock context with simple arrays of channels and topics:
