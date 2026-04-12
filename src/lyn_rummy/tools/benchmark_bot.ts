@@ -21,9 +21,10 @@ import { TrickBag } from "../tricks/bag";
 import { direct_play } from "../tricks/direct_play";
 import { swap } from "../tricks/swap";
 import { pair_peel } from "../tricks/pair_peel";
+import { hand_stacks } from "../tricks/hand_stacks";
 
 // The registered bag for this benchmark. Update as tricks get ported.
-const BAG = new TrickBag([direct_play, swap, pair_peel]);
+const BAG = new TrickBag([hand_stacks, direct_play, swap, pair_peel]);
 
 // --- CLI ---
 

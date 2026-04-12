@@ -1,0 +1,10 @@
+{
+  "saved_at": "2026-04-12T16:30:00Z",
+  "note": "Live-smoke fixture for HAND_STACKS: hand has 3 Sevens.",
+  "player": 0,
+  "hand": ["7H:2", "7S:2", "7D:2"],
+  "board": [
+    {"cards": ["AH", "2H", "3H"]},
+    {"cards": ["4D", "5D", "6D"]}
+  ]
+}

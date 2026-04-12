@@ -25,6 +25,7 @@ import { TrickBag } from "../tricks/bag";
 import { direct_play } from "../tricks/direct_play";
 import { swap } from "../tricks/swap";
 import { pair_peel } from "../tricks/pair_peel";
+import { hand_stacks } from "../tricks/hand_stacks";
 import type { PlayRecord, BoardEventPayload } from "../tricks/serialize";
 
 // --- Config ---
@@ -37,7 +38,7 @@ const BOARD_BOUNDS: BoardBounds = {
     max_width: 800, max_height: 600, margin: 5, step: 20,
 };
 
-const BAG = new TrickBag([direct_play, swap, pair_peel]);
+const BAG = new TrickBag([hand_stacks, direct_play, swap, pair_peel]);
 
 const { game_id, player, max_turns } = parse_args();
 

@@ -13,6 +13,7 @@ import {
 import { direct_play } from "./direct_play";
 import { swap } from "./swap";
 import { pair_peel } from "./pair_peel";
+import { hand_stacks } from "./hand_stacks";
 import type { Trick } from "./trick";
 
 function card(label: string, deck: OriginDeck = OriginDeck.DECK_ONE): Card {
@@ -55,6 +56,13 @@ const FIXTURES: Fixture[] = [
             st(card("2H"), card("3H"), card("4H")),
         ],
         expected_card_count: 1,
+    },
+    {
+        trick: hand_stacks,
+        description: "Hand already has 7♥+7♠+7♦ as a complete set — push it onto the board.",
+        hand: [hc("7H"), hc("7S"), hc("7D"), hc("2C")],
+        board: [st(card("AH"), card("2H"), card("3H"))],
+        expected_card_count: 3,
     },
     {
         trick: pair_peel,
