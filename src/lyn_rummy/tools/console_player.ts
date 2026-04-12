@@ -24,10 +24,12 @@ import {
     Suit, OriginDeck,
 } from "../core/card";
 import {
+    BoardCard as BoardCardClass,
     CardStack, HandCard, HandCardState, BoardCardState,
     type JsonCardStack, type JsonBoardCard, type BoardLocation,
 } from "../core/card_stack";
-import { get_hint, HintLevel } from "../hints/hints";
+import { CardStackType } from "../core/stack_type";
+import { get_hint, HintLevel, can_extract, type LooseCardPlay } from "../hints/hints";
 import { find_open_loc, type BoardBounds } from "../game/place_stack";
 
 // --- Env / CLI ---
@@ -147,6 +149,142 @@ function json_to_card_stacks(board: JsonCardStack[]): CardStack[] {
 
 function json_to_hand_cards(hand: JsonCard[]): HandCard[] {
     return hand.map(c => new HandCard(Card.from_json(c), HandCardState.NORMAL));
+}
+
+// --- Board diff ---
+//
+// Run a mutation function on a cloned board, then diff the original
+// and mutated boards to produce wire events.
+
+function board_diff(
+    original: CardStack[],
+    mutated: CardStack[],
+): { stacks_to_remove: JsonCardStack[]; stacks_to_add: JsonCardStack[] } {
+    // Find stacks in original that are not in mutated (removed).
+    const stacks_to_remove: JsonCardStack[] = [];
+    const mutated_used = new Array(mutated.length).fill(false);
+
+    for (const orig of original) {
+        let found = false;
+        for (let j = 0; j < mutated.length; j++) {
+            if (!mutated_used[j] && orig.equals(mutated[j])) {
+                mutated_used[j] = true;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            stacks_to_remove.push(orig.toJSON());
+        }
+    }
+
+    // Remaining mutated stacks are additions.
+    const stacks_to_add: JsonCardStack[] = [];
+    for (let j = 0; j < mutated.length; j++) {
+        if (!mutated_used[j]) {
+            stacks_to_add.push(mutated[j].toJSON());
+        }
+    }
+
+    return { stacks_to_remove, stacks_to_add };
+}
+
+// --- Complex hint execution ---
+//
+// These mutate a cloned board in place (like play_game.ts does),
+// then we diff to get wire events.
+
+const DUMMY_LOC = { top: 0, left: 0 };
+
+function extract_card(board: CardStack[], stack_idx: number, card_idx: number): BoardCardClass | undefined {
+    const stack = board[stack_idx];
+    const cards = stack.board_cards;
+    const size = cards.length;
+    const st = stack.stack_type;
+
+    if (card_idx === 0 && size >= 4) {
+        board[stack_idx] = new CardStack(cards.slice(1), stack.loc);
+        return cards[0];
+    }
+    if (card_idx === size - 1 && size >= 4) {
+        board[stack_idx] = new CardStack(cards.slice(0, -1), stack.loc);
+        return cards[size - 1];
+    }
+    if (st === CardStackType.SET && size >= 4) {
+        const remaining = cards.filter((_, i) => i !== card_idx);
+        board[stack_idx] = new CardStack(remaining, stack.loc);
+        return cards[card_idx];
+    }
+    return undefined;
+}
+
+// Execute a complex hint by mutating a cloned board.
+// Returns the hand cards that were played, or [] if it failed.
+function execute_complex_hint(
+    hint: ReturnType<typeof get_hint>,
+    board: CardStack[],
+): HandCard[] {
+    switch (hint.level) {
+        case HintLevel.SWAP:
+        case HintLevel.SPLIT_FOR_SET: {
+            const hc = hint.playable_cards[0];
+            const v = hc.card.value;
+            const hc_suit = hc.card.suit;
+
+            const candidates: { si: number; ci: number; suit: number }[] = [];
+            for (let si = 0; si < board.length; si++) {
+                const cards = board[si].get_cards();
+                for (let ci = 0; ci < cards.length; ci++) {
+                    if (cards[ci].value === v && cards[ci].suit !== hc_suit &&
+                        can_extract(board[si], ci)) {
+                        candidates.push({ si, ci, suit: cards[ci].suit });
+                    }
+                }
+            }
+
+            const suits_used = new Set([hc_suit]);
+            const to_extract: { si: number; ci: number }[] = [];
+            for (const c of candidates) {
+                if (!suits_used.has(c.suit)) {
+                    suits_used.add(c.suit);
+                    to_extract.push({ si: c.si, ci: c.ci });
+                    if (to_extract.length >= 2) break;
+                }
+            }
+            if (to_extract.length < 2) return [];
+
+            to_extract.sort((a, b) => b.si - a.si || b.ci - a.ci);
+            const extracted: BoardCardClass[] = [];
+            for (const { si, ci } of to_extract) {
+                const bc = extract_card(board, si, ci);
+                if (bc) extracted.push(bc);
+            }
+            if (extracted.length < 2) return [];
+
+            const set_cards = [
+                new BoardCardClass(hc.card, BoardCardState.FRESHLY_PLAYED),
+                ...extracted,
+            ];
+            board.push(new CardStack(set_cards, DUMMY_LOC));
+            return [hc];
+        }
+
+        case HintLevel.LOOSE_CARD_PLAY: {
+            const play = (hint as any).plays[0] as LooseCardPlay;
+            const hc = play.playable_cards[0];
+            board.length = 0;
+            for (const s of play.resulting_board) board.push(s);
+            const single = CardStack.from_hand_card(hc, DUMMY_LOC);
+            for (let i = 0; i < board.length; i++) {
+                const merged = board[i].left_merge(single) ?? board[i].right_merge(single);
+                if (merged) { board[i] = merged; return [hc]; }
+            }
+            return [];
+        }
+
+        default:
+            return [];
+    }
 }
 
 // --- HTTP client ---
@@ -660,9 +798,60 @@ async function auto_play_turn(
                 break;
             }
 
+            case HintLevel.SWAP:
+            case HintLevel.SPLIT_FOR_SET:
+            case HintLevel.LOOSE_CARD_PLAY: {
+                // Complex hints: clone the board, run the mutation,
+                // diff to get wire events.
+                const board_clone = board_stacks.map(s => s.clone());
+                const played_hcs = execute_complex_hint(hint, board_clone);
+                if (played_hcs.length === 0) {
+                    console.log("  (complex hint failed)");
+                    consecutive_failures++;
+                    break;
+                }
+
+                const diff = board_diff(board_stacks, board_clone);
+                // Assign real locations to new stacks (those with DUMMY_LOC).
+                for (const s of diff.stacks_to_add) {
+                    if (s.loc.top === 0 && s.loc.left === 0) {
+                        const near_stack = state.board.length > 0
+                            ? state.board[state.board.length - 1]
+                            : undefined;
+                        s.loc = near_stack
+                            ? find_nearby_loc(state.board, s.board_cards.length, near_stack)
+                            : find_open_loc(state.board, s.board_cards.length, BOARD_BOUNDS);
+                    }
+                }
+
+                // Match stacks_to_remove against the actual board (with real locations).
+                const real_removes: JsonCardStack[] = [];
+                for (const rem of diff.stacks_to_remove) {
+                    for (const bs of state.board) {
+                        // Match by cards only (locations may differ between clone and real board).
+                        const rem_cards = rem.board_cards.map(bc => `${(bc.card as JsonCard).value},${(bc.card as JsonCard).suit},${(bc.card as JsonCard).origin_deck}`).join("|");
+                        const bs_cards = bs.board_cards.map(bc => `${(bc.card as JsonCard).value},${(bc.card as JsonCard).suit},${(bc.card as JsonCard).origin_deck}`).join("|");
+                        if (rem_cards === bs_cards) {
+                            real_removes.push(bs);
+                            break;
+                        }
+                    }
+                }
+
+                const cards_json = played_hcs.map(hc => hc.card.toJSON());
+                const be = make_board_event(real_removes, diff.stacks_to_add);
+                const ok = await state.send_move(game_id, addr, be, cards_json);
+                if (ok) {
+                    moves_played += played_hcs.length;
+                    consecutive_failures = 0;
+                } else {
+                    consecutive_failures++;
+                }
+                break;
+            }
+
             default: {
-                // For complex hints (swap, split, peel, etc.) we stop.
-                console.log(`  (complex hint — stopping auto-play)`);
+                console.log(`  (unhandled hint: ${hint.level})`);
                 done = true;
                 break;
             }
