@@ -7,6 +7,7 @@ import {
     CardStack, BoardCard, BoardCardState, HandCard, HandCardState,
 } from "../core/card_stack";
 import { get_hint, HintLevel } from "../hints/hints";
+import { execute_complex_hint } from "../hints/execute_complex";
 
 const path = process.argv[2];
 if (!path) { console.error("Usage: test_puzzle.ts PATH"); process.exit(1); }
@@ -47,5 +48,24 @@ if ("hand_stacks" in hint) {
 if ("plays" in hint) {
     for (const play of hint.plays) {
         console.log("Loose play:", JSON.stringify(play).slice(0, 200));
+    }
+}
+
+// Run the executor to see if the hint actually turns into a played move.
+if (hint.level !== HintLevel.HAND_STACKS &&
+    hint.level !== HintLevel.DIRECT_PLAY &&
+    hint.level !== HintLevel.REARRANGE_PLAY &&
+    hint.level !== HintLevel.NO_MOVES) {
+    const board_clone = board_stacks.map(s => s.clone());
+    const played = execute_complex_hint(hint, board_clone);
+    if (played.length === 0) {
+        console.log("\nExecutor: returned NO played cards — detector/executor drift!");
+    } else {
+        const played_labels = played.map(hc => hc.card.str()).join(" ");
+        console.log(`\nExecutor: played ${played.length} card(s): ${played_labels}`);
+        console.log("Resulting board:");
+        for (const s of board_clone) {
+            console.log("  [" + s.board_cards.map(bc => bc.card.str()).join(" ") + "]");
+        }
     }
 }
