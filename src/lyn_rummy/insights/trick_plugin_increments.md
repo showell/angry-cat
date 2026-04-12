@@ -166,3 +166,25 @@ Live smoke: bot account, game 95 / event 3918 — loose_card_play
 played 8H by first peeling 7H from a 4-set onto the heart run.
 
 ---
+
+## Pause point — merging trick-plugins back to main
+
+Stopping the porting exercise after seven tricks. Full bench
+arc:
+
+| Stage             | cards | completion | stuck |
+|-------------------|------:|-----------:|------:|
+| baseline (3)      |  78.0 |      96.9% |   103 |
+| +hand_stacks      |  77.6 |      96.8% |   104 |
+| +split_for_set    |  80.6 |      98.3% |    61 |
+| +peel_for_run     |  80.2 |      98.7% |    54 |
+| +loose_card_play  |  81.0 |      99.2% |    35 |
+
+Two of five seeds finish 104/104. The bench is close enough to
+perfect that the remaining tricks (SPLIT_AND_INJECT, PAIR_DISSOLVE,
+SIX_TO_FOUR) are documented in `tricks/README.md` for later rather
+than ported now. They cover positions that are individually rare;
+diminishing returns on bench-style play count.
+
+Bigger conversation queued instead — see Steve's "BIG DISCUSSION"
+prompt for what comes next.

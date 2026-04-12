@@ -176,6 +176,95 @@ When you add a trick:
    `game/game.ts`, `tools/auto_player.ts`, `tools/benchmark_bot.ts`.
    Tricks the bag doesn't know about may as well not exist.
 
+## Enqueued tricks (not yet ported)
+
+The bag currently contains seven tricks (`hand_stacks`, `direct_play`,
+`rb_swap`, `pair_peel`, `split_for_set`, `peel_for_run`,
+`loose_card_play`). Three more are documented here as future work.
+Each entry has enough sketch for a future contributor (or a future
+session of this work) to pick up cold.
+
+### SPLIT_AND_INJECT
+
+**Pattern.** Take a long board run (size ≥ 5 typically) and split it
+in two so that the hand card can extend one of the resulting halves
+as its new edge. Common when the run already terminates in a value
+the hand card can't reach, but inserting a split point exposes a
+fresh end that the hand card *can* reach.
+
+**Detection sketch.** For each pure or rb run on the board with
+size ≥ 5, iterate every interior split point (positions 2 through
+size-3 — both halves must be ≥ 3 to remain valid). For each split:
+form the two halves, then for each hand card, check whether it
+extends either half on its new free edge. If yes, that's a play.
+
+**Apply sketch.** Replace the source run with the two halves; play
+the hand card onto whichever half it extends.
+
+**Likely shadowing concern.** LOOSE_CARD_PLAY can sometimes do the
+same thing by peeling and re-merging — see the early
+`hint_coverage_test` finding in `insights/hint_system_process.md`.
+Pick a fixture where LOOSE genuinely can't help (a single long run
+with no other stack to receive a peeled card).
+
+**Fixture suggestion.** Hand `[6♥]`. Board: a single rb run
+`[2♣ 3♦ 4♣ 5♦ 6♣ 7♦ 8♣]`. Split at position 4 → `[2♣ 3♦ 4♣ 5♦]`
++ `[6♣ 7♦ 8♣]`. Hand 6♥ left-merges onto the right half:
+`[6♥ 6♣ 7♦ 8♣]`? No, that breaks the rb. Need a more careful
+fixture; the trick is genuinely tricky to isolate.
+
+### PAIR_DISSOLVE
+
+**Pattern.** A hand pair (set-pair or run-pair) needs a card that
+sits inside a 3-card set on the board. Dissolve the set: send each
+of the other two set members to a run that accepts them; extract the
+needed third; pair it with the hand cards as a new triplet.
+
+**Detection sketch.** For each hand pair, compute its needed values/
+suits (mirrors `pair_needs` in `pair_peel.ts`). For each 3-card set
+on the board: check if it contains a needed value/suit. If yes,
+check whether each of the OTHER two set members can merge onto a run
+(via `can_place_on_run`-style helper). If both can, that's a play.
+
+**Apply sketch.** Apply the two merges; remove the dissolved set;
+push the new pair-plus-extracted triplet.
+
+**Reference.** The old `execute_complex.ts::try_pair_dissolve` (now
+deleted but visible in git history as of the trick-plugin
+re-architecture) had the executor logic. The new module should be
+~80 lines, structurally similar to PAIR_PEEL.
+
+**Fixture suggestion.** Hand `[J♠, Q♥, 3♣]`. Board: 3-set of 10s
+`[T♥ T♦ T♣]`, plus `[7♦ 8♦ 9♦]` and `[7♣ 8♣ 9♣]` so T♦ and T♣ each
+have a run home. T♥ joins the J♠+Q♥ pair as `[T♥ J♠ Q♥]`.
+
+### SIX_TO_FOUR
+
+**Pattern.** Two 3-card sets on the board share the same value (e.g.
+two sets of 7s, one with `[7♥ 7♠ 7♦]` and another with `[7♣ 7♥ 7♠]`).
+Merging them into one 4-set frees the duplicate cards (here: 7♥ and
+7♠) to land on runs. After the reshuffle, a hand card that was
+stranded may now have a play.
+
+**Detection sketch.** Group 3-card sets by value. For each value
+with ≥ 2 such sets, simulate the merge: pick one card per suit for
+the new 4-set; the remainder are dups that need run homes. If both
+dups can merge onto runs AND the resulting board state newly enables
+a stranded hand card, that's a play.
+
+**Apply sketch.** Apply: remove both 3-sets, push the new 4-set,
+merge each dup onto its target run, then play the hand card directly.
+
+**Why it's hard to bench.** Requires positions with two same-value
+3-sets, which need duplicate cards across both decks AND the
+specific arrangement on the board. Coverage fixture should
+explicitly use `:2` deck-tagged cards.
+
+**Reference.** The old `find_six_to_four_plays` in the deleted
+`hints/hints.ts` handled detection; the deleted `execute_complex.ts`
+had a stub (was never properly implemented in the old cascade
+either — was hiding inside the PAIR_PEEL case).
+
 ## For AI agents reading this
 
 Tricks are a design pattern with three commitments:
