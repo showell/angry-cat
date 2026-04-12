@@ -61,8 +61,19 @@ function layout(stacks: JsonCard[][]): JsonCardStack[] {
     return result;
 }
 
-const path = process.argv[2];
-if (!path) { console.error("Usage: load_stuck_puzzle.ts PATH"); process.exit(1); }
+// Parse args: PATH [--name NAME]
+let path = "";
+let puzzle_name = "";
+const args = process.argv.slice(2);
+for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--name" && args[i + 1]) {
+        puzzle_name = args[i + 1];
+        i++;
+    } else if (!args[i].startsWith("-")) {
+        path = args[i];
+    }
+}
+if (!path) { console.error("Usage: load_stuck_puzzle.ts PATH [--name NAME]"); process.exit(1); }
 
 const puzzle = JSON.parse(fs.readFileSync(path, "utf-8"));
 console.log(`Loading puzzle from ${path}`);
@@ -77,7 +88,7 @@ const puzzle_setup = { board_stacks, player1_hand: hand_cards };
 
 async function main() {
     // Create puzzle game.
-    const name = `stuck_${path.split("/").pop()?.replace(".json", "")}`;
+    const name = puzzle_name || `puzzle_${new Date().toISOString().slice(5, 16).replace(/[T:]/g, "_")}`;
     const resp = await fetch(`${GOPHER_URL}/gopher/games`, {
         method: "POST",
         headers: { ...auth_header(), "Content-Type": "application/json" },
