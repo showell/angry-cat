@@ -376,38 +376,119 @@ class GameState {
     }
 }
 
-// --- Board tidy-up ---
+// --- Board geometry helpers ---
 //
-// Re-layout stacks in neat rows. Sends move events to relocate
-// each stack that needs to move.
+// Human-like placement: nudge neighbors to make room, place new
+// stacks near existing ones, only do a full tidy when needed.
 
-const CARD_PITCH = 27 + 6; // CARD_WIDTH + gap
-const ROW_SPACING = 76;
-const TOP_MARGIN = 20;
-const LEFT_BASE = 20;
-const GAP_PX = Math.round(3.5 * CARD_PITCH);
-const MAX_CARDS_PER_ROW = 20;
+const CARD_PITCH_PX = 27 + 6; // CARD_WIDTH + gap between cards in a stack
+const MARGIN = 10; // breathing room between stacks
+const CARD_HEIGHT = 40;
+const MAX_BOARD_WIDTH = 800;
+const MAX_BOARD_HEIGHT = 600;
 
-function stack_width(card_count: number): number {
+function stack_pixel_width(card_count: number): number {
     if (card_count <= 0) return 0;
-    return 27 + (card_count - 1) * CARD_PITCH;
+    return 27 + (card_count - 1) * CARD_PITCH_PX;
 }
 
+type Rect = { left: number; top: number; right: number; bottom: number };
+
+function stack_rect(s: JsonCardStack): Rect {
+    return {
+        left: s.loc.left,
+        top: s.loc.top,
+        right: s.loc.left + stack_pixel_width(s.board_cards.length),
+        bottom: s.loc.top + CARD_HEIGHT,
+    };
+}
+
+function rects_overlap(a: Rect, b: Rect): boolean {
+    return a.left < b.right + MARGIN && a.right + MARGIN > b.left &&
+           a.top < b.bottom + MARGIN && a.bottom + MARGIN > b.top;
+}
+
+// Find a spot near an existing stack — try below it first, then
+// to its right, then fall back to find_open_loc.
+function find_nearby_loc(
+    board: JsonCardStack[],
+    card_count: number,
+    near: JsonCardStack,
+): BoardLocation {
+    const w = stack_pixel_width(card_count);
+    const nearRect = stack_rect(near);
+
+    // Try below the target stack.
+    const candidates: BoardLocation[] = [
+        { top: nearRect.bottom + MARGIN, left: near.loc.left },
+        { top: near.loc.top, left: nearRect.right + MARGIN + 20 },
+        { top: nearRect.bottom + MARGIN, left: 20 },
+    ];
+
+    for (const loc of candidates) {
+        if (loc.left + w > MAX_BOARD_WIDTH || loc.top + CARD_HEIGHT > MAX_BOARD_HEIGHT) continue;
+        if (loc.left < 0 || loc.top < 0) continue;
+
+        const candidate: Rect = {
+            left: loc.left, top: loc.top,
+            right: loc.left + w, bottom: loc.top + CARD_HEIGHT,
+        };
+        let collides = false;
+        for (const s of board) {
+            if (rects_overlap(candidate, stack_rect(s))) {
+                collides = true;
+                break;
+            }
+        }
+        if (!collides) return loc;
+    }
+
+    // Fall back to grid scan.
+    return find_open_loc(board, card_count, BOARD_BOUNDS);
+}
+
+// Nudge: after extending a stack, check if it now overlaps any
+// neighbor. If so, push the neighbor rightward just enough.
+// Returns the list of stacks that moved (for sending as events).
+function compute_nudges(board: JsonCardStack[]): { from: JsonCardStack; to: JsonCardStack }[] {
+    const nudges: { from: JsonCardStack; to: JsonCardStack }[] = [];
+    const moved = new Set<number>();
+
+    for (let i = 0; i < board.length; i++) {
+        const ri = stack_rect(board[i]);
+        for (let j = 0; j < board.length; j++) {
+            if (i === j || moved.has(j)) continue;
+            const rj = stack_rect(board[j]);
+            if (rects_overlap(ri, rj)) {
+                // Nudge j to the right of i.
+                const new_left = ri.right + MARGIN;
+                if (new_left + stack_pixel_width(board[j].board_cards.length) <= MAX_BOARD_WIDTH) {
+                    const nudged = { ...board[j], loc: { top: board[j].loc.top, left: new_left } };
+                    nudges.push({ from: board[j], to: nudged });
+                    moved.add(j);
+                }
+            }
+        }
+    }
+    return nudges;
+}
+
+// Full tidy: re-layout in neat rows. Used only at end of turn.
 function compute_tidy_locations(board: JsonCardStack[]): BoardLocation[] {
     const locs: BoardLocation[] = [];
-    let row = 0;
-    let cards_in_row = 0;
-    let left = LEFT_BASE;
+    const ROW_SPACING = 56;
+    const GAP = Math.round(2.5 * CARD_PITCH_PX);
+    let row = 0, cards_in_row = 0, left = 20;
 
     for (const s of board) {
         const n = s.board_cards.length;
-        if (cards_in_row > 0 && cards_in_row + n > MAX_CARDS_PER_ROW) {
+        if (cards_in_row > 0 && left + stack_pixel_width(n) > MAX_BOARD_WIDTH - 20) {
             row++;
             cards_in_row = 0;
-            left = LEFT_BASE;
+            left = 20;
         }
-        locs.push({ top: TOP_MARGIN + row * ROW_SPACING, left });
-        left += stack_width(n) + GAP_PX;
+        locs.push({ top: 20 + row * ROW_SPACING, left });
+        left += stack_pixel_width(n) + GAP;
         cards_in_row += n;
     }
     return locs;
@@ -418,7 +499,6 @@ async function tidy_board(
 ): Promise<void> {
     const tidy_locs = compute_tidy_locations(state.board);
 
-    // Check if anything needs to move.
     let needs_tidy = false;
     for (let i = 0; i < state.board.length; i++) {
         const s = state.board[i];
@@ -430,7 +510,6 @@ async function tidy_board(
     }
     if (!needs_tidy) return;
 
-    // One move: remove all stacks, add them all back at tidy positions.
     const old_stacks = [...state.board];
     const new_stacks = old_stacks.map((s, i) => ({
         ...s,
@@ -439,7 +518,20 @@ async function tidy_board(
 
     const be = make_board_event(old_stacks, new_stacks);
     await state.send_move(game_id, addr, be);
-    console.log(`Tidied ${state.board.length} stacks in one move.`);
+    console.log(`Tidied ${state.board.length} stacks.`);
+}
+
+async function nudge_if_needed(
+    state: GameState, game_id: number, addr: string,
+): Promise<void> {
+    const nudges = compute_nudges(state.board);
+    if (nudges.length === 0) return;
+
+    const removes = nudges.map(n => n.from);
+    const adds = nudges.map(n => n.to);
+    const be = make_board_event(removes, adds);
+    await state.send_move(game_id, addr, be);
+    console.log(`Nudged ${nudges.length} stack(s).`);
 }
 
 // --- Auto-play using hints ---
@@ -453,13 +545,14 @@ async function auto_play_turn(
     let moves_played = 0;
 
     let consecutive_failures = 0;
+    let done = false;
 
-    while (true) {
+    while (!done) {
         const hand_json = state.get_remaining_hand(player_index);
         if (hand_json.length === 0) break;
 
-        // Tidy before each move to avoid geometry conflicts.
-        await tidy_board(state, game_id, addr);
+        // Nudge overlapping stacks — a local fix, not a full rebuild.
+        await nudge_if_needed(state, game_id, addr);
 
         const hand_cards = json_to_hand_cards(hand_json);
         const board_stacks = json_to_card_stacks(state.board);
@@ -483,7 +576,11 @@ async function auto_play_turn(
             case HintLevel.HAND_STACKS: {
                 const group = hint.hand_stacks[0];
                 const cards_json = group.cards.map(hc => hc.card.toJSON());
-                const loc = find_open_loc(state.board, group.cards.length, BOARD_BOUNDS);
+                // Place near the last stack on the board — think with your hands.
+                const near = state.board.length > 0 ? state.board[state.board.length - 1] : undefined;
+                const loc = near
+                    ? find_nearby_loc(state.board, group.cards.length, near)
+                    : find_open_loc(state.board, group.cards.length, BOARD_BOUNDS);
                 const board_cards = cards_json.map(c => make_board_card(c, BoardCardState.FRESHLY_PLAYED));
                 const new_stack = make_stack(board_cards, loc);
                 const be = make_board_event([], [new_stack]);
@@ -504,13 +601,46 @@ async function auto_play_turn(
 
                 let played = false;
                 for (let i = 0; i < board_stacks.length; i++) {
-                    const merged = board_stacks[i].left_merge(single)
-                        ?? board_stacks[i].right_merge(single);
+                    const right = board_stacks[i].right_merge(single);
+                    const left = right ? null : board_stacks[i].left_merge(single);
+                    const merged = right ?? left;
                     if (merged) {
                         const old_stack = state.board[i];
                         const new_stack_json = merged.toJSON();
-                        new_stack_json.loc = old_stack.loc;
-                        const be = make_board_event([old_stack], [new_stack_json]);
+
+                        // Look ahead: will the extended stack overlap a neighbor?
+                        // If so, make room FIRST — like a human would.
+                        const preview_rect: Rect = {
+                            left: new_stack_json.loc.left,
+                            top: new_stack_json.loc.top,
+                            right: new_stack_json.loc.left + stack_pixel_width(new_stack_json.board_cards.length),
+                            bottom: new_stack_json.loc.top + CARD_HEIGHT,
+                        };
+                        for (let j = 0; j < state.board.length; j++) {
+                            if (j === i) continue;
+                            const neighbor = state.board[j];
+                            if (rects_overlap(preview_rect, stack_rect(neighbor))) {
+                                // Shove the neighbor out of the way.
+                                const new_left = preview_rect.right + MARGIN;
+                                if (new_left + stack_pixel_width(neighbor.board_cards.length) <= MAX_BOARD_WIDTH) {
+                                    const moved = { ...neighbor, loc: { top: neighbor.loc.top, left: new_left } };
+                                    const nudge_be = make_board_event([neighbor], [moved]);
+                                    await state.send_move(game_id, addr, nudge_be);
+                                    // Refresh board_stacks after nudge.
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Now play the card into the cleared space.
+                        // Re-read old_stack from state.board since nudging may have changed indices.
+                        const current_old = state.board.find(s => stacks_match(s, old_stack));
+                        if (!current_old) {
+                            consecutive_failures++;
+                            played = true;
+                            break;
+                        }
+                        const be = make_board_event([current_old], [new_stack_json]);
                         const ok = await state.send_move(game_id, addr, be, [card_json]);
                         if (ok) {
                             moves_played++;
@@ -531,19 +661,17 @@ async function auto_play_turn(
             }
 
             default: {
-                // For complex hints (swap, split, peel, etc.) we stop
-                // and let the human handle it for now.
+                // For complex hints (swap, split, peel, etc.) we stop.
                 console.log(`  (complex hint — stopping auto-play)`);
-                if (moves_played > 0) {
-                    await tidy_board(state, game_id, addr);
-                    await state.send_turn_complete(game_id, addr);
-                }
-                return;
+                done = true;
+                break;
             }
         }
+        if (done) break;
     }
 
-    console.log(`\nPlayed ${moves_played} cards. Tidying board.`);
+    // Tidy at end of turn — the one time we do a full relayout.
+    console.log(`\nPlayed ${moves_played} cards.`);
     await tidy_board(state, game_id, addr);
     console.log("Completing turn.");
     await state.send_turn_complete(game_id, addr);
