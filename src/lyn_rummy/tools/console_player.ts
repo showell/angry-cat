@@ -611,7 +611,15 @@ class GameState {
         if (ge.type === 0) { // ADVANCE_TURN
             this.current_player = (this.current_player + 1) % 2;
             this.cards_played_this_turn = 0;
-            this.last_clean_board = JSON.parse(JSON.stringify(this.board));
+            // Only snapshot if the board is actually clean (all stacks valid).
+            const is_clean = this.board.every(s =>
+                json_to_card_stacks([s])[0].stack_type !== CardStackType.INCOMPLETE &&
+                json_to_card_stacks([s])[0].stack_type !== CardStackType.BOGUS &&
+                json_to_card_stacks([s])[0].stack_type !== CardStackType.DUP
+            );
+            if (is_clean) {
+                this.last_clean_board = JSON.parse(JSON.stringify(this.board));
+            }
             return;
         }
 
@@ -888,6 +896,113 @@ function save_puzzle(board: JsonCardStack[], hand: JsonCard[], player_index: num
     console.log(`  Board: ${board.length} stacks`);
 }
 
+// --- Three-step idioms (JIT-compiled patterns) ---
+//
+// These are atomic move sequences that humans recognize as single
+// plays. When the basic hint cascade fails, we try these before
+// falling back to fumbling.
+
+// Idiom: peel-redirect-replace.
+//
+// A hand card of value V, suit S, color C is looking for a home.
+// There's a board run that ENDS with a card of value V, different
+// suit, opposite color — call it X. If X can join an existing set
+// (same value, that suit not yet in the set), then:
+//   1. Peel X off the run end → still valid (3+ cards)
+//   2. Merge X into the set
+//   3. Play the hand card in X's vacated spot
+//
+// All three steps in one compound move (diff-based).
+function try_peel_redirect_replace(
+    hand_cards: HandCard[],
+    board: CardStack[],
+): { played: HandCard[]; mutated: CardStack[] } | null {
+    for (const hc of hand_cards) {
+        const h_card = hc.card;
+
+        // Find runs ending with a same-value, different-suit, opposite-color card.
+        for (let si = 0; si < board.length; si++) {
+            const stack = board[si];
+            const st = stack.stack_type;
+            if (st !== CardStackType.PURE_RUN && st !== CardStackType.RED_BLACK_RUN) continue;
+            if (stack.board_cards.length < 4) continue; // need 3+ left after peel
+
+            const cards = stack.get_cards();
+            // Try both ends.
+            for (const end of ["left", "right"] as const) {
+                const idx = end === "left" ? 0 : cards.length - 1;
+                const end_card = cards[idx];
+
+                if (end_card.value !== h_card.value) continue;
+                if (end_card.suit === h_card.suit) continue;
+                if (end_card.color === h_card.color) continue;
+
+                // Would the hand card legally replace this position?
+                // In an rb run, the neighbor at idx+1 (or idx-1) has opposite color
+                // to end_card, so hand card (same color as end_card? no, opposite to
+                // end_card means opposite to neighbor... wait).
+                // Simpler test: simulate the play and check validity.
+                const clone = board.map(s => s.clone());
+                const cloned_stack = clone[si];
+                const cloned_cards = cloned_stack.board_cards;
+
+                // Peel the end card.
+                const peeled = end === "left"
+                    ? cloned_cards[0]
+                    : cloned_cards[cloned_cards.length - 1];
+                const after_peel = end === "left"
+                    ? cloned_cards.slice(1)
+                    : cloned_cards.slice(0, -1);
+                const peeled_stack = new CardStack(after_peel, cloned_stack.loc);
+                if (peeled_stack.problematic() || peeled_stack.incomplete()) continue;
+
+                // Find a set to redirect the peeled card into.
+                let set_idx = -1;
+                for (let j = 0; j < clone.length; j++) {
+                    if (j === si) continue;
+                    const s = clone[j];
+                    if (s.stack_type !== CardStackType.SET) continue;
+                    if (s.board_cards.length >= 4) continue;
+                    const first = s.board_cards[0].card;
+                    if (first.value !== peeled.card.value) continue;
+                    const suits = s.board_cards.map(bc => bc.card.suit);
+                    if (suits.includes(peeled.card.suit)) continue;
+                    set_idx = j;
+                    break;
+                }
+                if (set_idx < 0) continue;
+
+                // Apply all three steps on the clone.
+                clone[si] = peeled_stack;
+                const old_set = clone[set_idx];
+                const new_set_cards = [...old_set.board_cards, peeled];
+                clone[set_idx] = new CardStack(new_set_cards, old_set.loc);
+
+                // Place the hand card in the peeled position.
+                const new_stack_cards = end === "left"
+                    ? [new BoardCardClass(h_card, BoardCardState.FRESHLY_PLAYED), ...clone[si].board_cards]
+                    : [...clone[si].board_cards, new BoardCardClass(h_card, BoardCardState.FRESHLY_PLAYED)];
+                const final_stack = new CardStack(new_stack_cards, clone[si].loc);
+                if (final_stack.problematic() || final_stack.incomplete()) continue;
+                clone[si] = final_stack;
+
+                return { played: [hc], mutated: clone };
+            }
+        }
+    }
+    return null;
+}
+
+// Try all known idioms. Returns the first match.
+function try_idioms(
+    hand_cards: HandCard[],
+    board: CardStack[],
+): { played: HandCard[]; mutated: CardStack[]; name: string } | null {
+    const p = try_peel_redirect_replace(hand_cards, board);
+    if (p) return { ...p, name: "peel-redirect-replace" };
+    return null;
+}
+
 // --- Fumble mode ---
 //
 // When stuck, try random board manipulations like a human would:
@@ -974,6 +1089,37 @@ async function auto_play_turn(
 
         if (hint.level === HintLevel.NO_MOVES ||
             hint.level === HintLevel.REARRANGE_PLAY) {
+            // Try three-step idioms before fumbling.
+            const idiom = try_idioms(hand_cards, board_stacks);
+            if (idiom) {
+                console.log(`Idiom: ${idiom.name}`);
+                const diff = board_diff(board_stacks, idiom.mutated);
+                for (const s of diff.stacks_to_add) {
+                    if (s.loc.top === 0 && s.loc.left === 0) {
+                        const near = state.board.length > 0 ? state.board[state.board.length - 1] : undefined;
+                        s.loc = near
+                            ? find_nearby_loc(state.board, s.board_cards.length, near)
+                            : find_open_loc(state.board, s.board_cards.length, BOARD_BOUNDS);
+                    }
+                }
+                const real_removes: JsonCardStack[] = [];
+                for (const rem of diff.stacks_to_remove) {
+                    const rem_key = rem.board_cards.map(bc => `${(bc.card as JsonCard).value},${(bc.card as JsonCard).suit},${(bc.card as JsonCard).origin_deck}`).join("|");
+                    for (const bs of state.board) {
+                        const bs_key = bs.board_cards.map(bc => `${(bc.card as JsonCard).value},${(bc.card as JsonCard).suit},${(bc.card as JsonCard).origin_deck}`).join("|");
+                        if (rem_key === bs_key) { real_removes.push(bs); break; }
+                    }
+                }
+                const cards_json = idiom.played.map(hc => hc.card.toJSON());
+                const be = make_board_event(real_removes, diff.stacks_to_add);
+                const ok = await state.send_move(game_id, addr, be, cards_json);
+                if (ok) {
+                    moves_played += idiom.played.length;
+                    consecutive_failures = 0;
+                    continue;
+                }
+            }
+
             // Try fumbling before giving up.
             const fumble = try_fumble(hand_cards, board_stacks);
             if (fumble) {
