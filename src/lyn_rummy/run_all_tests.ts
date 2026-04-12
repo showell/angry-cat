@@ -5,6 +5,7 @@ import "./core/score_test";
 import "./game/player_turn_test";
 import "./tricks/stats_test";
 import "./tricks/serialize_test";
+import "./tricks/coverage_test";
 import "./strategy/viability_test";
 import "./game/puzzle_layout_test";
 import "./game/place_stack_test";
