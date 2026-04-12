@@ -23,9 +23,10 @@ import { rb_swap } from "../tricks/rb_swap";
 import { pair_peel } from "../tricks/pair_peel";
 import { hand_stacks } from "../tricks/hand_stacks";
 import { split_for_set } from "../tricks/split_for_set";
+import { peel_for_run } from "../tricks/peel_for_run";
 
 // The registered bag for this benchmark. Update as tricks get ported.
-const BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel, split_for_set]);
+const BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel, split_for_set, peel_for_run]);
 
 // --- CLI ---
 

@@ -15,6 +15,7 @@ import { rb_swap } from "./rb_swap";
 import { pair_peel } from "./pair_peel";
 import { hand_stacks } from "./hand_stacks";
 import { split_for_set } from "./split_for_set";
+import { peel_for_run } from "./peel_for_run";
 import type { Trick } from "./trick";
 
 function card(label: string, deck: OriginDeck = OriginDeck.DECK_ONE): Card {
@@ -74,6 +75,18 @@ const FIXTURES: Fixture[] = [
             st(card("5S"), card("6S"), card("7S"), card("8S")),
             // 8♦ peelable (right end of size-4 pure diamonds)
             st(card("5D"), card("6D"), card("7D"), card("8D")),
+        ],
+        expected_card_count: 1,
+    },
+    {
+        trick: peel_for_run,
+        description: "Hand 5♥; peel 4♥ and 6♥ from two different size-4 pure runs; new pure-heart 3-run [4♥ 5♥ 6♥].",
+        hand: [hc("5H")],
+        board: [
+            // 4♥ at right end of size-4 set
+            st(card("4S"), card("4C"), card("4D"), card("4H")),
+            // 6♥ at right end of size-4 set
+            st(card("6S"), card("6C"), card("6D"), card("6H")),
         ],
         expected_card_count: 1,
     },

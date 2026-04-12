@@ -105,3 +105,32 @@ This is suggestive of a future heuristic we'll want eventually:
 Live smoke: bot account, game 93 / event 3914.
 
 ---
+
+## Increment 3: added PEEL_FOR_RUN
+
+Hand card V finds two extractable board cards at values V-1 and V+1
+that form a valid 3-card run (pure or rb) with V. Same family as
+SPLIT_FOR_SET — uses `can_extract` against existing board structure
+— but the resulting group is a run instead of a set.
+
+```
+games: 5   avg_cards_played: 80.2 (-0.4)   avg_completion: 98.7% (+0.4)   stuck_turns: 54 (-7)
+tricks: hand_stacks=32  direct_play=178  rb_swap=18  pair_peel=27  split_for_set=30  peel_for_run=17
+```
+
+Per-seed completion: 98.1 / 100 / 99.0 / 98.1 / 98.1.
+
+**Mixed signal.** Cards/game dipped 0.4 (noise), but completion %
+edged up and stuck-turn rate dropped from 61 to 54. PEEL_FOR_RUN
+fired 17 times. Other tricks shifted: split_for_set dropped 38→30,
+pair_peel 30→27, rb_swap 25→18, direct_play 187→178. So this trick
+is partly substituting for other tricks at moments where multiple
+tricks could fire — the bag is reaching the same end state through
+different paths.
+
+**No island problem here.** Like SPLIT_FOR_SET, peel_for_run
+regroups cards already on the board; doesn't create isolation.
+
+Live smoke: bot account, game 94 / event 3916.
+
+---

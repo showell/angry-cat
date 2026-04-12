@@ -40,10 +40,11 @@ import { rb_swap } from "../tricks/rb_swap";
 import { pair_peel } from "../tricks/pair_peel";
 import { hand_stacks } from "../tricks/hand_stacks";
 import { split_for_set } from "../tricks/split_for_set";
+import { peel_for_run } from "../tricks/peel_for_run";
 
 // The tricks the UI knows about. Add a trick here to make it a
 // concept the Angry Cat UI surfaces; omit to keep it invisible.
-const TRICK_BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel, split_for_set]);
+const TRICK_BAG = new TrickBag([hand_stacks, direct_play, rb_swap, pair_peel, split_for_set, peel_for_run]);
 import { CompleteTurnResult, PlayerTurn } from "./player_turn";
 import { Score } from "../core/score";
 import { DEFAULT_BOARD_BOUNDS } from "./wire_validation";
