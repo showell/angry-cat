@@ -43,8 +43,9 @@ function gopher_plugin(div: HTMLDivElement): Plugin {
     const lobby_div = document.createElement("div");
     lobby_div.style.paddingTop = "30px";
     lobby_div.style.display = "flex";
+    lobby_div.style.flexWrap = "wrap";
     lobby_div.style.justifyContent = "center";
-    lobby_div.style.gap = "20px";
+    lobby_div.style.gap = "10px";
 
     const solitaire_button = new Button("Solitaire", 150, async () => {
         console.log("[lynrummy] Starting solitaire game");
