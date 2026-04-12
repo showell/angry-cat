@@ -17,7 +17,9 @@ import { TrickBag } from "../tricks/bag";
 import { direct_play } from "../tricks/direct_play";
 import { swap } from "../tricks/swap";
 import { pair_peel } from "../tricks/pair_peel";
+import { TurnStatsRecorder } from "../tricks/stats";
 import type { Trick } from "../tricks/trick";
+import * as fs from "fs";
 
 const DUMMY_LOC = { top: 0, left: 0 };
 const suit_letter: Record<Suit, string> = {
@@ -67,6 +69,8 @@ type GameLog = {
 function play_game(
     bag: TrickBag,
     starter: { deck: Card[]; board: CardStack[]; hands: [HandCard[], HandCard[]] },
+    stats?: TurnStatsRecorder,
+    stats_game_id?: number,
 ): GameLog {
     // Copy starting state so each pass is independent.
     const deck = [...starter.deck];
@@ -102,7 +106,9 @@ function play_game(
                 trick_id: play.trick.id,
                 hand_cards: played.map(hc => card_label(hc.card)),
             });
+            stats?.record_play(play, played.length);
         }
+        stats?.end_turn(stats_game_id ?? 0, p, turn_played === 0);
 
         {
             const cleaned = join_adjacent_runs(board);
@@ -151,9 +157,15 @@ const passes: { label: string; tricks: Trick[] }[] = [
     { label: "Learned PAIR_PEEL (+ PAIR_PEEL)",    tricks: [direct_play, swap, pair_peel] },
 ];
 
+// Optional: emit JSONL stats when STATS_PATH is set.
+const stats_path = process.env.STATS_PATH;
+if (stats_path && fs.existsSync(stats_path)) fs.unlinkSync(stats_path);
+
+let pass_game_id = 1;
 for (const pass of passes) {
     const bag = new TrickBag(pass.tricks);
-    const log = play_game(bag, starter);
+    const recorder = stats_path ? new TurnStatsRecorder(stats_path) : undefined;
+    const log = play_game(bag, starter, recorder, pass_game_id++);
     const by_trick = new Map<string, number>();
     for (const m of log.moves) by_trick.set(m.trick_id, (by_trick.get(m.trick_id) ?? 0) + 1);
     const breakdown = [...by_trick.entries()]
