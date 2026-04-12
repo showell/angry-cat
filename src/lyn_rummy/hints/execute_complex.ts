@@ -44,6 +44,121 @@ function extract_card(board: CardStack[], stack_idx: number, card_idx: number): 
     return undefined;
 }
 
+// Needed-card candidates for a hand pair — mirrors find_hand_pairs in
+// hints.ts. Returned list says "to complete this pair, any card at
+// value V in one of these suits works."
+type PairNeed = { value: number; suits: Suit[] };
+
+function pair_needs(a: Card, b: Card): PairNeed[] {
+    // Set pair (same value, different suit): need any remaining suit.
+    if (a.value === b.value && a.suit !== b.suit) {
+        const suits = [Suit.HEART, Suit.SPADE, Suit.DIAMOND, Suit.CLUB]
+            .filter(s => s !== a.suit && s !== b.suit);
+        return [{ value: a.value, suits }];
+    }
+
+    // Run pair (consecutive values).
+    const lo = a.value < b.value ? a : b;
+    const hi = a.value < b.value ? b : a;
+    if (hi.value !== successor(lo.value)) return [];
+
+    if (a.suit === b.suit) {
+        // Pure-run pair.
+        return [
+            { value: predecessor(lo.value), suits: [lo.suit] },
+            { value: successor(hi.value),   suits: [hi.suit] },
+        ];
+    }
+    if (a.color !== b.color) {
+        // Rb-run pair.
+        const opp_lo = lo.color === CardColor.RED ? [Suit.SPADE, Suit.CLUB] : [Suit.HEART, Suit.DIAMOND];
+        const opp_hi = hi.color === CardColor.RED ? [Suit.SPADE, Suit.CLUB] : [Suit.HEART, Suit.DIAMOND];
+        return [
+            { value: predecessor(lo.value), suits: opp_lo },
+            { value: successor(hi.value),   suits: opp_hi },
+        ];
+    }
+    return [];
+}
+
+// Try to dissolve a 3-set to pair with hand cards. Mutates `board`.
+// Returns the hand cards played, or [] if no dissolution fits.
+function try_pair_dissolve(playable: HandCard[], board: CardStack[]): HandCard[] {
+    for (let i = 0; i < playable.length; i++) {
+        for (let j = i + 1; j < playable.length; j++) {
+            const a = playable[i].card;
+            const b = playable[j].card;
+            if (a.equals(b)) continue;
+
+            for (const need of pair_needs(a, b)) {
+                for (let si = 0; si < board.length; si++) {
+                    const set = board[si];
+                    if (set.stack_type !== CardStackType.SET) continue;
+                    if (set.board_cards.length !== 3) continue;
+
+                    const cards = set.get_cards();
+                    const match_idx = cards.findIndex(c =>
+                        c.value === need.value && need.suits.includes(c.suit));
+                    if (match_idx < 0) continue;
+
+                    const match_bc = set.board_cards[match_idx];
+                    const other_bcs = set.board_cards.filter((_, k) => k !== match_idx);
+
+                    // Find a run destination for each other card. Record
+                    // assignments so we can apply them atomically.
+                    const board_after = board.slice();
+                    board_after[si] = set; // placeholder, will remove later
+                    const used_dests = new Set<number>([si]);
+                    const assignments: { idx: number; merged: CardStack }[] = [];
+
+                    let all_placed = true;
+                    for (const other of other_bcs) {
+                        let placed = false;
+                        const single = CardStack.from_hand_card(
+                            { card: other.card, state: 0 } as HandCard,
+                            DUMMY_LOC,
+                        );
+                        for (let di = 0; di < board_after.length; di++) {
+                            if (used_dests.has(di)) continue;
+                            const dest = board_after[di];
+                            const t = dest.stack_type;
+                            if (t !== CardStackType.PURE_RUN && t !== CardStackType.RED_BLACK_RUN) continue;
+                            const merged = dest.left_merge(single) ?? dest.right_merge(single);
+                            if (!merged) continue;
+                            const mt = merged.stack_type;
+                            if (mt !== CardStackType.PURE_RUN && mt !== CardStackType.RED_BLACK_RUN) continue;
+                            board_after[di] = merged;
+                            used_dests.add(di);
+                            assignments.push({ idx: di, merged });
+                            placed = true;
+                            break;
+                        }
+                        if (!placed) { all_placed = false; break; }
+                    }
+
+                    if (!all_placed) continue;
+
+                    // Apply: copy the assignments into the real board,
+                    // remove the dissolved set, and push the new
+                    // pair-plus-extracted stack.
+                    for (const { idx, merged } of assignments) {
+                        board[idx] = merged;
+                    }
+                    board.splice(si, 1);
+                    const run = [
+                        new BoardCardClass(a, BoardCardState.FRESHLY_PLAYED),
+                        new BoardCardClass(b, BoardCardState.FRESHLY_PLAYED),
+                        match_bc,
+                    ].sort((x, y) => x.card.value - y.card.value);
+                    board.push(new CardStack(run, DUMMY_LOC));
+                    return [playable[i], playable[j]];
+                }
+            }
+        }
+    }
+    return [];
+}
+
 export function execute_complex_hint(
     hint: Hint,
     board: CardStack[],
@@ -258,6 +373,14 @@ export function execute_complex_hint(
         case HintLevel.PAIR_PEEL:
         case HintLevel.PAIR_DISSOLVE:
         case HintLevel.SIX_TO_FOUR: {
+            // PAIR_DISSOLVE-specific first: the needed card lives in a
+            // 3-set. Dissolving means sending the other two cards to
+            // runs and extracting the third to pair with the hand cards.
+            if (hint.level === HintLevel.PAIR_DISSOLVE) {
+                const dissolved = try_pair_dissolve(hint.playable_cards, board);
+                if (dissolved.length > 0) return dissolved;
+            }
+
             const playable = hint.playable_cards;
             for (let i = 0; i < playable.length; i++) {
                 for (let j = i + 1; j < playable.length; j++) {

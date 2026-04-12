@@ -23,16 +23,23 @@ import {
 import { get_hint, HintLevel, assert_never } from "./hints";
 import { execute_complex_hint } from "./execute_complex";
 
-const D1 = OriginDeck.DECK_ONE;
 const loc: BoardLocation = { top: 0, left: 0 };
 
+// Label convention: "3H" = D1; "3H:2" = D2. Lets fixtures use dup
+// cards where the game normally produces them.
+function parse_label(label: string): Card {
+    const [card_part, deck_part] = label.split(":");
+    const deck = deck_part === "2" ? OriginDeck.DECK_TWO : OriginDeck.DECK_ONE;
+    return Card.from(card_part, deck);
+}
+
 function hand_card(label: string): HandCard {
-    return new HandCard(Card.from(label, D1), HandCardState.NORMAL);
+    return new HandCard(parse_label(label), HandCardState.NORMAL);
 }
 
 function board_stack(...labels: string[]): CardStack {
     const bcs = labels.map(l =>
-        new BoardCard(Card.from(l, D1), BoardCardState.FIRMLY_ON_BOARD));
+        new BoardCard(parse_label(l), BoardCardState.FIRMLY_ON_BOARD));
     return new CardStack(bcs, loc);
 }
 
@@ -99,18 +106,15 @@ const FIXTURES: Partial<Record<HintLevel, Fixture[]>> = {
     }],
 
     [HintLevel.SPLIT_AND_INJECT]: [{
-        name: "split rb run, inject 6H at split point",
-        hand: ["6H"],
+        name: "split long pure-H run, inject D2 3H at new interior edge",
+        // [AH 2H 3H 4H 5H 6H] split at 3 → [AH 2H 3H] + [4H 5H 6H].
+        // D2 3H left-merges onto right → [3H 4H 5H 6H]. The hand
+        // card is a duplicate of the 3H already on the board, so
+        // LOOSE can't use it as a direct extension without splitting.
+        hand: ["3H:2"],
         board: [
-            ["2D", "3C", "4D", "5C", "6D", "7C", "8D"],
+            ["AH", "2H", "3H", "4H", "5H", "6H"],
         ],
-        // LOOSE_CARD_PLAY (phase 1, try_free_card) appears to subsume
-        // this case by splitting the single stack and replaying the
-        // hand card against the resulting fragment. Need a fixture
-        // where LOOSE genuinely can't open a direct play but a split-
-        // and-inject can — non-obvious to construct.
-        known_drift: "LOOSE_CARD_PLAY shadows SPLIT_AND_INJECT here; "
-            + "harder fixture needed to isolate the level",
     }],
 
     [HintLevel.PEEL_FOR_RUN]: [{
@@ -163,14 +167,6 @@ const FIXTURES: Partial<Record<HintLevel, Fixture[]>> = {
             ["7D", "8D", "9D"],
             ["7C", "8C", "9C"],
         ],
-        // Real drift caught here: the executor's PAIR_PEEL branch is
-        // shared with PAIR_DISSOLVE and only supports peeling from
-        // size-4 stacks (can_extract). For a 3-set, nothing is peelable,
-        // so the executor silently returns []. Fixing PAIR_DISSOLVE
-        // requires implementing set dissolution (move 2 cards to runs,
-        // extract the third) — non-trivial, deferred.
-        known_drift: "executor does not implement 3-set dissolution; "
-            + "PAIR_DISSOLVE hints fire but never execute",
     }],
 
     // SIX_TO_FOUR requires two 3-card sets of the same value across
