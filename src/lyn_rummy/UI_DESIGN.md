@@ -34,6 +34,55 @@ When released, it lands where you put it. No animation to a
 "correct" position. No snapping to a grid. The human is in
 control of where things go, just like on a real table.
 
+**This is not a preference, it is a baseline requirement.**
+Humans physically *feel* drag-and-drop on a computer — there's
+a tactile, kinesthetic dimension that clicks cannot match. For
+card games specifically, the physical metaphor is the entire
+point; without it, the game reads as clinical and transactional.
+
+Drag-and-drop is genuinely harder to implement than clicks.
+Intent disambiguation, drop-zone precision, accidental drags,
+and touch/tablet support all demand real engineering effort.
+When this document was originally written, a click-based fallback
+existed purely because drag implementation had not yet met the
+quality bar — *not* because clicks were considered acceptable.
+
+The modern directive: when drag-and-drop is hard, **invest the
+time**. Do not retreat to click as a shortcut. The click
+fallbacks in earlier versions should be read as "we weren't
+done yet," not as "here are two equally-good options."
+
+## A held card never moves on its own
+
+Once the human has picked up a card, that card belongs entirely to
+their cursor (or finger). It must not bounce, hop, scale, glow,
+shimmer, recoil, or shift in any way that the human did not
+directly cause. Any independent motion of a held card breaks the
+grip illusion — and the grip illusion is the entire reason
+drag-and-drop feels different from clicking.
+
+Real playing cards are a triumph of physical design. Their shape,
+weight, surface friction, and corner geometry all conspire to make
+them comfortable to grip and effortless to manipulate. Magicians
+build careers on sleight-of-hand precisely because cards reward
+fine motor control. A computer interface cannot reproduce the
+weight, but it can preserve the *feeling of being held* — and the
+single most important thing it must do to preserve that feeling is
+**not let the card squirm**.
+
+This rule rules out a whole class of otherwise-tempting feedback
+mechanisms:
+- Animating a brief upward "hop" at the moment a long-press fires.
+- Pulsing the held card to indicate proximity to a target.
+- Briefly enlarging the card on activation.
+- Wiggling the card to suggest "you're close, but not quite."
+
+All of these communicate something useful, but they pay for it by
+yanking the card out of the human's grip. The price is too high.
+Use indicators that live *around* the card (cursor halos, target
+glows, landing-slot ghosts, peripheral progress bars) rather than
+*on* it.
+
 ## The board belongs to the humans
 
 On a real table, players arrange stacks however they want. Some
@@ -53,6 +102,35 @@ overlap, because overlapping cards are unplayable — you can't
 see or interact with what's underneath. This mirrors real life:
 if you drop a card on top of another stack, someone at the table
 will say "hey, move that."
+
+## The active player's hand lives in the upper-left
+
+The screen real estate the active player holds — their hand — goes
+in the **upper-left** corner. This is a non-negotiable convention,
+not a suggestion. Reasons, in order of priority:
+
+1. **Established convention for real users.** Steve's mom already
+   plays LynRummy with this layout. Changing it breaks learned
+   spatial muscle memory for the people who actually use the game.
+2. **Reading direction.** The eye and the hand both start at the
+   upper-left when moving left-to-right. Placing the hand there
+   means the first card the player sees is the one they can play.
+3. **Right-handed mouse ergonomics.** A right-handed mouse user
+   pulls cards from the upper-left toward the board by extending
+   their arm down-and-to-the-right — the same forearm rotation
+   used for reading, writing, and drawing. The motion is elbow-
+   assisted and comfortable even on a long play session. Dragging
+   from upper-right would force the arm to sweep across the body.
+
+Lefties are not explicitly accommodated here. The world is already
+tuned for right-handers; left-handed players are used to adapting.
+A future accessibility option could mirror the layout, but the
+default ships right-handed.
+
+This constraint has a corollary: **runs extend rightward** (toward
+the landing zone on the right edge of a stack). The drag motion
+reinforces the reading-direction metaphor — you pull from your
+hand on the left and place onto the board that grows to the right.
 
 ## Three levels of board tidiness
 
