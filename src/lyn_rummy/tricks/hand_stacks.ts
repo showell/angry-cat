@@ -146,19 +146,29 @@ function is_valid_group(hcs: HandCard[]): boolean {
 }
 
 function make_play(group: HandCard[]): Play {
-    return {
-        trick: hand_stacks,
-        hand_cards: group,
-        apply(board: CardStack[]): HandCard[] {
-            // Re-verify at apply time: the hand may have been modified
-            // by an earlier play in the same turn. Here we're permissive
-            // — the caller is expected to not compose plays that share
-            // hand cards, but this guard is cheap.
-            if (!is_valid_group(group)) return [];
-            push_new_stack(board, group.map(freshly_played));
-            return group;
-        },
-    };
+    return new HandStacksPlay(group);
+}
+
+// A single HAND_STACKS: a specific 3+ group of hand cards that
+// forms a set or run. State is explicit: the group itself. At apply()
+// time we re-validate because the hand may have shifted.
+class HandStacksPlay implements Play {
+    readonly trick = hand_stacks;
+    readonly hand_cards: HandCard[];
+
+    constructor(private readonly group: HandCard[]) {
+        this.hand_cards = group;
+    }
+
+    apply(board: CardStack[]): HandCard[] {
+        // Re-verify at apply time: the hand may have been modified
+        // by an earlier play in the same turn. Permissive guard:
+        // callers shouldn't compose plays that share hand cards, but
+        // this check is cheap.
+        if (!is_valid_group(this.group)) return [];
+        push_new_stack(board, this.group.map(freshly_played));
+        return this.group;
+    }
 }
 
 // Suppress unused-import lint in case of refactor churn.

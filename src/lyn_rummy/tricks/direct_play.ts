@@ -20,14 +20,12 @@ export const direct_play: Trick = {
             const single = CardStack.from_hand_card(hc, { top: 0, left: 0 });
             for (let i = 0; i < board.length; i++) {
                 const stack = board[i];
-                const right = stack.right_merge(single);
-                if (right) {
-                    plays.push(make_play(hc, i, right));
+                if (stack.right_merge(single)) {
+                    plays.push(new DirectPlayPlay(hc, i));
                     continue; // prefer the right-merge if both would work
                 }
-                const left = stack.left_merge(single);
-                if (left) {
-                    plays.push(make_play(hc, i, left));
+                if (stack.left_merge(single)) {
+                    plays.push(new DirectPlayPlay(hc, i));
                 }
             }
         }
@@ -36,39 +34,44 @@ export const direct_play: Trick = {
     },
 };
 
-function make_play(hc: HandCard, target_idx: number, merged: CardStack): Play {
-    // Capture the hand card and the pre-computed merged stack. On
-    // apply(), verify the target is still there (no other Play has
-    // already mutated the stack) and swap it in.
-    return {
-        trick: direct_play,
-        hand_cards: [hc],
-        apply(board: CardStack[]): HandCard[] {
-            // Re-check at apply time: the target stack may have been
-            // mutated by a prior play in the same turn. If so, try to
-            // merge again against whatever stack is at that index.
-            const single = CardStack.from_hand_card(hc, { top: 0, left: 0 });
-            if (target_idx < board.length) {
-                const stack = board[target_idx];
-                const remerged = stack.right_merge(single) ?? stack.left_merge(single);
-                if (remerged) {
-                    board[target_idx] = remerged;
-                    return [hc];
-                }
+// A single DIRECT_PLAY: one hand card onto a known stack index.
+// State is explicit: the hand card and the target index. At apply()
+// time we re-derive the merge because the board may have shifted.
+class DirectPlayPlay implements Play {
+    readonly trick = direct_play;
+    readonly hand_cards: HandCard[];
+
+    constructor(
+        private readonly hand_card: HandCard,
+        private readonly target_idx: number,
+    ) {
+        this.hand_cards = [hand_card];
+    }
+
+    apply(board: CardStack[]): HandCard[] {
+        const single = CardStack.from_hand_card(
+            this.hand_card, { top: 0, left: 0 });
+
+        // Primary: the cached target_idx. Valid unless a prior play in
+        // the same turn mutated this slot.
+        if (this.target_idx < board.length) {
+            const stack = board[this.target_idx];
+            const merged = stack.right_merge(single) ?? stack.left_merge(single);
+            if (merged) {
+                board[this.target_idx] = merged;
+                return [this.hand_card];
             }
-            // Fallback: rescan. The cached target may have shifted.
-            for (let i = 0; i < board.length; i++) {
-                const s = board[i];
-                const m = s.right_merge(single) ?? s.left_merge(single);
-                if (m) {
-                    board[i] = m;
-                    return [hc];
-                }
+        }
+
+        // Fallback: rescan. Another play shifted things; find any stack
+        // that still accepts this hand card.
+        for (let i = 0; i < board.length; i++) {
+            const merged = board[i].right_merge(single) ?? board[i].left_merge(single);
+            if (merged) {
+                board[i] = merged;
+                return [this.hand_card];
             }
-            // Pre-computed merge used for caching; unused here but kept
-            // to preserve the reference for future serialization work.
-            void merged;
-            return [];
-        },
-    };
+        }
+        return [];
+    }
 }
