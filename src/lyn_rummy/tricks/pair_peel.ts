@@ -61,38 +61,53 @@ function make_play(
     card_idx: number,
     peel_target: Card,
 ): Play {
-    return {
-        trick: pair_peel,
-        hand_cards: [hca, hcb],
-        apply(board: CardStack[]): HandCard[] {
-            // Verify the peel target is still at the captured position.
-            if (stack_idx >= board.length) return [];
-            const cards = board[stack_idx].board_cards;
-            if (card_idx >= cards.length) return [];
-            const bc = cards[card_idx];
-            if (bc.card.value !== peel_target.value ||
-                bc.card.suit !== peel_target.suit ||
-                bc.card.origin_deck !== peel_target.origin_deck) return [];
-            if (!can_extract(board[stack_idx], card_idx)) return [];
+    return new PairPeelPlay(hca, hcb, stack_idx, card_idx, peel_target);
+}
 
-            const extracted = extract_card(board, stack_idx, card_idx);
-            if (!extracted) return [];
+// A single PAIR_PEEL: two hand cards + one peel target (by
+// identity). State is explicit: both hand cards, the peel target's
+// cached (stack, position), and the target's Card identity for
+// re-verification at apply time.
+class PairPeelPlay implements Play {
+    readonly trick = pair_peel;
+    readonly hand_cards: HandCard[];
 
-            const group = [
-                freshly_played(hca),
-                freshly_played(hcb),
-                extracted,
-            ].sort((x, y) => x.card.value - y.card.value);
-            const new_stack = new CardStack(group, DUMMY_LOC);
+    constructor(
+        private readonly hca: HandCard,
+        private readonly hcb: HandCard,
+        private readonly stack_idx: number,
+        private readonly card_idx: number,
+        private readonly peel_target: Card,
+    ) {
+        this.hand_cards = [hca, hcb];
+    }
 
-            // The detector's three-card type check (via pair_needs plus
-            // extraction) should guarantee validity, but belt-and-braces:
-            if (new_stack.problematic() || new_stack.incomplete()) return [];
+    apply(board: CardStack[]): HandCard[] {
+        if (this.stack_idx >= board.length) return [];
+        const cards = board[this.stack_idx].board_cards;
+        if (this.card_idx >= cards.length) return [];
+        const bc = cards[this.card_idx];
+        if (bc.card.value !== this.peel_target.value ||
+            bc.card.suit !== this.peel_target.suit ||
+            bc.card.origin_deck !== this.peel_target.origin_deck) return [];
+        if (!can_extract(board[this.stack_idx], this.card_idx)) return [];
 
-            board.push(new_stack);
-            return [hca, hcb];
-        },
-    };
+        const extracted = extract_card(board, this.stack_idx, this.card_idx);
+        if (!extracted) return [];
+
+        const group = [
+            freshly_played(this.hca),
+            freshly_played(this.hcb),
+            extracted,
+        ].sort((x, y) => x.card.value - y.card.value);
+        const new_stack = new CardStack(group, DUMMY_LOC);
+
+        // Belt-and-braces: detector should guarantee validity.
+        if (new_stack.problematic() || new_stack.incomplete()) return [];
+
+        board.push(new_stack);
+        return [this.hca, this.hcb];
+    }
 }
 
 // "What card would complete this pair?" Returns zero or more needs.

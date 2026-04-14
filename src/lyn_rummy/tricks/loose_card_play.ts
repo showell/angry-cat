@@ -151,46 +151,48 @@ function peel_into_residual(stack: CardStack, card_idx: number): CardStack | nul
 }
 
 function make_play(m: LooseMove): Play {
-    return {
-        trick: loose_card_play,
-        hand_cards: [m.hand_card],
-        apply(board: CardStack[]): HandCard[] {
-            // Re-locate by identity at apply time.
-            const src_now = relocate(board, m.src_card);
-            if (!src_now) return [];
-            const dest_now = relocate_stack(board, m.dest_card);
-            if (dest_now < 0 || dest_now === src_now.stack_idx) return [];
+    return new LooseCardPlayPlay(m);
+}
 
-            // Peel the source card.
-            const peeled = extract_card(board, src_now.stack_idx, src_now.card_idx);
-            if (!peeled) return [];
+// A single LOOSE_CARD_PLAY: peel (src_card) onto the stack anchored
+// by (dest_card), then play (hand_card). State is all explicit —
+// the LooseMove struct carries everything the apply needs.
+class LooseCardPlayPlay implements Play {
+    readonly trick = loose_card_play;
+    readonly hand_cards: HandCard[];
 
-            // Merge onto the dest stack.
-            const dest_stack = board[dest_now];
-            const single = single_stack_from_card(peeled.card);
-            const merged = dest_stack.left_merge(single) ?? dest_stack.right_merge(single);
-            if (!merged) return [];
-            if (merged.problematic() || merged.incomplete()) return [];
-            board[dest_now] = merged;
+    constructor(private readonly m: LooseMove) {
+        this.hand_cards = [m.hand_card];
+    }
 
-            // Now the hand card should extend some stack. Find and apply.
-            const hand_single = single_stack_from_card(m.hand_card.card);
-            for (let i = 0; i < board.length; i++) {
-                const ext = board[i].right_merge(hand_single)
-                         ?? board[i].left_merge(hand_single);
-                if (ext) {
-                    // Replace cards at the join position with FRESHLY_PLAYED
-                    // marking — best-effort visual cue.
-                    board[i] = ext;
-                    // Mark the hand card as freshly played by replacing its
-                    // BoardCard instance.
-                    mark_freshly_played(board, i, m.hand_card);
-                    return [m.hand_card];
-                }
+    apply(board: CardStack[]): HandCard[] {
+        const src_now = relocate(board, this.m.src_card);
+        if (!src_now) return [];
+        const dest_now = relocate_stack(board, this.m.dest_card);
+        if (dest_now < 0 || dest_now === src_now.stack_idx) return [];
+
+        const peeled = extract_card(board, src_now.stack_idx, src_now.card_idx);
+        if (!peeled) return [];
+
+        const dest_stack = board[dest_now];
+        const single = single_stack_from_card(peeled.card);
+        const merged = dest_stack.left_merge(single) ?? dest_stack.right_merge(single);
+        if (!merged) return [];
+        if (merged.problematic() || merged.incomplete()) return [];
+        board[dest_now] = merged;
+
+        const hand_single = single_stack_from_card(this.m.hand_card.card);
+        for (let i = 0; i < board.length; i++) {
+            const ext = board[i].right_merge(hand_single)
+                     ?? board[i].left_merge(hand_single);
+            if (ext) {
+                board[i] = ext;
+                mark_freshly_played(board, i, this.m.hand_card);
+                return [this.m.hand_card];
             }
-            return [];
-        },
-    };
+        }
+        return [];
+    }
 }
 
 function relocate(board: CardStack[], target: Card): { stack_idx: number; card_idx: number } | null {

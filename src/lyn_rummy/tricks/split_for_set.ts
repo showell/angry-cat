@@ -85,31 +85,39 @@ function pick_two_distinct_suits(
 }
 
 function make_play(hc: HandCard, a: ExtractCandidate, b: ExtractCandidate): Play {
-    return {
-        trick: split_for_set,
-        hand_cards: [hc],
-        apply(board: CardStack[]): HandCard[] {
-            // Re-verify both candidates are still where we left them.
-            // Apply-time mutations from earlier plays this turn could
-            // shift indices. Rather than tracking that, we re-locate
-            // the cards by identity at apply time.
-            const cand_a = relocate(board, a.card);
-            if (!cand_a) return [];
-            const ext_a = extract_card(board, cand_a.stack_idx, cand_a.card_idx);
-            if (!ext_a) return [];
-            const cand_b = relocate(board, b.card);
-            if (!cand_b) {
-                // We already extracted A. The board state is now mid-mutation.
-                // Best-effort: bail; a future cascade pass can re-evaluate.
-                return [];
-            }
-            const ext_b = extract_card(board, cand_b.stack_idx, cand_b.card_idx);
-            if (!ext_b) return [];
+    return new SplitForSetPlay(hc, a.card, b.card);
+}
 
-            push_new_stack(board, [freshly_played(hc), ext_a, ext_b]);
-            return [hc];
-        },
-    };
+// A single SPLIT_FOR_SET: one hand card + two target board cards
+// (by identity). State is explicit: the hand card and the two
+// target-card values. At apply() we relocate each by identity
+// because earlier plays this turn may have shifted indices.
+class SplitForSetPlay implements Play {
+    readonly trick = split_for_set;
+    readonly hand_cards: HandCard[];
+
+    constructor(
+        private readonly hand_card: HandCard,
+        private readonly target_a: Card,
+        private readonly target_b: Card,
+    ) {
+        this.hand_cards = [hand_card];
+    }
+
+    apply(board: CardStack[]): HandCard[] {
+        const loc_a = relocate(board, this.target_a);
+        if (!loc_a) return [];
+        const ext_a = extract_card(board, loc_a.stack_idx, loc_a.card_idx);
+        if (!ext_a) return [];
+
+        const loc_b = relocate(board, this.target_b);
+        if (!loc_b) return [];
+        const ext_b = extract_card(board, loc_b.stack_idx, loc_b.card_idx);
+        if (!ext_b) return [];
+
+        push_new_stack(board, [freshly_played(this.hand_card), ext_a, ext_b]);
+        return [this.hand_card];
+    }
 }
 
 function relocate(board: CardStack[], target: Card): { stack_idx: number; card_idx: number } | null {

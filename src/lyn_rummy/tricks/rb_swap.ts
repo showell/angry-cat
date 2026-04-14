@@ -83,28 +83,45 @@ function make_play(
     kicked: Card,
     home_idx: number,
 ): Play {
-    return {
-        trick: rb_swap,
-        hand_cards: [hc],
-        apply(board: CardStack[]): HandCard[] {
-            // Re-verify everything at apply time. If the board shifted,
-            // the indices we captured may no longer be valid.
-            if (run_idx >= board.length || home_idx >= board.length) return [];
-            const stack = board[run_idx];
-            if (stack.stack_type !== CardStackType.RED_BLACK_RUN) return [];
-            const cards = stack.get_cards();
-            if (run_pos >= cards.length) return [];
-            const current = cards[run_pos];
-            if (current.value !== kicked.value || current.suit !== kicked.suit ||
-                current.origin_deck !== kicked.origin_deck) return [];
+    return new RbSwapPlay(hc, run_idx, run_pos, kicked, home_idx);
+}
 
-            // Substitute the hand card into the kicked card's seat,
-            // then home the kicked card on its destination stack.
-            board[run_idx] = substitute_in_stack(stack, run_pos, freshly_played(hc));
-            place_kicked(board, home_idx, kicked);
-            return [hc];
-        },
-    };
+// A single RB_SWAP: slide the hand card into an rb run's seat
+// and move the kicked card to its destination. State is explicit:
+// the hand card, the rb run's index and the seat's position, the
+// kicked card's identity, and the home index.
+class RbSwapPlay implements Play {
+    readonly trick = rb_swap;
+    readonly hand_cards: HandCard[];
+
+    constructor(
+        private readonly hand_card: HandCard,
+        private readonly run_idx: number,
+        private readonly run_pos: number,
+        private readonly kicked: Card,
+        private readonly home_idx: number,
+    ) {
+        this.hand_cards = [hand_card];
+    }
+
+    apply(board: CardStack[]): HandCard[] {
+        // Re-verify everything at apply time. If the board shifted,
+        // the indices we captured may no longer be valid.
+        if (this.run_idx >= board.length || this.home_idx >= board.length) return [];
+        const stack = board[this.run_idx];
+        if (stack.stack_type !== CardStackType.RED_BLACK_RUN) return [];
+        const cards = stack.get_cards();
+        if (this.run_pos >= cards.length) return [];
+        const current = cards[this.run_pos];
+        if (current.value !== this.kicked.value ||
+            current.suit !== this.kicked.suit ||
+            current.origin_deck !== this.kicked.origin_deck) return [];
+
+        board[this.run_idx] = substitute_in_stack(
+            stack, this.run_pos, freshly_played(this.hand_card));
+        place_kicked(board, this.home_idx, this.kicked);
+        return [this.hand_card];
+    }
 }
 
 // Find an index for the kicked card: a same-value set with <4 cards

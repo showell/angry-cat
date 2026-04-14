@@ -81,44 +81,62 @@ function find_peelable_at_value(
 }
 
 function make_play(hc: HandCard, prev: Neighbor, next: Neighbor): Play {
-    return {
-        trick: peel_for_run,
-        hand_cards: [hc],
-        apply(board: CardStack[]): HandCard[] {
-            // Re-locate by identity at apply time. Earlier plays this
-            // turn could have shifted indices.
-            const here_prev = relocate(board, prev.card);
-            if (!here_prev) return [];
-            const here_next = relocate(board, next.card);
-            if (!here_next) return [];
-            if (here_prev.stack_idx === here_next.stack_idx) return [];
+    return new PeelForRunPlay(hc, prev.card, next.card);
+}
 
-            // Extract the higher (stack_idx, card_idx) first so the
-            // earlier index stays valid.
-            const order =
-                here_prev.stack_idx > here_next.stack_idx ||
-                (here_prev.stack_idx === here_next.stack_idx &&
-                 here_prev.card_idx > here_next.card_idx)
-                    ? [here_prev, here_next]
-                    : [here_next, here_prev];
+// A single PEEL_FOR_RUN: one hand card + two target board cards
+// (value V-1 and V+1, distinct stacks). State is explicit: the
+// hand card and the two target-card identities. At apply() we
+// relocate each by identity because earlier plays this turn may
+// have shifted indices.
+class PeelForRunPlay implements Play {
+    readonly trick = peel_for_run;
+    readonly hand_cards: HandCard[];
 
-            const ext0 = extract_card(board, order[0].stack_idx, order[0].card_idx);
-            if (!ext0) return [];
-            // Re-locate the second (it may have shifted if same stack
-            // got split; but we already excluded same-stack above).
-            const second_after = relocate(board,
-                order[1] === here_prev ? prev.card : next.card);
-            if (!second_after) return [];
-            const ext1 = extract_card(board, second_after.stack_idx, second_after.card_idx);
-            if (!ext1) return [];
+    constructor(
+        private readonly hand_card: HandCard,
+        private readonly target_prev: Card,
+        private readonly target_next: Card,
+    ) {
+        this.hand_cards = [hand_card];
+    }
 
-            // Assemble in value order so the new stack reads naturally.
-            const trio = [freshly_played(hc), ext0, ext1]
-                .sort((a, b) => a.card.value - b.card.value);
-            push_new_stack(board, trio);
-            return [hc];
-        },
-    };
+    apply(board: CardStack[]): HandCard[] {
+        const here_prev = relocate(board, this.target_prev);
+        if (!here_prev) return [];
+        const here_next = relocate(board, this.target_next);
+        if (!here_next) return [];
+        if (here_prev.stack_idx === here_next.stack_idx) return [];
+
+        // Extract higher (stack_idx, card_idx) first so the earlier
+        // index stays valid.
+        const extractFirstPrev =
+            here_prev.stack_idx > here_next.stack_idx ||
+            (here_prev.stack_idx === here_next.stack_idx &&
+             here_prev.card_idx > here_next.card_idx);
+
+        const firstLoc = extractFirstPrev ? here_prev : here_next;
+        const firstTargetCard = extractFirstPrev ? this.target_prev : this.target_next;
+        const secondTargetCard = extractFirstPrev ? this.target_next : this.target_prev;
+
+        const ext0 = extract_card(board, firstLoc.stack_idx, firstLoc.card_idx);
+        if (!ext0) return [];
+
+        const secondAfter = relocate(board, secondTargetCard);
+        if (!secondAfter) return [];
+        const ext1 = extract_card(board, secondAfter.stack_idx, secondAfter.card_idx);
+        if (!ext1) return [];
+
+        // Assemble in value order so the new stack reads naturally.
+        const trio = [freshly_played(this.hand_card), ext0, ext1]
+            .sort((a, b) => a.card.value - b.card.value);
+        push_new_stack(board, trio);
+        // Preserve the reference to target_prev/target_next; used
+        // only via the closures above. (No void needed — fields
+        // are read.)
+        void firstTargetCard;
+        return [this.hand_card];
+    }
 }
 
 function relocate(board: CardStack[], target: Card): Neighbor | null {
