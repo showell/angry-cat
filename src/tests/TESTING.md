@@ -31,6 +31,24 @@ If writing a test requires complex mocking, that's a signal that the real code m
 - Moved `can_navigate` from `reading_list.ts` to `address.ts` (it's about Address completeness, not the reading list)
 - Renamed `get_rows` to `get_unsorted_rows` (a test caught the misleading name)
 
+## Tests own all their inputs
+
+Tests fail in interesting ways when they depend on state the test itself doesn't control. PRNG output, wall-clock time, filesystem ordering, hash-set iteration order, UUIDs, network responses — anything ambient is a flake source waiting to fire.
+
+The discipline: for each slot of non-determinism in production code, make it injectable. Tests pass fixed values; production passes real ones.
+
+Concrete slots and their fixes:
+
+- **PRNG seeds.** Production uses a time-derived (or otherwise fresh) seed; tests pass a fixed integer. Discovered concretely while porting LynRummy's mulberry32 from TypeScript to Elm — the explicit seed threading made it possible to capture a TS reference trace at `seed=42` and assert byte-equivalent output in the Elm port. That's cross-language correctness equivalence for free.
+- **Clocks.** Don't call `Date.now()` (or equivalent) inside tested code. Take a `now : () => number` parameter, or pass the value in. Tests pass a constant; production passes the real call.
+- **Filesystem / `Set` / `Map` / `Dict` iteration order.** Don't assert on iteration order unless you explicitly sort first. Implementations and engine versions can change ordering between runs.
+- **UUIDs and other generated IDs.** Same shape as PRNGs — generate via an injected function; tests pass deterministic IDs (`"id-1"`, `"id-2"`, …).
+- **Network.** This suite avoids network entirely (see *What we skip* below). If local code does any I/O during tests, mock at the boundary — not at the syscall layer.
+
+The payoff compounds. Deterministic tests can use **shared fixtures**: capture a known-input → known-output trace once, paste it as expected values, and byte-equivalence becomes a precise correctness oracle. Without determinism you're stuck with "behavior matches, roughly" — softer signal, more debugging when something subtly drifts.
+
+The cost: a one-time refactor per slot to make the source of non-determinism injectable. Usually 5-20 lines. The alternative is recurring flake debugging — which compounds the *other* direction.
+
 ## Verbs in tests should be first-class in code
 
 A sharper version of the same idea: when a test description naturally reaches for a verb to describe what's happening, that verb usually deserves to be a function or method name in production. If the test says "SWAP should kick the Ace and place it on the diamond run," the word `kick` is the test telling you that `kick` is a real concept — not just a variable name to be hidden inside a `.map()` expression.
