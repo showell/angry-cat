@@ -187,12 +187,23 @@ export class CardStack {
         return this.board_cards.map((board_card) => board_card.str()).join(",");
     }
 
+    // Referee-accounting equality. Compares full card identity
+    // pairwise (value + suit + origin_deck) plus location. Ignores
+    // BoardCard state (recency) — that's turn-accounting, not identity.
+    //
+    // origin_deck matters: on a double-deck board there are two 5♥'s
+    // that look identical to the player, but inventory accounting must
+    // distinguish them. Deck-blind equality lets a client claim to
+    // remove 5♥(d0) while adding 5♥(d1) it never held.
     equals(other_stack: CardStack) {
-        // Cheat and compare strings.
-        return (
-            this.str() === other_stack.str() &&
-            locs_equal(this.loc, other_stack.loc)
-        );
+        if (!locs_equal(this.loc, other_stack.loc)) return false;
+        if (this.board_cards.length !== other_stack.board_cards.length) return false;
+        for (let i = 0; i < this.board_cards.length; i++) {
+            if (!this.board_cards[i].card.equals(other_stack.board_cards[i].card)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     incomplete(): boolean {
