@@ -43,13 +43,27 @@ export async function fetch_model_data(): Promise<Database> {
 
     const user_map = new Map<number, User>();
 
-    let current_user_id = -1;
-
     for (const user of users) {
         user_map.set(user.id, user);
+    }
 
-        if (user.email === config.get_email_for_current_realm()) {
-            current_user_id = user.id;
+    // Source of truth for "who am I": ask the server. Email-based
+    // matching breaks after server-side identity changes (e.g. the
+    // Gopher 2026-04-15 user-rip rewrote emails to <slug>@gopher.local).
+    let current_user_id = -1;
+    try {
+        const me = await zulip_client.get_own_user();
+        if (me.user_id) {
+            current_user_id = me.user_id;
+        }
+    } catch {
+        // Fall back to email matching for older Zulip realms or
+        // anything that doesn't expose users/me cleanly.
+        for (const user of users) {
+            if (user.email === config.get_email_for_current_realm()) {
+                current_user_id = user.id;
+                break;
+            }
         }
     }
 

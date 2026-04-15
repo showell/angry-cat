@@ -52,6 +52,13 @@ export async function get_users() {
     return data.members;
 }
 
+// Returns the authenticated user (Zulip's /api/v1/users/me).
+// Used as the source of truth for current_user_id since email
+// matching can drift after server-side identity rewrites.
+export async function get_own_user(): Promise<{ user_id: number; email: string; full_name: string }> {
+    return api_get("users/me");
+}
+
 // Update the authenticated user's display name. Mirrors Zulip's
 // PATCH /api/v1/settings endpoint. The server echoes the changed
 // field back; we verify it matches what we sent and log a
