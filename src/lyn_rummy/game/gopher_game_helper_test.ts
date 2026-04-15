@@ -9,8 +9,7 @@ import assert from "node:assert/strict";
 // Mock the config module before importing the helper.
 const mock_config = {
     get_current_realm_url: () => "http://localhost:9000",
-    get_email_for_current_realm: () => "steve@example.com",
-    get_api_key_for_current_realm: () => "steve-api-key",
+    is_gopher_realm: () => true,
 };
 
 const Module = require("module");

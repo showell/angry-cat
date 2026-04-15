@@ -25,32 +25,38 @@ function create_realm_card(realm: config.RealmConfig): HTMLDivElement {
 
     add_row("Realm", realm.nickname);
     add_row("URL", realm.url);
-    add_row("Email", realm.email);
 
-    // API key row with reveal button.
-    const key_row = document.createElement("div");
-    key_row.style.marginBottom = "6px";
+    // Zulip-only: email + API key. Gopher realms don't carry credentials.
+    if (realm.email !== undefined) {
+        add_row("Email", realm.email);
+    }
 
-    const key_label = document.createElement("strong");
-    key_label.textContent = "API Key: ";
-    key_row.append(key_label);
+    if (realm.api_key !== undefined) {
+        const key_row = document.createElement("div");
+        key_row.style.marginBottom = "6px";
 
-    const key_value = document.createElement("span");
-    key_value.textContent = "••••••••";
-    key_row.append(key_value);
+        const key_label = document.createElement("strong");
+        key_label.textContent = "API Key: ";
+        key_row.append(key_label);
 
-    const reveal_btn = document.createElement("button");
-    reveal_btn.textContent = "Reveal";
-    reveal_btn.style.marginLeft = "8px";
-    reveal_btn.style.fontSize = "12px";
-    reveal_btn.addEventListener("click", () => {
-        const hidden = key_value.textContent === "••••••••";
-        key_value.textContent = hidden ? realm.api_key : "••••••••";
-        reveal_btn.textContent = hidden ? "Hide" : "Reveal";
-    });
-    key_row.append(reveal_btn);
+        const key_value = document.createElement("span");
+        key_value.textContent = "••••••••";
+        key_row.append(key_value);
 
-    card.append(key_row);
+        const reveal_btn = document.createElement("button");
+        reveal_btn.textContent = "Reveal";
+        reveal_btn.style.marginLeft = "8px";
+        reveal_btn.style.fontSize = "12px";
+        const api_key = realm.api_key;
+        reveal_btn.addEventListener("click", () => {
+            const hidden = key_value.textContent === "••••••••";
+            key_value.textContent = hidden ? api_key : "••••••••";
+            reveal_btn.textContent = hidden ? "Hide" : "Reveal";
+        });
+        key_row.append(reveal_btn);
+
+        card.append(key_row);
+    }
 
     return card;
 }

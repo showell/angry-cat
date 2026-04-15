@@ -1,6 +1,7 @@
 export type RealmConfig = {
-    email: string;
-    api_key: string;
+    // email/api_key are Zulip-only; Gopher realms omit them (trust-on-assertion).
+    email?: string;
+    api_key?: string;
     url: string;
     nickname: string;
 };

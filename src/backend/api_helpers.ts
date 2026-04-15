@@ -14,6 +14,10 @@ export function gopher_url(path: string): URL {
 }
 
 export function get_headers(): Record<string, string> {
+    // Gopher uses trust-on-assertion; no auth header needed.
+    if (config.is_gopher_realm()) {
+        return {};
+    }
     const auth = btoa(
         `${config.get_email_for_current_realm()}:${config.get_api_key_for_current_realm()}`,
     );

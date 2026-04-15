@@ -394,16 +394,12 @@ export async function needs_to_login(): Promise<boolean> {
 
     const realm_config = config.get_realm_config(nickname);
     if (realm_config === undefined) {
-        // Gopher realms use trust-on-assertion auth (post-user-rip,
-        // 2026-04-15). The server doesn't validate credentials, so
-        // asking the user for them is pure friction. Synthesize a
-        // RealmConfig for Steve and proceed silently.
+        // Gopher realms don't authenticate (trust-on-assertion); Cat
+        // sends no credentials. Just record nickname + url and proceed.
         if (GOPHER_REALMS.has(nickname)) {
             const synthetic: RealmConfig = {
                 nickname,
                 url: KNOWN_REALMS[nickname],
-                email: "steve@gopher.local",
-                api_key: "ignored",
             };
             config.store_realm_config(synthetic);
             config.set_current_realm_config(synthetic);
