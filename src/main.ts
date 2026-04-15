@@ -1,5 +1,4 @@
 import * as app from "./app";
-import { api_get } from "./backend/api_helpers";
 import * as config from "./backend/config";
 import * as database from "./backend/database";
 import { DB } from "./backend/database";
@@ -83,18 +82,6 @@ async function run() {
     // runs out of messages). Backfill continues in the background.
 
     const screen = splash.create();
-
-    if (config.is_gopher_realm()) {
-        screen.add_line("Pinging Angry Gopher...");
-        try {
-            const settings = await api_get("server_settings");
-            screen.add_line(`Connected to Gopher (generation ${settings.generation})`);
-        } catch {
-            screen.add_line("Could not reach Angry Gopher server.");
-            show_logout_option(screen);
-            return;
-        }
-    }
 
     screen.add_line("Connecting to Zulip...");
     try {
