@@ -1,11 +1,10 @@
 // Game event transport via Angry Gopher's game bus.
 //
-// Replaces the Zulip-channel hack with proper game endpoints:
 //   POST /gopher/games/{id}/events — send an event
 //   GET  /gopher/games/{id}/events?after=N — poll for new events
 //
-// Implements the same WebXDC interface that GameHelper provides,
-// so the game code doesn't know which transport it's using.
+// Implements the WebXDC interface the game code consumes, so game.ts
+// doesn't care whether events flow via HTTP or an in-process mock.
 
 import { gopher_url, get_headers } from "../../backend/api_helpers";
 import type * as webxdc from "../../backend/webxdc";
